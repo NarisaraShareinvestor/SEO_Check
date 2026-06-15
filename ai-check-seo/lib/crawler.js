@@ -4,7 +4,7 @@ import * as cheerio from 'cheerio';
 
 // ใช้ browser UA จริง — WAF หลายเจ้าบล็อกชื่อ bot แปลกหน้าทั้งที่ robots.txt อนุญาต (เรายังเคารพ robots.txt เสมอ)
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
-const FETCH_TIMEOUT = 20000;
+const FETCH_TIMEOUT = 12000; // หน้าจริงตอบใน 1-2 วิ; ที่นานกว่านี้คือ origin ค้าง (เช่น IRPlus flap) — ตัดไว ๆ
 const CONCURRENCY = 5;
 
 // Proxy (optional) — เว็บไทยหลายเจ้า (irplus IR, ราชการ) บล็อก IP ดาต้าเซ็นเตอร์/ต่างประเทศ
@@ -197,13 +197,13 @@ async function checkOriginVariants(origin) {
     `https://${bare}/`, `https://www.${bare}/`,
     `http://${bare}/`, `http://www.${bare}/`,
   ].filter(v => new URL(v).origin !== origin);
-  const results = [];
-  for (const v of candidates) {
+  // ตรวจคู่ขนาน + ไม่ retry: เป็นแค่ diagnostic — variant ที่ค้างไม่ควรหน่วงทั้ง audit
+  const results = await Promise.all(candidates.map(async (v) => {
     try {
-      const { finalUrl, status, chain } = await fetchFollowing(v, 8);
-      results.push({ variant: v, status, finalOrigin: (() => { try { return new URL(finalUrl).origin; } catch { return finalUrl; } })(), hops: chain.length });
-    } catch (e) { results.push({ variant: v, status: 0, error: String(e.message || e) }); }
-  }
+      const { finalUrl, status, chain } = await fetchFollowing(v, 8, 0);
+      return { variant: v, status, finalOrigin: (() => { try { return new URL(finalUrl).origin; } catch { return finalUrl; } })(), hops: chain.length };
+    } catch (e) { return { variant: v, status: 0, error: String(e.message || e) }; }
+  }));
   return results;
 }
 
