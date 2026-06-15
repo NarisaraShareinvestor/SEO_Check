@@ -241,6 +241,10 @@ main{flex:1;padding:34px 44px 80px;max-width:1240px}
       ประวัติการตรวจ
       <span class="badge" id="histCount"></span>
     </button>
+    <button class="nitem" data-view="dashboard" onclick="showView(this)">
+      <svg fill="none" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 17.5h7M17.5 14v7" stroke-linecap="round"/></svg>
+      Dashboard & ค่าใช้จ่าย
+    </button>
   </nav>
   <div class="side-bottom">
     <div class="aibox-side"><span class="dot off" id="aiDot"></span><span id="aiStatus">กำลังเช็คสถานะ…</span></div>
@@ -355,6 +359,43 @@ main{flex:1;padding:34px 44px 80px;max-width:1240px}
     </div>
     <div id="watchPanel"></div>
     <div class="tcard" id="historyList"></div>
+  </div>
+
+  <!-- ═══ VIEW: DASHBOARD ═══ -->
+  <div class="view" id="view-dashboard">
+    <div class="pagehead">
+      <h1>Dashboard & ค่าใช้จ่าย AI</h1>
+      <div class="sub">สรุปค่าใช้จ่าย OpenAI/Anthropic ทุกครั้งที่ตรวจ — อัตรา ฿36/USD</div>
+    </div>
+
+    <!-- KPI cards -->
+    <div id="db-kpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px"></div>
+
+    <!-- Cost table -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:16px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-weight:600;font-size:15px">รายการตรวจทั้งหมด</span>
+        <span style="font-size:12px;color:var(--mut)" id="db-updated"></span>
+      </div>
+      <div style="overflow-x:auto">
+        <table id="db-table" style="width:100%;border-collapse:collapse;font-size:13.5px">
+          <thead>
+            <tr style="background:var(--hover);text-align:left">
+              <th style="padding:11px 16px;font-weight:600;white-space:nowrap">วันที่</th>
+              <th style="padding:11px 16px;font-weight:600">URL</th>
+              <th style="padding:11px 8px;font-weight:600;text-align:center">คะแนน</th>
+              <th style="padding:11px 8px;font-weight:600;text-align:center">หน้า</th>
+              <th style="padding:11px 8px;font-weight:600;text-align:right">Input tokens</th>
+              <th style="padding:11px 8px;font-weight:600;text-align:right">Output tokens</th>
+              <th style="padding:11px 8px;font-weight:600;text-align:right">AI calls</th>
+              <th style="padding:11px 16px;font-weight:600;text-align:right">ค่าใช้จ่าย (USD)</th>
+              <th style="padding:11px 16px;font-weight:600;text-align:right">ค่าใช้จ่าย (฿)</th>
+            </tr>
+          </thead>
+          <tbody id="db-tbody"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </main>
 

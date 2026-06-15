@@ -5,7 +5,7 @@ import * as cheerio from 'cheerio';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { aiAvailable, callLLM } from './ai.js';
+import { aiAvailable, callLLM, premiumModel } from './ai.js';
 
 // cache ผลค้นหาที่สำเร็จ — เสิร์ฟแทนเมื่อ search engine ถูกจำกัดชั่วคราว
 const CACHE_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'data', 'discoveries');
@@ -226,8 +226,8 @@ async function aiSuggestCompetitors(siteUrl, topic) {
 เนื้อหา: ${topic.textSample.slice(0, 600)}
 
 ตอบ JSON: {"competitors":[{"domain":"เช่น example.co.th (โดเมนล้วน ไม่มี http)","reason":"ทำไมเป็นคู่แข่ง สั้นๆ"}]} แนะนำ 5-8 ราย เรียงจากตรงที่สุด เฉพาะที่มั่นใจว่าโดเมนถูกต้อง`;
-  // ใช้ gpt-4o ก่อน (ความรู้ตลาดลึกกว่า) ถ้าพลาด retry ด้วยโมเดล default
-  for (const model of [process.env.OPENAI_API_KEY ? 'gpt-4o' : null, null]) {
+  // ใช้โมเดลพรีเมียมก่อน (ความรู้ตลาดลึกกว่า) ถ้าพลาด retry ด้วยโมเดล default
+  for (const model of [premiumModel(), null]) {
     try {
       const text = await callLLM(sys, usr, 1200, model);
       const list = JSON.parse(text.match(/\{[\s\S]*\}/)[0]).competitors || [];
@@ -324,7 +324,7 @@ export async function discoverCompetitors(siteUrl, onProgress = () => {}) {
 ผู้สมัคร: ${JSON.stringify(live.map(c => ({ domain: c.domain, snippet: c.snippet })))}
 
 ตอบ JSON: {"competitors":[{"domain":"...","reason":"เหตุผลสั้นๆ ว่าเป็นคู่แข่งยังไง","confidence":"high|medium|low"}]} เรียงจากคู่แข่งตรงที่สุด เอาเฉพาะที่เป็นคู่แข่งจริง (ตัดเว็บข่าว/หน่วยงาน/ไม่เกี่ยวออก)`;
-      const text = await callLLM(sys, usr, 1200, process.env.OPENAI_API_KEY ? 'gpt-4o' : null);
+      const text = await callLLM(sys, usr, 1200, premiumModel());
       const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
       if (parsed.competitors?.length) {
         // AI จัดอันดับ+ให้เหตุผล แต่ "ห้ามทิ้ง" ผู้สมัครที่ SERP คะแนนสูง —

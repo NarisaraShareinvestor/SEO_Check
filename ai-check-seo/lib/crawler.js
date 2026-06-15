@@ -117,21 +117,32 @@ export function robotsAllows(robots, userAgent, path) {
   return best ? best.allow : true;
 }
 
+const SITEMAP_URL_LIMIT = 2000;
+
 async function fetchSitemapUrls(sitemapUrl, seen = new Set(), depth = 0, stats = null) {
   if (depth > 2 || seen.has(sitemapUrl)) return [];
   seen.add(sitemapUrl);
   try {
     const { res } = await fetchWithMeta(sitemapUrl, { redirect: 'follow' });
     if (!res?.ok) return [];
-    const xml = await res.text();
+    // ตัด XML ที่ใหญ่เกิน 2MB — sitemap บางเจ้ามีแสน URL
+    const rawXml = await res.text();
+    const xml = rawXml.length > 2_000_000 ? rawXml.slice(0, 2_000_000) : rawXml;
     if (stats && /<lastmod>/i.test(xml)) stats.hasLastmod = true;
     const locs = [...xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/g)].map(m => m[1].trim());
     if (/<sitemapindex/i.test(xml)) {
       const nested = [];
-      for (const loc of locs.slice(0, 10)) nested.push(...await fetchSitemapUrls(loc, seen, depth + 1, stats));
+      for (const loc of locs.slice(0, 10)) {
+        // ใช้ for...of แทน push(...arr) เพื่อป้องกัน call stack overflow กับ array ใหญ่
+        const sub = await fetchSitemapUrls(loc, seen, depth + 1, stats);
+        for (const u of sub) {
+          nested.push(u);
+          if (nested.length >= SITEMAP_URL_LIMIT) return nested;
+        }
+      }
       return nested;
     }
-    return locs;
+    return locs.slice(0, SITEMAP_URL_LIMIT);
   } catch { return []; }
 }
 
@@ -155,7 +166,9 @@ async function checkOriginVariants(origin) {
 }
 
 export function extractPageData(html, url, headers, status, elapsed, chain) {
-  const $ = cheerio.load(html);
+  let $;
+  try { $ = cheerio.load(html); }
+  catch { $ = cheerio.load(''); } // HTML ผิดรูป fallback เป็นเปล่า
   const jsonLd = [];
   $('script[type="application/ld+json"]').each((_, el) => {
     const raw = $(el).contents().text();
@@ -208,14 +221,16 @@ export function extractPageData(html, url, headers, status, elapsed, chain) {
   const canonicalCount = $('link[rel="canonical"]').length;
   const emptyHeadings = $('h1,h2,h3,h4,h5,h6').filter((_, el) => !$(el).text().trim()).length;
   const hasMailto = !!$('a[href^="mailto:"]').length;
-  const bodyTextForSignals = $('body').text();
+  let bodyTextForSignals = '';
+  try { bodyTextForSignals = $('body').text(); } catch { bodyTextForSignals = ''; }
   const hasPhone = /(\+66|0\d{1,2})[\s-]?\d{3}[\s-]?\d{3,4}/.test(bodyTextForSignals);
   const copyrightYears = [...bodyTextForSignals.matchAll(/(?:©|&copy;|copyright)[^\n]{0,40}?((?:19|20)\d{2})/gi)].map(m => +m[1]);
-  const maxCopyrightYear = copyrightYears.length ? Math.max(...copyrightYears) : null;
+  const maxCopyrightYear = copyrightYears.length ? copyrightYears.reduce((a, b) => a > b ? a : b) : null;
 
   // ตัด script/style ออกก่อนสกัดข้อความ — ไม่ให้โค้ดปนใน text/wordCount
   $('script, style, noscript, template').remove();
-  const text = $('body').text().replace(/\s+/g, ' ').trim();
+  let text = '';
+  try { text = $('body').text().replace(/\s+/g, ' ').trim(); } catch { text = ''; }
 
   // ตรวจ SPA shell: root container ว่างเปล่า + framework marker
   const rootSelectors = ['#app', '#root', '#__next', '#__nuxt', '[data-reactroot]'];
@@ -373,7 +388,11 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
   const externalChecked = new Map();
   let active = 0, idx = 0;
 
+  const MAX_HTML_BYTES = 600_000;
+
   const crawlOne = async (url) => {
+    // ป้องกัน race condition: ถ้าถึง maxPages แล้ว ไม่เพิ่มอีก
+    if (site.pages.length >= maxPages) return;
     onProgress(`กำลังตรวจหน้า (${site.pages.length + 1}/${maxPages}): ${url}`);
     try {
       const path = new URL(url).pathname + new URL(url).search;
@@ -389,9 +408,12 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
         try { res.body?.cancel?.(); } catch {}
         return;
       }
-      const html = await res.text();
+      const rawHtml = await res.text();
+      // ตัด HTML ที่ใหญ่เกินไป — ป้องกัน stack overflow ใน cheerio recursive traversal
+      const html = rawHtml.length > MAX_HTML_BYTES ? rawHtml.slice(0, MAX_HTML_BYTES) : rawHtml;
       const page = extractPageData(html, url, res.headers, status, 0, chain);
       page.finalUrl = finalUrl;
+      if (site.pages.length >= maxPages) return; // ตรวจอีกครั้งหลัง await
       site.pages.push(page);
 
       // เก็บ HTML ต้นฉบับของหน้าแรกไว้ให้ AI สร้าง "หน้าฉบับแก้แล้ว"

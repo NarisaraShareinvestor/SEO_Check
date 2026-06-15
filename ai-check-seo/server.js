@@ -14,7 +14,7 @@ import { execFile } from 'node:child_process';
 import { renderReport } from './lib/report.js';
 import { renderPresentation } from './lib/present.js';
 import { scoreAudit, CAT_LABELS } from './lib/scorer.js';
-import { aiAnalyze, aiCompare, aiGrowthPlan, aiAvailable } from './lib/ai.js';
+import { aiAnalyze, aiCompare, aiGrowthPlan, aiAvailable, drainAiCost } from './lib/ai.js';
 import { generateFixes } from './lib/autofix.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -232,6 +232,7 @@ async function runAudit(job, url, maxPages, competitorUrl) {
     }
 
     job.status = 'ai';
+    drainAiCost(); // เคลียร์ cost ค้างจาก audit ก่อนหน้า (กรณี error กลางคัน)
     push(aiAvailable() ? 'กำลังให้ AI วิเคราะห์และจัดลำดับความสำคัญ...' : 'สรุปผลแบบ template (ยังไม่ได้ใส่ AI API key)...');
     audit.analysis = await aiAnalyze(audit);
 
@@ -241,6 +242,16 @@ async function runAudit(job, url, maxPages, competitorUrl) {
     push('กำลังสร้างไฟล์แก้อัตโนมัติ (Auto-Fix)...');
     const { fixes } = await generateFixes(audit, site);
     audit.fixes = fixes;
+
+    // รวมค่าใช้จ่าย AI ทั้งหมดในการตรวจครั้งนี้
+    const costLines = drainAiCost();
+    audit.aiCost = costLines.reduce((acc, c) => {
+      acc.calls++;
+      acc.inputTokens += c.inputTokens;
+      acc.outputTokens += c.outputTokens;
+      acc.usd = +(acc.usd + c.usd).toFixed(6);
+      return acc;
+    }, { calls: 0, inputTokens: 0, outputTokens: 0, usd: 0 });
 
     // Link health — วิเคราะห์ก่อน strip เพราะ site.pages ยังมี links ครบ
     audit.linkHealth = computeLinkHealth(site);
@@ -313,7 +324,7 @@ app.get('/api/audits', (_req, res) => {
   const list = readdirSync(DATA_DIR).filter(f => f.endsWith('.json')).map(f => {
     try {
       const a = JSON.parse(readFileSync(join(DATA_DIR, f), 'utf8'));
-      return { id: a.id, url: a.url, createdAt: a.createdAt, overall: a.score?.overall, grade: a.score?.grade, fails: a.score?.counts?.fail, pages: a.pagesAnalyzed };
+      return { id: a.id, url: a.url, createdAt: a.createdAt, overall: a.score?.overall, grade: a.score?.grade, fails: a.score?.counts?.fail, pages: a.pagesAnalyzed, aiCost: a.aiCost || null };
     } catch { return null; }
   }).filter(Boolean).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   res.json(list);
@@ -499,6 +510,7 @@ app.get('/api/health', (_req, res) => res.json({ ok: true, aiAvailable: aiAvaila
 
 app.listen(PORT, () => {
   console.log(`\nAI SEO Audit Pro พร้อมใช้งาน → http://localhost:${PORT}`);
-  console.log(`   AI layer: ${aiAvailable() ? 'พร้อม (' + (process.env.ANTHROPIC_API_KEY ? 'Claude' : 'OpenAI') + ')' : 'ยังไม่ได้ใส่ API key — ใช้สรุปแบบ template'}`);
+  const _provider = process.env.OPENROUTER_API_KEY ? 'OpenRouter' : process.env.ANTHROPIC_API_KEY ? 'Claude' : 'OpenAI';
+  console.log(`   AI layer: ${aiAvailable() ? 'พร้อม (' + _provider + ')' : 'ยังไม่ได้ใส่ API key — ใช้สรุปแบบ template'}`);
   console.log(`   Demo site สำหรับทดสอบ: http://localhost:${PORT}/demo/\n`);
 });

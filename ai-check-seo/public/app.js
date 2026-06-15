@@ -18,6 +18,7 @@ function showView(btn) {
   btn.classList.add('active');
   $('#view-' + btn.dataset.view).classList.add('active');
   if (btn.dataset.view === 'history') loadHistory();
+  if (btn.dataset.view === 'dashboard') loadDashboard();
 }
 
 // ── เริ่ม audit ──
@@ -586,3 +587,67 @@ $('#urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') startAu
 loadHistory();
 loadBrandInputs();
 refreshWatch();
+
+// ── Dashboard & ค่าใช้จ่าย AI ──
+const THB_RATE = 36; // USD → THB
+
+function fmtUsd(v) { return v == null ? '—' : '$' + v.toFixed(4); }
+function fmtThb(v) { return v == null ? '—' : '฿' + (v * THB_RATE).toFixed(2); }
+function fmtNum(v) { return v == null ? '—' : v.toLocaleString(); }
+
+async function loadDashboard() {
+  try {
+    const list = await (await fetch('/api/audits')).json();
+    const THB = THB_RATE;
+
+    // คำนวณ KPI
+    const withCost = list.filter(h => h.aiCost);
+    const totalUsd = withCost.reduce((s, h) => s + (h.aiCost?.usd || 0), 0);
+    const totalIn   = withCost.reduce((s, h) => s + (h.aiCost?.inputTokens || 0), 0);
+    const totalOut  = withCost.reduce((s, h) => s + (h.aiCost?.outputTokens || 0), 0);
+    const avgUsd    = withCost.length ? totalUsd / withCost.length : 0;
+
+    const kpis = [
+      { label: 'ตรวจทั้งหมด',      val: list.length + ' ครั้ง',             color: '#6366f1' },
+      { label: 'ค่าใช้จ่ายรวม (USD)', val: '$' + totalUsd.toFixed(4),         color: '#f59e0b' },
+      { label: 'ค่าใช้จ่ายรวม (฿)',  val: '฿' + (totalUsd * THB).toFixed(2),  color: '#10b981' },
+      { label: 'เฉลี่ย/ครั้ง (USD)',  val: '$' + avgUsd.toFixed(4),            color: '#3b82f6' },
+      { label: 'Input tokens รวม',   val: totalIn.toLocaleString(),            color: '#8b5cf6' },
+      { label: 'Output tokens รวม',  val: totalOut.toLocaleString(),           color: '#ec4899' },
+    ];
+
+    $('#db-kpi').innerHTML = kpis.map(k => `
+      <div style="border:1px solid var(--border);border-radius:14px;padding:18px 20px;background:var(--panel)">
+        <div style="font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">${k.label}</div>
+        <div style="font-size:22px;font-weight:700;color:${k.color}">${k.val}</div>
+      </div>`).join('');
+
+    $('#db-updated').textContent = 'อัพเดต ' + new Date().toLocaleTimeString('th-TH');
+
+    const gradeColor = g => ({'A':'#16a34a','B':'#2563eb','C':'#b45309','D':'#dc2626','F':'#7f1d1d'}[g] || '#6b7280');
+
+    $('#db-tbody').innerHTML = list.map((h, i) => {
+      const c = h.aiCost;
+      const rowBg = i % 2 === 1 ? 'background:var(--hover)' : '';
+      const usd = c?.usd ?? null;
+      return `<tr style="${rowBg};border-top:1px solid var(--border)">
+        <td style="padding:10px 16px;white-space:nowrap;color:var(--mut);font-size:12.5px">${h.createdAt ? new Date(h.createdAt).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'}) : '—'}</td>
+        <td style="padding:10px 16px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          <a href="/report/${h.id}" target="_blank" style="color:var(--text);text-decoration:none;font-weight:500" title="${esc(h.url)}">${esc(h.url.replace(/^https?:\/\/(www\.)?/, ''))}</a>
+        </td>
+        <td style="padding:10px 8px;text-align:center">
+          <span style="font-weight:700;color:${gradeColor(h.grade)}">${h.overall ?? '—'}</span>
+          <span style="font-size:11px;color:${gradeColor(h.grade)}"> ${h.grade || ''}</span>
+        </td>
+        <td style="padding:10px 8px;text-align:center;color:var(--mut)">${h.pages ?? '—'}</td>
+        <td style="padding:10px 8px;text-align:right;color:var(--mut);font-size:12.5px">${c ? fmtNum(c.inputTokens) : '—'}</td>
+        <td style="padding:10px 8px;text-align:right;color:var(--mut);font-size:12.5px">${c ? fmtNum(c.outputTokens) : '—'}</td>
+        <td style="padding:10px 8px;text-align:center;color:var(--mut)">${c ? c.calls : '—'}</td>
+        <td style="padding:10px 16px;text-align:right;font-weight:600;color:${usd != null ? '#b45309' : 'var(--mut)'}">${fmtUsd(usd)}</td>
+        <td style="padding:10px 16px;text-align:right;font-weight:600;color:${usd != null ? '#b45309' : 'var(--mut)'}">${fmtThb(usd)}</td>
+      </tr>`;
+    }).join('') || `<tr><td colspan="9" style="padding:32px;text-align:center;color:var(--mut)">ยังไม่มีประวัติการตรวจ</td></tr>`;
+  } catch (e) {
+    $('#db-kpi').innerHTML = `<div style="color:var(--mut)">โหลดไม่สำเร็จ: ${e.message}</div>`;
+  }
+}

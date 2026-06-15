@@ -1,14 +1,76 @@
 // AI Layer — ตีความผลตรวจด้วย LLM: สรุปผู้บริหารภาษาไทย, จัดลำดับ, เขียนคำแนะนำรายเคส
-// รองรับ Anthropic (Claude) และ OpenAI — ถ้าไม่มี key จะ fallback เป็นสรุปแบบ template
+// รองรับ OpenRouter, Anthropic (Claude) และ OpenAI — ถ้าไม่มี key จะ fallback เป็นสรุปแบบ template
+const OPENROUTER_KEY = () => process.env.OPENROUTER_API_KEY;
 const ANTHROPIC_KEY = () => process.env.ANTHROPIC_API_KEY;
 const OPENAI_KEY = () => process.env.OPENAI_API_KEY;
 
+// โมเดล "พรีเมียม" ตาม provider ที่ active (ใช้สำหรับงานที่ต้องการคุณภาพสูง เช่น growth plan / หาคู่แข่ง)
+// คืน null = ให้ใช้โมเดล default ของ provider นั้น
+export function premiumModel() {
+  if (OPENROUTER_KEY()) return process.env.OPENROUTER_MODEL_PREMIUM || 'openai/gpt-4o';
+  if (OPENAI_KEY())     return 'gpt-4o';
+  return null; // Anthropic → ใช้ default (sonnet)
+}
+
+// ราคา USD ต่อ 1M tokens (อัพเดต 2025) — รองรับทั้งชื่อโมเดลตรงและแบบ OpenRouter (provider/model)
+const MODEL_PRICING = {
+  'gpt-4o-mini':              { input: 0.15,  output: 0.60  },
+  'gpt-4o':                   { input: 2.50,  output: 10.00 },
+  'gpt-4o-2024-11-20':        { input: 2.50,  output: 10.00 },
+  'openai/gpt-4o-mini':       { input: 0.15,  output: 0.60  },
+  'openai/gpt-4o':            { input: 2.50,  output: 10.00 },
+  'claude-sonnet-4-6':        { input: 3.00,  output: 15.00 },
+  'claude-haiku-4-5':         { input: 0.80,  output: 4.00  },
+  'claude-haiku-4-5-20251001':{ input: 0.80,  output: 4.00  },
+  'claude-opus-4-8':          { input: 15.00, output: 75.00 },
+  'anthropic/claude-sonnet-4':{ input: 3.00,  output: 15.00 },
+};
+
+function calcUsd(model, inputTokens, outputTokens) {
+  const p = MODEL_PRICING[model] || { input: 0.15, output: 0.60 };
+  return (inputTokens * p.input + outputTokens * p.output) / 1_000_000;
+}
+
+// module-level cost accumulator — drain ก่อนเริ่ม audit แต่ละครั้ง
+const _costLog = [];
+export function drainAiCost() {
+  const snap = [..._costLog];
+  _costLog.length = 0;
+  return snap; // [{model, inputTokens, outputTokens, usd}]
+}
+
 export function aiAvailable() {
-  return !!(ANTHROPIC_KEY() || OPENAI_KEY());
+  return !!(OPENROUTER_KEY() || ANTHROPIC_KEY() || OPENAI_KEY());
 }
 
 export async function callLLM(system, user, maxTokens = 3000, modelOverride = null) {
+  if (OPENROUTER_KEY()) {
+    // OpenRouter ใช้ API แบบ OpenAI-compatible — โมเดลต้องอยู่ในรูป provider/model เช่น openai/gpt-4o-mini
+    let model = modelOverride || process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
+    if (!model.includes('/')) model = `openai/${model}`; // เผื่อ override ที่ส่งมาเป็นชื่อ OpenAI ล้วน
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENROUTER_KEY()}`,
+        'content-type': 'application/json',
+        'HTTP-Referer': process.env.OPENROUTER_REFERER || 'https://localhost',
+        'X-Title': 'AI SEO Audit Pro',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: maxTokens,
+        messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+      }),
+    });
+    if (!res.ok) throw new Error(`OpenRouter API ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const data = await res.json();
+    const inp = data.usage?.prompt_tokens || 0;
+    const out = data.usage?.completion_tokens || 0;
+    _costLog.push({ model, inputTokens: inp, outputTokens: out, usd: calcUsd(model, inp, out) });
+    return data.choices?.[0]?.message?.content || '';
+  }
   if (ANTHROPIC_KEY()) {
+    const model = modelOverride || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -17,7 +79,7 @@ export async function callLLM(system, user, maxTokens = 3000, modelOverride = nu
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: modelOverride || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6',
+        model,
         max_tokens: maxTokens,
         system,
         messages: [{ role: 'user', content: user }],
@@ -25,20 +87,27 @@ export async function callLLM(system, user, maxTokens = 3000, modelOverride = nu
     });
     if (!res.ok) throw new Error(`Anthropic API ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const data = await res.json();
+    const inp = data.usage?.input_tokens || 0;
+    const out = data.usage?.output_tokens || 0;
+    _costLog.push({ model, inputTokens: inp, outputTokens: out, usd: calcUsd(model, inp, out) });
     return data.content?.map(c => c.text || '').join('') || '';
   }
   if (OPENAI_KEY()) {
+    const model = modelOverride || process.env.OPENAI_MODEL || 'gpt-4o-mini';
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${OPENAI_KEY()}`, 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: modelOverride || process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        model,
         max_tokens: maxTokens,
         messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
       }),
     });
     if (!res.ok) throw new Error(`OpenAI API ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const data = await res.json();
+    const inp = data.usage?.prompt_tokens || 0;
+    const out = data.usage?.completion_tokens || 0;
+    _costLog.push({ model, inputTokens: inp, outputTokens: out, usd: calcUsd(model, inp, out) });
     return data.choices?.[0]?.message?.content || '';
   }
   throw new Error('no-api-key');
@@ -167,7 +236,7 @@ ${comp ? `คู่แข่ง: ${comp.theirs.url} คะแนน ${comp.their
 }
 keywordTargets เอา 6-9 ตัว · workstreams เอา 6 ตัว · projections ต้องสมจริง อนุรักษ์นิยม`;
   try {
-    const text = await callLLM(system, user, 2500, process.env.OPENAI_API_KEY ? 'gpt-4o' : null);
+    const text = await callLLM(system, user, 2500, premiumModel());
     return { source: 'ai', ...extractJson(text) };
   } catch (e) {
     return { source: 'template', ...templateGrowth(audit) };
