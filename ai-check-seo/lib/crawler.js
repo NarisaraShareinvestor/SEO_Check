@@ -9,14 +9,16 @@ const FETCH_TIMEOUT = 20000;
 const CONCURRENCY = 5;
 
 // Proxy (optional) — เว็บไทยหลายเจ้า (irplus IR, ราชการ) บล็อก IP ดาต้าเซ็นเตอร์/ต่างประเทศ
-// ตั้ง CRAWL_PROXY=http://user:pass@host:port เพื่อให้ทั้ง fetch + Playwright ออกผ่าน IP ไทย
-// ไม่ตั้ง = ทำงานเหมือนเดิม (ออกตรงจาก IP เซิร์ฟเวอร์)
+// สองรูปแบบ:
+//   CRAWL_PROXY=https://xxx.workers.dev  → Cloudflare Worker relay (ฟรี, ใช้กับ fetch เท่านั้น)
+//   CRAWL_PROXY=http://user:pass@host:port → Standard HTTP proxy (ใช้กับทั้ง fetch + Playwright)
 const PROXY_URL = process.env.CRAWL_PROXY || process.env.PROXY_URL || '';
-const proxyDispatcher = PROXY_URL ? new ProxyAgent(PROXY_URL) : null;
+const workerRelay = PROXY_URL.startsWith('https://') ? PROXY_URL : '';
+const proxyDispatcher = (!workerRelay && PROXY_URL) ? new ProxyAgent(PROXY_URL) : null;
 
-// แปลง PROXY_URL เป็นรูปแบบที่ Playwright ต้องการ ({ server, username, password })
+// แปลง PROXY_URL เป็นรูปแบบที่ Playwright ต้องการ — Worker relay ใช้กับ Playwright ไม่ได้
 function playwrightProxy() {
-  if (!PROXY_URL) return undefined;
+  if (!PROXY_URL || workerRelay) return undefined;
   try {
     const u = new URL(PROXY_URL);
     const p = { server: `${u.protocol}//${u.host}` };
@@ -51,6 +53,25 @@ async function fetchWithMeta(url, { method = 'GET', redirect = 'manual' } = {}) 
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT);
   const started = Date.now();
   try {
+    if (workerRelay) {
+      // ส่งผ่าน Cloudflare Worker relay — Worker fetch ด้วย IP ของ Cloudflare (ใกล้ target)
+      const wr = await fetch(workerRelay, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url, method }),
+        signal: ctrl.signal,
+      });
+      const elapsed = Date.now() - started;
+      if (!wr.ok) return { res: null, elapsed, error: `worker-${wr.status}` };
+      // สร้าง Response จำลองจาก metadata ที่ Worker ส่งกลับมาใน header
+      const status = parseInt(wr.headers.get('x-ps') || '200');
+      const fakeHeaders = new Headers();
+      for (const [k, v] of wr.headers) {
+        if (k.startsWith('x-ph-')) fakeHeaders.set(k.slice(5), v);
+      }
+      fakeHeaders.set('content-type', wr.headers.get('content-type') || '');
+      return { res: new Response(wr.body, { status, headers: fakeHeaders }), elapsed };
+    }
     const res = await fetch(url, {
       method, redirect,
       headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'th,en;q=0.8' },
