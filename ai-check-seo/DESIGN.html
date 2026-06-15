@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design Blueprint — AI SEO Checker &amp; SEO Reporting</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#111827;--mut:#6b7280;--faint:#9ca3af;--border:#e5e7eb;--paper:#fafafa;
+--red:#dc2626;--red-bg:#fef2f2;--green:#16a34a;--green-bg:#f0fdf4;--amber:#b45309;--amber-bg:#fffbeb;--blue:#1d4ed8;--blue-bg:#eff6ff}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter','Noto Sans Thai',sans-serif;background:#fff;color:var(--ink);line-height:1.7;font-size:14.5px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:56px 36px 100px}
+.kick{font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+h1{font-size:34px;font-weight:800;letter-spacing:-.02em;line-height:1.25;margin-bottom:8px}
+.sub{color:var(--mut);font-size:15px;max-width:760px;margin-bottom:40px}
+h2{font-size:23px;font-weight:800;letter-spacing:-.01em;margin:52px 0 6px;padding-top:24px;border-top:1px solid var(--border)}
+h3{font-size:16px;font-weight:700;margin:26px 0 8px}
+p{color:#374151;max-width:860px;margin-bottom:12px}
+.lede{font-size:15px;color:var(--mut);margin-bottom:20px}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:14px 0 22px;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+th{text-align:left;padding:10px 14px;background:#111827;color:#fff;font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+td{padding:10px 14px;border-bottom:1px solid #f3f4f6;vertical-align:top;color:#374151}
+tr:last-child td{border-bottom:none}
+.chip{display:inline-block;padding:2px 11px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap}
+.have{background:var(--green-bg);color:var(--green)} .next{background:var(--amber-bg);color:var(--amber)}
+.future{background:#f4f4f5;color:#71717a} .key{background:var(--blue-bg);color:var(--blue)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:18px 0 24px}
+.card{border:1px solid var(--border);border-radius:14px;padding:18px 20px;background:var(--paper)}
+.card b{font-size:13.5px;display:block;margin-bottom:6px}
+.card p{font-size:12.5px;color:var(--mut);margin:0}
+.num{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:#111827;color:#fff;font-weight:700;font-size:13px;margin-right:10px}
+ul.tight{padding-left:22px;margin:8px 0 18px;max-width:860px}
+ul.tight li{margin-bottom:7px;color:#374151}
+.callout{border:1px solid var(--border);border-left:4px solid #111827;border-radius:10px;padding:16px 22px;background:var(--paper);margin:18px 0;max-width:880px}
+.callout b{display:block;margin-bottom:4px}
+.callout p{font-size:13.5px;margin:0}
+.pyramid{display:flex;flex-direction:column;gap:8px;margin:16px 0 24px;max-width:720px}
+.pyr{border-radius:10px;padding:13px 20px;color:#fff;font-size:13px}
+.pyr b{display:block;font-size:13.5px}
+.pyr.p1{background:#111827;width:55%}
+.pyr.p2{background:#374151;width:75%}
+.pyr.p3{background:#6b7280;width:100%}
+.quad{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:680px;margin:14px 0 20px}
+.q{border-radius:12px;padding:14px 18px;font-size:12.5px}
+.q b{display:block;font-size:13px;margin-bottom:3px}
+.q1{background:var(--green-bg);border:1px solid #bbf7d0}
+.q2{background:var(--blue-bg);border:1px solid #bfdbfe}
+.q3{background:var(--amber-bg);border:1px solid #fde68a}
+.q4{background:#f4f4f5;border:1px solid var(--border)}
+.foot{margin-top:64px;padding-top:18px;border-top:1px solid var(--border);font-size:12px;color:var(--faint)}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.quad{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kick">Design Blueprint · 13 มิถุนายน 2026</div>
+<h1>AI ตรวจเว็บ SEO ที่สมบูรณ์ และการรายงานผลที่ดี ต้องมีอะไร</h1>
+<p class="sub">พิมพ์เขียวสำหรับ AI SEO Audit Pro — สรุปจากหลักการของ Google Search Essentials, วิธีทำงานของเอเจนซี่ชั้นนำ (อ้างอิง audit deck จริงใน EXsam) และจุดที่เครื่องมือในตลาดยังไปไม่ถึง · ป้ายบอกสถานะ: <span class="chip have">มีแล้ว</span> <span class="chip next">ควรทำถัดไป</span> <span class="chip future">อนาคต/ต้องมี API</span></p>
+
+<!-- ═══════════ PART A ═══════════ -->
+<h2>A. สถาปัตยกรรม AI ตรวจ SEO — วงจร 6 ชั้นที่ต้องครบ</h2>
+<p class="lede">เครื่องมือทั่วไปมีแค่ชั้น 1-2 (เก็บข้อมูล + รายการปัญหา) — ระบบที่ "ขายได้จริง" ต้องครบทั้งวงจร: <b>เก็บ → วิเคราะห์ → จัดลำดับ → ลงมือแก้ → พิสูจน์ผล → เฝ้าระวัง</b> แล้ววนกลับ</p>
+
+<div class="grid">
+  <div class="card"><b><span class="num">1</span>เก็บข้อมูล (Collect)</b><p>เห็นในสิ่งที่ bot เห็นจริง ไม่ใช่ที่ตามนุษย์เห็น — raw HTML + rendered + ข้อมูลวัดจริงจากภายนอก</p></div>
+  <div class="card"><b><span class="num">2</span>วิเคราะห์ (Analyze)</b><p>กฎ deterministic ตรวจ (ผลนิ่ง ตรวจซ้ำได้) / AI ตีความบริบทธุรกิจ — ห้ามให้ AI เป็นคนตัดสิน pass/fail</p></div>
+  <div class="card"><b><span class="num">3</span>จัดลำดับ (Prioritize)</b><p>เรียงตาม impact ต่อธุรกิจ ไม่ใช่ตามหมวดเทคนิค — ปัญหา 50 ข้อที่ไม่บอกว่าเริ่มตรงไหน = รายงานที่ไม่มีใครอ่าน</p></div>
+  <div class="card"><b><span class="num">4</span>ลงมือแก้ (Act)</b><p>ส่งมอบ "ของแก้เสร็จ" ไม่ใช่การบ้าน — โค้ด/ไฟล์/หน้าเว็บฉบับแก้ที่เอาไปใช้ได้ทันที</p></div>
+  <div class="card"><b><span class="num">5</span>พิสูจน์ผล (Verify)</b><p>ตรวจซ้ำด้วยเกณฑ์เดิมแล้วโชว์ delta ก่อน/หลังเป็นตัวเลข — นี่คือสิ่งที่ทำให้ลูกค้าต่ออายุ</p></div>
+  <div class="card"><b><span class="num">6</span>เฝ้าระวัง (Monitor)</b><p>SEO ไม่ใช่งานครั้งเดียว — ตรวจซ้ำตามรอบ แจ้งเตือนเมื่อคะแนนตก เปลี่ยน audit เป็นรายได้ recurring</p></div>
+</div>
+
+<h3>ชั้น 1 — เก็บข้อมูล: ต้องมีอะไรบ้าง</h3>
+<table>
+  <tr><th style="width:34%">ความสามารถ</th><th style="width:12%">สถานะ</th><th>ทำไมต้องมี</th></tr>
+  <tr><td><b>Crawl สองชั้น: raw HTML + rendered</b> (headless Chrome)</td><td><span class="chip have">มีแล้ว</span></td><td>หลักฐานชี้ขาดเคส SPA — AI bots (GPTBot, ClaudeBot) ไม่รัน JS, Googlebot index ช้าแบบ two-wave</td></tr>
+  <tr><td>robots.txt / sitemap / origin variants / favicon / llms.txt</td><td><span class="chip have">มีแล้ว</span></td><td>ปัญหา indexability ระดับ "เว็บล่องหน" มักซ่อนอยู่ตรงนี้</td></tr>
+  <tr><td><b>Core Web Vitals วัดจริง</b> (Lighthouse + CrUX field data)</td><td><span class="chip have">มีแล้ว</span></td><td>เป็น ranking signal ทางการ — ต้องเป็นเลขจาก Google ไม่ใช่ประเมินเอง</td></tr>
+  <tr><td><b>Google Search Console integration (OAuth)</b></td><td><span class="chip next">ควรทำถัดไป</span></td><td><b>ข้อมูลที่มีค่าที่สุดที่ยังไม่มี</b> — query/คลิก/impression/อันดับจริงของลูกค้า ฟรี 100% ทำให้รายงานพูดเรื่อง "traffic จริง" ได้ ไม่ใช่แค่สุขภาพเว็บ</td></tr>
+  <tr><td>อันดับคีย์เวิร์ดบน SERP จริง (rank tracking)</td><td><span class="chip future">ต้องมี API</span></td><td>DataForSEO ~0.02บ./ครั้ง — ปลดล็อกหน้า "High-Intent Keywords" แบบ deck เอเจนซี่</td></tr>
+  <tr><td>Backlink / anchor profile</td><td><span class="chip future">ต้องมี API</span></td><td>องค์ประกอบ off-page ที่ audit เต็มรูปแบบต้องมี (deck เอเจนซี่มีหน้า Toxic anchor)</td></tr>
+  <tr><td>Server log analysis (crawl budget จริง)</td><td><span class="chip future">อนาคต</span></td><td>สำหรับเว็บใหญ่หมื่นหน้าขึ้นไป — เห็นว่า Googlebot ใช้เวลากับหน้าไหนจริง</td></tr>
+</table>
+
+<h3>ชั้น 2-3 — วิเคราะห์และจัดลำดับ</h3>
+<div class="callout"><b>หลักการสำคัญที่สุดของ AI ในงานตรวจ: "กฎตรวจ — AI ตีความ — ระบบพิสูจน์"</b>
+<p>ผลตรวจ (pass/fail) ต้องมาจากกฎ deterministic ที่อ้างอิงเอกสาร Google ตรวจซ้ำกี่ครั้งก็ได้ผลเดิม · AI ทำเฉพาะสิ่งที่ AI เก่ง: ตีความบริบทธุรกิจ เขียนภาษาคน จัดลำดับ สร้างโค้ดแก้ · และทุกสิ่งที่ AI สร้างต้องผ่านการตรวจซ้ำด้วยกฎก่อนส่งมอบ — ห้ามเชื่อ AI โดยไม่พิสูจน์</p></div>
+<table>
+  <tr><th style="width:34%">ความสามารถ</th><th style="width:12%">สถานะ</th><th>หมายเหตุ</th></tr>
+  <tr><td>Rule engine 200+ จุด อ้างอิง Google Search Essentials</td><td><span class="chip have">มีแล้ว</span></td><td>on-page, indexability, schema, performance, security, near-duplicate, orphan pages</td></tr>
+  <tr><td><b>GEO — ความพร้อมบน AI Search</b> (bot access 14 ตัว, llms.txt, FAQ schema, E-E-A-T, trust pages)</td><td><span class="chip have">มีแล้ว</span></td><td>จุดขายที่เครื่องมือเก่ายังไม่มี — การค้นหากำลังย้ายไป ChatGPT/AI Overview</td></tr>
+  <tr><td>AI จัดลำดับตาม business impact + บทสรุปผู้บริหาร + แผนแซงคู่แข่ง</td><td><span class="chip have">มีแล้ว</span></td><td>เทียบคู่แข่งด้วยเกณฑ์เดียวกัน (ไม่ใช่แค่ตัวเลขคนละแหล่ง)</td></tr>
+  <tr><td><b>GEO citation tracking จริง</b> — ถาม ChatGPT/Perplexity เป็นรอบว่าแบรนด์ถูกอ้างถึงไหม</td><td><span class="chip next">ควรทำถัดไป</span></td><td>เก็บเป็น time-series → กราฟ "ส่วนแบ่งการถูก AI อ้างถึง" — ของใหม่ที่ขายแพงได้</td></tr>
+  <tr><td>Content quality scoring (Helpful Content) + keyword cannibalization</td><td><span class="chip future">อนาคต</span></td><td>ให้ AI ประเมินความลึก/ความซ้ำของเนื้อหาเทียบ intent — ต้องมีข้อมูล GSC ก่อนถึงแม่น</td></tr>
+  <tr><td>Internal link graph (หน้าไหนรับ/จ่าย link equity)</td><td><span class="chip future">อนาคต</span></td><td>มี orphan detection แล้ว — ต่อยอดเป็นกราฟ + คำแนะนำ "ลิงก์จากหน้า A ไป B"</td></tr>
+</table>
+
+<h3>ชั้น 4-6 — ลงมือแก้ พิสูจน์ เฝ้าระวัง</h3>
+<table>
+  <tr><th style="width:34%">ความสามารถ</th><th style="width:12%">สถานะ</th><th>หมายเหตุ</th></tr>
+  <tr><td><b>AI แก้หน้าเว็บแบบ verified</b> (ธรรมนูญ SEO 10 ข้อ + ตรวจซ้ำ + self-repair) + แก้ทั้งเว็บเป็น ZIP</td><td><span class="chip have">มีแล้ว</span></td><td>พิสูจน์แล้ว: demo 35 ปัญหา → เหลือ 2 พร้อม comment FIXED ทุกจุด</td></tr>
+  <tr><td>ไฟล์แก้ส่วนกลาง: robots.txt, sitemap, JSON-LD, llms.txt, canonical, headers</td><td><span class="chip have">มีแล้ว</span></td><td>สร้างจากข้อมูล crawl จริง ไม่ใช่ template เปล่า</td></tr>
+  <tr><td>Delta ก่อน/หลังอัตโนมัติ + แนวโน้มในประวัติ</td><td><span class="chip have">มีแล้ว</span></td><td>แก้สำเร็จ/แย่ลง/ปัญหาใหม่ รายข้อ</td></tr>
+  <tr><td>Watchlist ตรวจซ้ำตามรอบ + แจ้งเตือน LINE เมื่อคะแนนตก</td><td><span class="chip have">มีแล้ว</span></td><td>ฐานของรายได้ recurring</td></tr>
+  <tr><td><b>Apply ตรง: เปิด Pull Request ใน GitHub / เขียนเข้า WordPress API</b></td><td><span class="chip next">ควรทำถัดไป</span></td><td>ปิดช่องว่างสุดท้ายจาก "ดาวน์โหลดไฟล์" → "กดปุ่มเดียวขึ้นเว็บจริง" (ต้องมี backup/rollback เสมอ)</td></tr>
+  <tr><td>Content brief generator (โครงเนื้อหาที่ควรเขียนเพื่อชิงคีย์เวิร์ด)</td><td><span class="chip future">อนาคต</span></td><td>ต่อจาก keyword gap เมื่อมี SERP API</td></tr>
+</table>
+
+<!-- ═══════════ PART B ═══════════ -->
+<h2>B. รายงานผล SEO ที่ดี — หลักออกแบบ 7 ข้อ</h2>
+<p class="lede">รายงานที่ดีไม่ใช่รายงานที่ข้อมูลเยอะที่สุด แต่คือรายงานที่<b>ทำให้คนอ่านลงมือทำ</b> — สังเคราะห์จาก deck เอเจนซี่จริงและสิ่งที่ลูกค้าจ่ายเงินซื้อ</p>
+
+<h3>1. เล่า 3 ชั้นตามผู้อ่าน (Pyramid)</h3>
+<div class="pyramid">
+  <div class="pyr p1"><b>ผู้บริหาร — 1 หน้าจบ</b>คะแนน · โอกาส/ความเสี่ยงเป็นภาษาธุรกิจ · 3 สิ่งที่ต้องอนุมัติ</div>
+  <div class="pyr p2"><b>ผู้จัดการ — แผนงาน</b>ปัญหาเรียงตาม impact · ความยาก · timeline · ใครทำ</div>
+  <div class="pyr p3"><b>ทีมเทคนิค — หลักฐานและของแก้</b>รายละเอียดราย URL · โค้ดแก้พร้อมใช้ · เกณฑ์ตรวจรับ (Definition of Done)</div>
+</div>
+<p><span class="chip have">มีแล้ว</span> deck 13 สไลด์เรียงตามนี้: บทสรุปผู้บริหาร → Priority Action Plan → Health Check + ไฟล์ Auto-Fix</p>
+
+<h3>2. ทุกปัญหาต้องมี 4 องค์ประกอบ</h3>
+<ul class="tight">
+  <li><b>หลักฐาน</b> — ดูได้จริง ตรวจสอบย้อนได้ (เช่น "raw HTML มีข้อความ 0 ตัวอักษร, rendered มี 5,004") <span class="chip have">มีแล้ว</span></li>
+  <li><b>ผลกระทบธุรกิจ</b> — ภาษาคน ไม่ใช่ศัพท์ช่าง ("AI ไม่มีทางแนะนำแบรนด์คุณ" ไม่ใช่ "missing JSON-LD") <span class="chip have">มีแล้ว (AI เขียน)</span></li>
+  <li><b>วิธีแก้ที่จับต้องได้</b> — โค้ด/ไฟล์/ขั้นตอน ไม่ใช่ "ควรปรับปรุง" ลอยๆ <span class="chip have">มีแล้ว (Auto-Fix)</span></li>
+  <li><b>ราคา-ผลตอบแทน</b> — ความยาก (ง่าย/กลาง/ยาก) เทียบผลที่ได้ <span class="chip have">มีแล้ว</span></li>
+</ul>
+
+<h3>3. Impact / Effort Matrix — ภาพเดียวบอกว่าเริ่มตรงไหน</h3>
+<div class="quad">
+  <div class="q q1"><b>Impact สูง · Effort ต่ำ — ทำทันที</b>เช่น แก้ robots.txt, canonical, meta — มักแก้จบใน 1 วัน</div>
+  <div class="q q2"><b>Impact สูง · Effort สูง — วางแผน</b>เช่น เปิด SSR, ทำ content hub — ต้องการ sprint จริง</div>
+  <div class="q q3"><b>Impact ต่ำ · Effort ต่ำ — เก็บตก</b>เช่น favicon, lastmod — ทำตอนว่าง</div>
+  <div class="q q4"><b>Impact ต่ำ · Effort สูง — อย่าเพิ่งทำ</b>ใส่ไว้ท้ายรายงานเพื่อความครบ แต่บอกตรงๆ ว่าไม่คุ้มตอนนี้</div>
+</div>
+<p><span class="chip next">ควรเพิ่มเป็นสไลด์ใหม่ในรายงาน</span> — ข้อมูลมีครบแล้ว (severity × fixable × effort จาก AI) แค่ยังไม่ได้วาดเป็น quadrant</p>
+
+<h3>4. เทียบ 3 มุมเสมอ — ตัวเลขเดี่ยวๆ ไม่มีความหมาย</h3>
+<ul class="tight">
+  <li><b>เทียบอดีตตัวเอง</b> (trend) — คะแนนแต่ละครั้งบนเส้นเวลา <span class="chip have">delta มีแล้ว</span> <span class="chip next">กราฟ trend ในรายงาน</span></li>
+  <li><b>เทียบคู่แข่ง</b> — เกณฑ์เดียวกัน ตารางเดียวกัน <span class="chip have">มีแล้ว</span></li>
+  <li><b>เทียบเกณฑ์มาตรฐาน</b> — เช่น CWV ผ่าน/ไม่ผ่านตามเส้น Google <span class="chip have">มีแล้ว</span></li>
+</ul>
+
+<h3>5. ซื่อสัตย์กับผู้อ่าน — ความน่าเชื่อถือคือสินค้า</h3>
+<ul class="tight">
+  <li>แยกชัดว่าอะไรคือ "ข้อเท็จจริงจากการตรวจ" vs "การตีความของ AI" <span class="chip have">มีป้ายกำกับแล้ว</span></li>
+  <li>อ้างอิงแหล่ง (Google Search Essentials, schema.org, Quality Rater Guidelines) <span class="chip have">สไลด์ Methodology</span></li>
+  <li>บอกข้อจำกัด: ตรวจกี่หน้า เมื่อไหร่ อะไรไม่ได้ตรวจ <span class="chip have">มีแล้ว</span></li>
+  <li>คะแนนรวมต้องอธิบายได้ว่าคิดยังไง — ไม่ใช่ตัวเลขมหัศจรรย์</li>
+</ul>
+
+<h3>6. จังหวะรายงาน 3 ระดับ (ไม่ใช่รายงานเดียวทำทุกหน้าที่)</h3>
+<table>
+  <tr><th style="width:22%">ประเภท</th><th style="width:18%">ความถี่</th><th>เนื้อหา</th><th style="width:14%">สถานะ</th></tr>
+  <tr><td><b>Full Audit Deck</b></td><td>เริ่มงาน + รายไตรมาส</td><td>13 สไลด์เต็ม: ทุกหมวด + คู่แข่ง + แผน + ไฟล์แก้</td><td><span class="chip have">มีแล้ว</span></td></tr>
+  <tr><td><b>Pulse Report</b></td><td>รายสัปดาห์/เดือน</td><td>1 หน้า: คะแนนเทียบครั้งก่อน + แก้อะไรไปแล้ว + อะไรโผล่ใหม่ + งานสัปดาห์หน้า</td><td><span class="chip next">ควรทำถัดไป</span></td></tr>
+  <tr><td><b>Alert</b></td><td>ทันทีที่เกิด</td><td>คะแนนตก / เว็บล่ม / ปัญหาร้ายแรงใหม่ → LINE</td><td><span class="chip have">มีแล้ว</span></td></tr>
+</table>
+
+<h3>7. จบที่ Action เสมอ</h3>
+<p>หน้าสุดท้ายก่อน Methodology ต้องตอบ 3 คำถาม: <b>ทำอะไรก่อน (สัปดาห์นี้) · ใครทำ (dev/content/เจ้าของ) · วัดผลเมื่อไหร่ (นัดตรวจซ้ำ)</b> — รายงานเราจบด้วย Timeline 30 วัน + ไฟล์แก้ที่สร้างเสร็จ ซึ่งตอบครบแล้ว <span class="chip have">มีแล้ว</span></p>
+
+<!-- ═══════════ PART C ═══════════ -->
+<h2>C. สรุป Roadmap — ควรทำอะไรต่อ เรียงตามความคุ้ม</h2>
+<table>
+  <tr><th style="width:6%">#</th><th style="width:34%">งาน</th><th>เหตุผล</th><th style="width:16%">ใช้อะไร</th></tr>
+  <tr><td><b>1</b></td><td><b>Google Search Console integration</b></td><td>ข้อมูล query/คลิก/อันดับจริงของลูกค้า ฟรี — เปลี่ยนรายงานจาก "สุขภาพเว็บ" เป็น "ผลลัพธ์ traffic จริง" และปลดล็อก content/cannibalization analysis</td><td>OAuth (ฟรี)</td></tr>
+  <tr><td><b>2</b></td><td><b>สไลด์ Impact/Effort Matrix + กราฟ trend คะแนน</b></td><td>ข้อมูลมีครบแล้ว แค่วาดเพิ่ม 2 สไลด์ — ยกระดับรายงานชัดเจนด้วยต้นทุนต่ำสุด</td><td>โค้ดอย่างเดียว</td></tr>
+  <tr><td><b>3</b></td><td><b>Pulse Report 1 หน้า (รายสัปดาห์)</b></td><td>ผูกกับ watchlist ที่มีอยู่ — ลูกค้า monitoring ได้ของส่งมอบทุกสัปดาห์ = เหตุผลของค่าบริการรายเดือน</td><td>โค้ดอย่างเดียว</td></tr>
+  <tr><td><b>4</b></td><td><b>GEO citation tracking</b> (ถาม ChatGPT/Perplexity เป็นรอบ)</td><td>กราฟ "แบรนด์ถูก AI อ้างถึง" time-series — ของที่ตลาดยังไม่มีขาย</td><td>AI API ที่มีแล้ว</td></tr>
+  <tr><td><b>5</b></td><td><b>DataForSEO: SERP + keyword + backlink</b></td><td>เติมหน้าที่ขาดจาก deck เอเจนซี่ (keyword opportunities, toxic anchors) + ทำให้หาคู่แข่งเสถียร 100%</td><td>~$0.02/query</td></tr>
+  <tr><td><b>6</b></td><td><b>Apply ตรง: GitHub PR / WordPress</b></td><td>จาก "ดาวน์โหลด ZIP" → "กดปุ่มเดียวขึ้นเว็บ" — ปิดวงจร Act สมบูรณ์</td><td>GitHub/WP API</td></tr>
+</table>
+
+<div class="callout"><b>เส้นแบ่งที่ทำให้ชนะตลาด</b>
+<p>เครื่องมือทั่วไปขาย "รายการปัญหา" · เอเจนซี่ขาย "คนแก้ปัญหา" · เราขายทั้งวงจรอัตโนมัติ: <b>ตรวจลึกกว่า (rendered + GEO) → แก้ให้เสร็จ (verified) → พิสูจน์ด้วยตัวเลข (delta) → เฝ้าต่อให้ (watchlist)</b> — ทุกฟีเจอร์ใหม่ควรถามว่า "เสริมวงจรนี้ตรงไหน" ถ้าไม่เสริม อย่าทำ</p></div>
+
+<div class="foot">AI SEO Audit Pro — Design Blueprint v1.0 · จัดทำจากสถานะระบบจริง ณ 13 มิถุนายน 2026 · อ้างอิง: Google Search Essentials, Search Quality Rater Guidelines, schema.org, ตัวอย่าง audit deck เอเจนซี่ (EXsam, 25 สไลด์)</div>
+
+</div>
+</body>
+</html>

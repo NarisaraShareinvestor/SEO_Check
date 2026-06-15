@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="th"> <!-- FIXED: Added lang attribute -->
+<head>
+<meta charset="utf-8"> <!-- Tag first in head -->
+<title>บริการครบวงจรจากบริษัทเดโม่ จำกัด | localhost</title> <!-- FIXED: Updated title -->
+<meta name="description" content="เว็บไซต์ตัวอย่างสำหรับการทดสอบ SEO โดยเฉพาะ — ทดลองตรวจระบบที่นี่!"> <!-- FIXED: Added meta description -->
+<meta name="viewport" content="width=device-width, initial-scale=1"> <!-- FIXED: Added viewport meta -->
+<link rel="canonical" href="http://localhost:3000/demo/index.html"> <!-- FIXED: Added canonical tag -->
+<meta property="og:title" content="บริการครบวงจรจากบริษัทเดโม่ จำกัด"> <!-- FIXED: Updated og:title -->
+<meta property="og:description" content="เว็บไซต์ตัวอย่างสำหรับการทดสอบ SEO โดยเฉพาะ — ทดลองตรวจระบบที่นี่!"> <!-- FIXED: Added og:description -->
+<meta property="og:image" content="http://localhost:3000/path/to/image.jpg"> <!-- FIXED: Added og:image (placeholder) -->
+<meta property="og:url" content="http://localhost:3000/demo/index.html"> <!-- FIXED: Added og:url -->
+<meta property="twitter:card" content="summary_large_image"> <!-- FIXED: Added twitter:card -->
+<script type="application/ld+json">
+{
+  "@context": "http://schema.org",
+  "@type": "Organization",
+  "name": "บริษัทเดโม่ จำกัด",
+  "url": "http://localhost:3000",
+  "logo": "http://localhost:3000/path/to/logo.jpg"
+}
+{
+  "@context": "http://schema.org",
+  "@type": "WebSite",
+  "name": "บริษัทเดโม่ จำกัด",
+  "url": "http://localhost:3000"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "http://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [{
+      "@type": "Question",
+      "name": "เว็บไซต์ทดสอบคืออะไร?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "เว็บไซต์ทดสอบถูกสร้างขึ้นเพื่อแสดงให้เห็นถึงปัญหา SEO"
+      }
+    }]
+}
+</script>
+</head>
+<body>
+<div id="app">
+  <div style="background:#fffbeb;border:1px solid #f0d48a;border-radius:10px;padding:12px 18px;margin-bottom:18px;font-family:sans-serif;font-size:14px;color:#7a5b1e">
+    หน้านี้คือ "เว็บตัวอย่าง" ที่จงใจทำผิดหลัก SEO กว่า 30 จุด ไว้สำหรับทดสอบระบบตรวจ —
+    กลับไปที่ <a href="/">หน้าแอป SEO Audit</a> แล้วกด "ลองตรวจเว็บตัวอย่าง" เพื่อดูว่าระบบจับปัญหาของหน้านี้ได้ครบแค่ไหน
+  </div>
+  <h1>บริษัทเดโม่ จำกัด — ผู้นำด้านบริการครบวงจร</h1>
+  <p>เนื้อหานี้มองไม่เห็นโดย crawler ที่ไม่ render JavaScript</p>
+  <nav>
+    <a href="/demo/about.html">เกี่ยวกับเรา</a>
+    <a href="/demo/services.html">บริการ</a>
+    <a href="/demo/contact.html">ติดต่อ</a>
+  </nav>
+</div>
+<script>
+// SPA จำลอง — เนื้อหาทั้งหมด render ด้วย JS (ปัญหาแบบเดียวกับเว็บ Nuxt SPA จริง)
+document.getElementById('app').innerHTML = `
+  <div style="background:#fffbeb;border:1px solid #f0d48a;border-radius:10px;padding:12px 18px;margin-bottom:18px;font-family:sans-serif;font-size:14px;color:#7a5b1e">
+    หน้านี้คือ "เว็บตัวอย่าง" ที่จงใจทำผิดหลัก SEO กว่า 30 จุด ไว้สำหรับทดสอบระบบตรวจ —
+    กลับไปที่ <a href="/">หน้าแอป SEO Audit</a> แล้วกด "ลองตรวจเว็บตัวอย่าง" เพื่อดูว่าระบบจับปัญหาของหน้านี้ได้ครบแค่ไหน
+  </div>
+  <h1>บริษัทเดโม่ จำกัด — ผู้นำด้านบริการครบวงจร</h1>
+  <p>เนื้อหานี้มองไม่เห็นโดย crawler ที่ไม่ render JavaScript</p>
+  <nav>
+    <a href="/demo/about.html">เกี่ยวกับเรา</a>
+    <a href="/demo/services.html">บริการ</a>
+    <a href="/demo/contact.html">ติดต่อ</a>
+  </nav>`;
+</script>
+<noscript></noscript>
+<a href="/demo/about.html">เกี่ยวกับเรา</a> <!-- FIXED: Changed anchor text -->
+<a href="/demo/services.html">บริการ</a> <!-- FIXED: Changed anchor text -->
+<a href="/demo/contact.html">ติดต่อ</a> <!-- FIXED: Changed anchor text -->
+<a href="/demo/blog.html">บล็อก</a> <!-- FIXED: Changed anchor text -->
+</body>
+</html>

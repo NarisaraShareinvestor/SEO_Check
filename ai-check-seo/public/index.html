@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEO Audit — AI SEO Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ffffff; --panel:#ffffff; --border:#ececee; --border2:#e2e2e6;
+  --text:#111827; --mut:#6b7280; --faint:#9ca3af;
+  --chip-bg:#f4f4f5; --chip-tx:#71717a;
+  --red-bg:#fef2f2; --red:#dc2626;
+  --green-bg:#f0fdf4; --green:#16a34a;
+  --amber-bg:#fffbeb; --amber:#b45309;
+  --hover:#fafafa; --active:#f4f4f5;
+  --r:12px;
+  font-family:'Inter','Noto Sans Thai',-apple-system,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter','Noto Sans Thai',-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;font-size:14px;-webkit-font-smoothing:antialiased;display:flex;min-height:100vh}
+button{font-family:inherit}
+
+/* ── SIDEBAR ── */
+aside{width:264px;min-width:264px;border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:12px;padding:6px 10px;margin-bottom:18px}
+.logo .mark{width:40px;height:40px;border-radius:11px;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px}
+.logo .nm{font-size:16.5px;font-weight:700;line-height:1.25}
+.logo .sb{font-size:10px;letter-spacing:.14em;color:var(--faint);font-weight:600;text-transform:uppercase}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nitem{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:11px;color:#3f3f46;font-size:14px;font-weight:500;cursor:pointer;border:none;background:none;text-align:left;width:100%;transition:background .12s}
+.nitem:hover{background:var(--hover)}
+.nitem.active{background:var(--active);font-weight:600;color:var(--text)}
+.nitem svg{width:19px;height:19px;stroke:#52525b;flex-shrink:0}
+.nitem.active svg{stroke:#111}
+.nitem .badge{margin-left:auto;background:var(--chip-bg);color:var(--chip-tx);font-size:11.5px;font-weight:600;padding:1px 9px;border-radius:99px}
+.side-bottom{margin-top:auto;border-top:1px solid var(--border);padding-top:14px}
+.aibox-side{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;font-size:12.5px;color:var(--mut)}
+.aibox-side .dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+.aibox-side .dot.off{background:var(--faint)}
+
+/* ── MAIN ── */
+main{flex:1;padding:34px 44px 80px;max-width:1240px}
+.pagehead{margin-bottom:24px}
+.pagehead h1{font-size:26px;font-weight:700;letter-spacing:-.01em}
+.pagehead .sub{color:var(--mut);font-size:13.5px;margin-top:2px}
+.view{display:none}.view.active{display:block}
+
+.card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px 24px;margin-bottom:18px}
+.card .chead{display:flex;align-items:baseline;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:4px}
+.card .chead h3{font-size:15.5px;font-weight:600}
+.card .chead .meta{font-size:13px;color:var(--mut)}
+
+/* input bar */
+.bar{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.bar input{flex:1;min-width:260px;padding:11px 16px;border-radius:11px;border:1px solid var(--border2);font-size:14px;font-family:inherit;outline:none;transition:border .15s}
+.bar input:focus{border-color:#a1a1aa}
+.bar select{padding:11px 14px;border-radius:11px;border:1px solid var(--border2);font-size:13.5px;font-family:inherit;color:var(--text);background:#fff;outline:none;cursor:pointer}
+.btn{padding:11px 22px;border-radius:11px;border:1px solid #111;background:#111;color:#fff;font-size:13.5px;font-weight:600;cursor:pointer;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn:disabled{opacity:.45;cursor:wait}
+.btn.ghost{background:#fff;color:var(--text);border:1px solid var(--border2)}
+.btn.ghost:hover{background:var(--hover);opacity:1}
+.btn.sm{padding:7px 15px;font-size:12.5px;border-radius:9px}
+
+#progress{display:none;margin-top:16px;background:#fafafa;border:1px solid var(--border);border-radius:12px;padding:14px 18px;font-size:12.5px;max-height:220px;overflow-y:auto;font-family:ui-monospace,Menlo,monospace;color:var(--mut)}
+#progress div{padding:2px 0}
+#progress div:last-child{color:var(--text);font-weight:500}
+
+/* ── RESULT ── */
+#result{display:none}
+.rhead{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:26px 0 16px}
+.rhead .t .u{font-size:17px;font-weight:700}
+.rhead .t .d{font-size:12.5px;color:var(--mut)}
+.rhead .acts{display:flex;gap:8px}
+
+.statrow{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
+.stat{border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+.stat .lb{font-size:11.5px;color:var(--mut);font-weight:500;letter-spacing:.02em}
+.stat .v{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:2px}
+.stat .v small{font-size:13px;color:var(--faint);font-weight:500}
+.stat .v.red{color:var(--red)} .stat .v.green{color:var(--green)} .stat .v.amber{color:var(--amber)}
+.unreachable-card{grid-column:1/-1;display:flex;gap:18px;align-items:flex-start;border:1px solid var(--amber);background:rgba(245,169,46,.06);border-radius:14px;padding:22px 24px}
+.unreachable-icon{font-size:30px;line-height:1;color:var(--amber);flex-shrink:0}
+.unreachable-body b{font-size:17px;font-weight:700;display:block;margin-bottom:6px}
+.unreachable-body p{font-size:14px;color:var(--mut);line-height:1.55;margin:0 0 4px}
+.unreachable-meta{font-size:12.5px;color:var(--faint)}
+.btn-retry{margin-top:12px;border:none;background:var(--ink,#111);color:#fff;font-weight:600;font-size:13.5px;padding:9px 20px;border-radius:9px;cursor:pointer}
+.btn-retry:hover{opacity:.88}
+
+.cat{display:grid;grid-template-columns:160px 1fr 40px;align-items:center;gap:14px;margin-bottom:10px;font-size:13px}
+.cat span{color:var(--mut)}
+.cat .track{height:6px;background:#f1f1f3;border-radius:99px;overflow:hidden}
+.cat .fill{height:100%;border-radius:99px;background:#111;transition:width .8s}
+.cat .fill.low{background:var(--red)}
+.cat .fill.mid{background:var(--amber)}
+.cat b{text-align:right;font-weight:600;font-size:13.5px}
+
+/* AI analysis */
+.ai-label{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;color:var(--mut);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px}
+.ai-label .spark{width:7px;height:7px;border-radius:50%;background:#111}
+.ai-summary{font-size:15px;line-height:1.75;color:#1f2937;max-width:880px}
+.prio{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:18px}
+.prio th{color:var(--faint);padding:9px 14px 9px 0;text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;border-bottom:1px solid var(--border)}
+.prio td{padding:13px 14px 13px 0;border-bottom:1px solid #f4f4f5;color:#374151;vertical-align:top}
+.prio tr:last-child td{border-bottom:none}
+.prio td b{font-weight:600;color:var(--text)}
+.qwins{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.qwin{background:var(--green-bg);color:var(--green);font-size:12.5px;font-weight:500;padding:5px 14px;border-radius:99px}
+.strategy{margin-top:16px;font-size:13.5px;color:var(--mut);background:#fafafa;border:1px solid var(--border);border-radius:12px;padding:13px 18px}
+.strategy b{color:var(--text)}
+
+/* segmented tabs */
+.seg{display:inline-flex;gap:2px;margin-bottom:18px;flex-wrap:wrap}
+.seg button{padding:8px 18px;border-radius:10px;border:none;background:none;font-size:13.5px;font-weight:500;color:var(--mut);cursor:pointer;transition:all .12s}
+.seg button:hover{color:var(--text)}
+.seg button.active{background:var(--active);color:var(--text);font-weight:600}
+.tabpane{display:none}.tabpane.active{display:block}
+
+/* chips */
+.chip{display:inline-block;padding:3px 12px;border-radius:99px;font-size:11.5px;font-weight:600}
+.chip.fail{background:var(--red-bg);color:var(--red)}
+.chip.warn{background:var(--amber-bg);color:var(--amber)}
+.chip.pass{background:var(--green-bg);color:var(--green)}
+.chip.info{background:var(--chip-bg);color:var(--chip-tx)}
+.chip.gray{background:var(--chip-bg);color:var(--chip-tx)}
+
+/* filter pills */
+.filterbar{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.fbtn{padding:6px 14px;border-radius:99px;border:1px solid var(--border2);background:#fff;font-size:12.5px;font-weight:500;cursor:pointer;color:var(--mut);transition:all .12s}
+.fbtn:hover{border-color:#a1a1aa;color:var(--text)}
+.fbtn.on{background:#111;color:#fff;border-color:#111}
+
+/* checks */
+.checklist{border:1px solid var(--border);border-radius:16px;overflow:hidden;background:#fff}
+.check{border-bottom:1px solid #f4f4f5}
+.check:last-child{border-bottom:none}
+.check summary{padding:15px 22px;display:flex;align-items:center;gap:14px;cursor:pointer;list-style:none;transition:background .12s}
+.check summary:hover{background:var(--hover)}
+.check summary::-webkit-details-marker{display:none}
+.check summary .chip{min-width:58px;text-align:center}
+.check summary b{flex:1;font-size:14px;font-weight:600}
+.check summary .n{font-size:12px;color:var(--faint)}
+.check summary .sev{font-size:11.5px;color:var(--faint)}
+.check .body{padding:2px 22px 18px 94px;font-size:13.5px;color:#4b5563}
+.check .body .rec{margin-top:10px;background:#fafafa;border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:13px;color:#374151}
+.check .body .rec b{font-weight:600}
+.check .body .plist{margin-top:10px;font-size:11.5px;color:var(--mut);font-family:ui-monospace,Menlo,monospace;max-height:150px;overflow-y:auto;background:#fafafa;border:1px solid var(--border);border-radius:10px;padding:10px 14px;line-height:1.9}
+.note{font-size:12px;color:var(--faint);margin-top:8px}
+
+/* pages table */
+.tcard{border:1px solid var(--border);border-radius:16px;overflow:hidden;background:#fff}
+.ptable{width:100%;border-collapse:collapse;font-size:13px}
+.ptable th{color:var(--faint);padding:13px 16px;text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap}
+.ptable td{padding:12px 16px;border-bottom:1px solid #f4f4f5;vertical-align:middle}
+.ptable tr:last-child td{border-bottom:none}
+.ptable tr:hover td{background:var(--hover)}
+.ptable .u{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#374151}
+
+/* fixes */
+.fix{border:1px solid var(--border);border-radius:16px;background:#fff;margin-bottom:16px;overflow:hidden}
+.fix .head{padding:17px 22px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid #f4f4f5}
+.fix .head b{flex:1;font-size:14.5px;font-weight:600}
+.fix .head .file{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;background:var(--chip-bg);color:#3f3f46;padding:3px 12px;border-radius:8px}
+.fix .desc{padding:14px 22px 0;font-size:13.5px;color:#4b5563}
+.fix .howto{padding:6px 22px 0;font-size:12.5px;color:var(--mut)}
+.fix .howto b{color:#374151;font-weight:600}
+.fix pre{margin:14px 22px;background:#fafafa;border:1px solid var(--border);border-radius:12px;color:#1f2937;padding:16px 18px;font-size:12px;overflow-x:auto;max-height:320px;font-family:ui-monospace,Menlo,monospace;line-height:1.7}
+.fix .acts{display:flex;gap:8px;padding:0 22px 18px}
+
+/* competitor suggestions */
+#compSuggest{margin-top:10px}
+#compSuggest .hint{font-size:12.5px;color:var(--mut);margin-bottom:8px}
+.cand{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:12px;padding:10px 16px;margin-bottom:8px;cursor:pointer;transition:all .12s;background:#fff}
+.cand:hover{border-color:#111;background:var(--hover)}
+.cand .dom{font-weight:600;font-size:13.5px;white-space:nowrap}
+.cand .why{font-size:12.5px;color:var(--mut);flex:1}
+.cand .pick{font-size:12px;font-weight:600;color:var(--faint)}
+.cand.picked{border-color:#111;background:#f4f4f5}
+
+/* compare */
+.vsrow{display:grid;grid-template-columns:1fr 64px 1fr;gap:14px;align-items:center;margin-bottom:18px}
+.vscard{border:1px solid var(--border);border-radius:16px;padding:20px 24px;background:#fff}
+.vscard .who{font-size:12px;color:var(--mut);font-weight:500}
+.vscard .host{font-size:14.5px;font-weight:700;margin:2px 0 8px;word-break:break-all}
+.vscard .big{font-size:34px;font-weight:700;letter-spacing:-.02em}
+.vscard .big small{font-size:13px;color:var(--faint);font-weight:500}
+.vscard.win{border-color:#bbe7c9;background:#fbfffc}
+.vsmid{text-align:center;font-size:13px;font-weight:700;color:var(--faint)}
+.cmt{margin-bottom:18px}
+.cmt ol{padding-left:22px;margin-top:10px;font-size:13.5px;color:#374151}
+.cmt li{margin-bottom:6px}
+
+/* history */
+.hrow{display:flex;align-items:center;gap:20px;padding:16px 22px;border-bottom:1px solid #f4f4f5;cursor:pointer;transition:background .12s}
+.hrow:hover{background:var(--hover)}
+.hrow:last-child{border-bottom:none}
+.hrow .score-mini{font-size:22px;font-weight:700;min-width:56px}
+.hrow .score-mini.good{color:var(--green)} .hrow .score-mini.mid{color:var(--amber)} .hrow .score-mini.bad{color:var(--red)}
+.hrow .u2{flex:1}
+.hrow .u2 b{font-size:14px;font-weight:600}
+.hrow .u2 .d{font-size:12px;color:var(--mut)}
+.hrow .when{font-size:12px;color:var(--faint);white-space:nowrap}
+.empty{color:var(--mut);font-size:13.5px;padding:26px;text-align:center}
+
+@media print{
+  aside,.bar,.filterbar,.rhead .acts,.fix .acts,.seg,#progress{display:none!important}
+  main{padding:0}
+  #result,.tabpane{display:block!important}
+  .tabpane{page-break-before:always}
+  .check{break-inside:avoid}
+}
+@media(max-width:900px){
+  aside{display:none}
+  main{padding:22px 18px}
+  .statrow{grid-template-columns:repeat(2,1fr)}
+  .cat{grid-template-columns:110px 1fr 36px}
+  .check .body{padding-left:22px}
+}
+</style>
+</head>
+<body>
+
+<aside>
+  <div class="logo">
+    <div class="mark">S</div>
+    <div>
+      <div class="nm">SEO Audit</div>
+      <div class="sb">AI SEO Intelligence</div>
+    </div>
+  </div>
+  <nav class="nav">
+    <button class="nitem active" data-view="scan" onclick="showView(this)">
+      <svg fill="none" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>
+      ตรวจเว็บไซต์
+    </button>
+    <button class="nitem" data-view="history" onclick="showView(this)">
+      <svg fill="none" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3" stroke-linecap="round"/></svg>
+      ประวัติการตรวจ
+      <span class="badge" id="histCount"></span>
+    </button>
+  </nav>
+  <div class="side-bottom">
+    <div class="aibox-side"><span class="dot off" id="aiDot"></span><span id="aiStatus">กำลังเช็คสถานะ…</span></div>
+  </div>
+</aside>
+
+<main>
+  <!-- ═══ VIEW: SCAN ═══ -->
+  <div class="view active" id="view-scan">
+    <div class="pagehead">
+      <h1>ตรวจเว็บไซต์</h1>
+      <div class="sub">Technical SEO / GEO / Auto-Fix — จากการ crawl ข้อมูลจริง</div>
+    </div>
+
+    <div class="card">
+      <div class="chead">
+        <h3>เริ่มการตรวจใหม่</h3>
+        <span class="meta">200+ จุดตรวจ · Rendered crawl + Core Web Vitals จริง · ประมาณ 1–5 นาที</span>
+      </div>
+      <div class="bar">
+        <input type="url" id="urlInput" placeholder="https://www.example.com" autocomplete="url">
+        <select id="maxPages">
+          <option value="10">10 หน้า</option>
+          <option value="30" selected>30 หน้า</option>
+          <option value="60">60 หน้า</option>
+          <option value="100">100 หน้า</option>
+        </select>
+        <button class="btn" id="startBtn" onclick="startAudit()">เริ่มตรวจ</button>
+      </div>
+      <div class="bar" style="margin-top:10px">
+        <input type="url" id="compInput" placeholder="URL คู่แข่ง — ใส่เพื่อเปรียบเทียบ side-by-side (ไม่บังคับ)" autocomplete="url">
+        <button class="btn ghost" id="discoverBtn" onclick="discoverComp()">หาคู่แข่งอัตโนมัติ</button>
+      </div>
+      <div id="compSuggest"></div>
+      <div id="progress"></div>
+      <details style="margin-top:14px">
+        <summary style="cursor:pointer;font-size:13px;font-weight:600;color:#6b7280">ตั้งค่า White-label — ใส่แบรนด์ของคุณบนรายงานลูกค้า</summary>
+        <div class="bar" style="margin-top:10px">
+          <input type="text" id="wlName" placeholder="ชื่อแบรนด์/เอเจนซี่ (แสดงบนปกและท้ายรายงาน)">
+          <input type="text" id="wlLogo" placeholder="URL โลโก้ (https://...)">
+          <input type="text" id="wlColor" placeholder="#f5c242" style="max-width:120px;flex:none">
+          <button class="btn ghost" onclick="saveBrand(this)">บันทึก</button>
+        </div>
+      </details>
+    </div>
+
+    <!-- ═══ RESULT ═══ -->
+    <div id="result">
+      <div class="rhead">
+        <div class="t">
+          <div class="u" id="resultTitle"></div>
+          <div class="d" id="resultDate"></div>
+        </div>
+        <div class="acts">
+          <button class="btn sm" onclick="window.open(presentUrl(currentAudit.id),'_blank')">นำเสนอ (Presentation)</button>
+          <button class="btn ghost sm" onclick="window.open(reportUrl(currentAudit.id),'_blank')">รายงาน (Deck A4)</button>
+          <button class="btn ghost sm" id="watchBtn" onclick="toggleWatch()">เฝ้าระวังอัตโนมัติ</button>
+          <button class="btn ghost sm" onclick="rescan()">ตรวจซ้ำหลังแก้</button>
+        </div>
+      </div>
+
+      <div class="statrow" id="statRow"></div>
+      <div id="deltaBox"></div>
+
+      <div class="card">
+        <div class="chead"><h3>คะแนนรายหมวด</h3></div>
+        <div id="catBars" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card" id="aibox"></div>
+
+      <div class="seg">
+        <button class="active" data-pane="checks" onclick="showTab(this)">ผลการตรวจ</button>
+        <button data-pane="pages" onclick="showTab(this)">รายหน้า</button>
+        <button data-pane="compare" id="compTabBtn" style="display:none" onclick="showTab(this)">เทียบคู่แข่ง</button>
+        <button data-pane="fixes" onclick="showTab(this)">Auto-Fix</button>
+      </div>
+
+      <div class="tabpane active" id="pane-checks">
+        <div class="filterbar" id="filterbar"></div>
+        <div class="checklist" id="checksList"></div>
+      </div>
+
+      <div class="tabpane" id="pane-pages">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+          <button class="btn sm" id="fixAllBtn" onclick="fixAllPages(this)">AI แก้ทุกหน้าตามหลัก SEO</button>
+        </div>
+        <div id="fixPagePanel"></div>
+        <div class="tcard">
+          <table class="ptable">
+            <thead><tr><th>URL</th><th>สถานะ</th><th>Title</th><th>Desc</th><th>H1</th><th>Canonical</th><th>คำ</th><th>รูป / ไม่มี alt</th><th>Schema</th><th>SPA</th><th></th></tr></thead>
+            <tbody id="pagesBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tabpane" id="pane-compare">
+        <div id="compareBox"></div>
+      </div>
+
+      <div class="tabpane" id="pane-fixes">
+        <div id="fixesList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ VIEW: HISTORY ═══ -->
+  <div class="view" id="view-history">
+    <div class="pagehead">
+      <h1>ประวัติการตรวจ</h1>
+      <div class="sub">คลิกเพื่อเปิดรายงานเดิม หรือใช้เทียบคะแนนก่อน–หลังแก้</div>
+    </div>
+    <div id="watchPanel"></div>
+    <div class="tcard" id="historyList"></div>
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
