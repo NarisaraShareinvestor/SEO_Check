@@ -522,9 +522,14 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
   } catch { site.notFoundHandling = null; }
 
   // 7. Rendered crawl (ถ้ามี playwright) — render หน้าแรก + อีก 2 หน้าสำคัญ
+  // ข้ามเมื่อใช้ Worker relay: Playwright ลอด relay ไม่ได้ ต้องต่อตรงจาก IP เซิร์ฟเวอร์
+  // ซึ่งโดน geo-block → ค้างจน timeout ทุกหน้า (raw HTML ผ่าน relay เพียงพอต่อการวิเคราะห์แล้ว)
   const htmlPages = site.pages.filter(p => p.title !== undefined && p.status === 200);
   const renderTargets = htmlPages.slice(0, 3).map(p => p.finalUrl || p.url);
-  if (renderTargets.length) {
+  if (workerRelay) {
+    onProgress('ข้าม render ด้วย Chrome (ใช้ Worker relay — วิเคราะห์จาก raw HTML)');
+    site.rendered = { available: false, skipped: 'worker-relay', pages: {} };
+  } else if (renderTargets.length) {
     onProgress('กำลังลอง render ด้วย headless Chrome (เทียบ raw vs rendered)...');
     site.rendered = await tryRenderPages(renderTargets, onProgress);
   }
