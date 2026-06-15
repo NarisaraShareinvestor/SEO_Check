@@ -14,16 +14,8 @@ const CONCURRENCY = 5;
 const PROXY_URL = process.env.CRAWL_PROXY || process.env.PROXY_URL || '';
 const workerRelay = PROXY_URL.startsWith('https://') ? PROXY_URL : '';
 
-// lazy-init ProxyAgent เพื่อกัน undici version mismatch crash ตั้งแต่โหลด module
-let proxyDispatcher = null;
-if (!workerRelay && PROXY_URL) {
-  try {
-    const { ProxyAgent } = await import('undici');
-    proxyDispatcher = new ProxyAgent(PROXY_URL);
-  } catch (e) {
-    console.warn('[crawler] undici ProxyAgent unavailable, standard proxy disabled:', e.message);
-  }
-}
+// standard http:// proxy ไม่รองรับตอนนี้ — ใช้ Worker relay (https://) แทน
+const proxyDispatcher = null;
 
 // แปลง PROXY_URL เป็นรูปแบบที่ Playwright ต้องการ — Worker relay ใช้กับ Playwright ไม่ได้
 function playwrightProxy() {
