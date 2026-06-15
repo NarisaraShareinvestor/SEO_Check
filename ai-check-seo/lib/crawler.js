@@ -1,11 +1,30 @@
 // Deep Crawler — ดึงหน้าเว็บแบบ raw HTML + (ถ้ามี Playwright) rendered DOM
 // เคารพ robots.txt, ไล่ตาม sitemap + internal links, เก็บ headers/redirects ครบ
 import * as cheerio from 'cheerio';
+import { ProxyAgent } from 'undici';
 
 // ใช้ browser UA จริง — WAF หลายเจ้าบล็อกชื่อ bot แปลกหน้าทั้งที่ robots.txt อนุญาต (เรายังเคารพ robots.txt เสมอ)
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const FETCH_TIMEOUT = 20000;
 const CONCURRENCY = 5;
+
+// Proxy (optional) — เว็บไทยหลายเจ้า (irplus IR, ราชการ) บล็อก IP ดาต้าเซ็นเตอร์/ต่างประเทศ
+// ตั้ง CRAWL_PROXY=http://user:pass@host:port เพื่อให้ทั้ง fetch + Playwright ออกผ่าน IP ไทย
+// ไม่ตั้ง = ทำงานเหมือนเดิม (ออกตรงจาก IP เซิร์ฟเวอร์)
+const PROXY_URL = process.env.CRAWL_PROXY || process.env.PROXY_URL || '';
+const proxyDispatcher = PROXY_URL ? new ProxyAgent(PROXY_URL) : null;
+
+// แปลง PROXY_URL เป็นรูปแบบที่ Playwright ต้องการ ({ server, username, password })
+function playwrightProxy() {
+  if (!PROXY_URL) return undefined;
+  try {
+    const u = new URL(PROXY_URL);
+    const p = { server: `${u.protocol}//${u.host}` };
+    if (u.username) p.username = decodeURIComponent(u.username);
+    if (u.password) p.password = decodeURIComponent(u.password);
+    return p;
+  } catch { return undefined; }
+}
 
 export function normalizeUrl(raw, base) {
   try {
@@ -36,6 +55,7 @@ async function fetchWithMeta(url, { method = 'GET', redirect = 'manual' } = {}) 
       method, redirect,
       headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'th,en;q=0.8' },
       signal: ctrl.signal,
+      ...(proxyDispatcher ? { dispatcher: proxyDispatcher } : {}),
     });
     const elapsed = Date.now() - started;
     return { res, elapsed };
@@ -292,7 +312,7 @@ async function tryRenderPages(urls, onProgress) {
   catch { return { available: false, pages: {} }; }
   let browser;
   try {
-    browser = await pw.chromium.launch({ headless: true });
+    browser = await pw.chromium.launch({ headless: true, proxy: playwrightProxy() });
     const ctx = await browser.newContext({ userAgent: UA, locale: 'th-TH' });
     const out = {};
     for (const url of urls) {
