@@ -1,7 +1,6 @@
 // Deep Crawler — ดึงหน้าเว็บแบบ raw HTML + (ถ้ามี Playwright) rendered DOM
 // เคารพ robots.txt, ไล่ตาม sitemap + internal links, เก็บ headers/redirects ครบ
 import * as cheerio from 'cheerio';
-import { ProxyAgent } from 'undici';
 
 // ใช้ browser UA จริง — WAF หลายเจ้าบล็อกชื่อ bot แปลกหน้าทั้งที่ robots.txt อนุญาต (เรายังเคารพ robots.txt เสมอ)
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
@@ -14,7 +13,17 @@ const CONCURRENCY = 5;
 //   CRAWL_PROXY=http://user:pass@host:port → Standard HTTP proxy (ใช้กับทั้ง fetch + Playwright)
 const PROXY_URL = process.env.CRAWL_PROXY || process.env.PROXY_URL || '';
 const workerRelay = PROXY_URL.startsWith('https://') ? PROXY_URL : '';
-const proxyDispatcher = (!workerRelay && PROXY_URL) ? new ProxyAgent(PROXY_URL) : null;
+
+// lazy-init ProxyAgent เพื่อกัน undici version mismatch crash ตั้งแต่โหลด module
+let proxyDispatcher = null;
+if (!workerRelay && PROXY_URL) {
+  try {
+    const { ProxyAgent } = await import('undici');
+    proxyDispatcher = new ProxyAgent(PROXY_URL);
+  } catch (e) {
+    console.warn('[crawler] undici ProxyAgent unavailable, standard proxy disabled:', e.message);
+  }
+}
 
 // แปลง PROXY_URL เป็นรูปแบบที่ Playwright ต้องการ — Worker relay ใช้กับ Playwright ไม่ได้
 function playwrightProxy() {
