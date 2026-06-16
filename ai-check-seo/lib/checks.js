@@ -84,8 +84,20 @@ export function runChecks(site) {
       'เปลี่ยนเป็น H1 ที่มองเห็นได้จริง หรือลบออกถ้าซ้ำกับ visual element อื่น',
       pageList(hiddenH1Pages), true));
 
-    const multiH1 = okPages.filter(p => p.headings.filter(h => h.tag === 'h1').length > 1);
-    if (multiH1.length) checks.push(mk('h1-multiple', 'onpage', 'low', 'warn', 'หน้าที่มี H1 มากกว่า 1', `${multiH1.length} หน้า — ไม่ผิดร้ายแรงแต่เจือจางสัญญาณคีย์เวิร์ด`, 'เหลือ H1 เดียว ที่เหลือเปลี่ยนเป็น H2', pageList(multiH1)));
+    const h1Count = p => p.headings.filter(h => h.tag === 'h1').length;
+    const multiH1 = okPages.filter(p => h1Count(p) > 1);
+    if (multiH1.length) {
+      const maxH1 = Math.max(...multiH1.map(h1Count));
+      // 2–3 H1 = เจือจางสัญญาณ (warn) · มากกว่านั้น = H1 abuse จริง (fail)
+      const abuse = maxH1 > 3;
+      checks.push(mk('h1-multiple', 'onpage', abuse ? 'high' : 'low', abuse ? 'fail' : 'warn',
+        abuse ? `H1 มากเกินไป (สูงสุด ${maxH1} ตัวต่อหน้า)` : 'หน้าที่มี H1 มากกว่า 1',
+        abuse
+          ? `${multiH1.length} หน้ามี H1 หลายตัว (สูงสุด ${maxH1} ตัว/หน้า) — Google ไม่รู้ว่าหน้านี้เกี่ยวกับอะไร มักเกิดจากเอา H1 ไปครอบ slider/section headers`
+          : `${multiH1.length} หน้า — ไม่ผิดร้ายแรงแต่เจือจางสัญญาณคีย์เวิร์ด`,
+        'เหลือ H1 เดียวต่อหน้า ที่เหลือเปลี่ยนเป็น H2/H3 ตามลำดับชั้นเนื้อหา',
+        pageList(multiH1), abuse));
+    }
 
     const skipHeading = okPages.filter(p => {
       const order = p.headings.map(h => +h.tag[1]);
@@ -157,6 +169,30 @@ export function runChecks(site) {
     const noindexed = okPages.filter(p => /noindex/i.test(p.metas['robots'] || '') || /noindex/i.test(p.headers?.['x-robots-tag'] || ''));
     if (noindexed.length) checks.push(mk('noindex', 'index', 'high', 'warn', 'หน้าที่ติด noindex', `${noindexed.length} หน้ามี meta robots หรือ X-Robots-Tag เป็น noindex — จะไม่ขึ้น Google`, 'ตรวจว่าตั้งใจไหม ถ้าเป็นหน้าสำคัญให้เอาออก', pageList(noindexed)));
 
+    // robots meta directive ที่ไม่ valid หรือ deprecated (เช่น "nodiy", "noodp", "noydir")
+    const VALID_ROBOTS = new Set(['index','noindex','follow','nofollow','none','all','noarchive','nosnippet','notranslate','noimageindex','nocache','indexifembedded','max-snippet','max-image-preview','max-video-preview','unavailable_after']);
+    const DEPRECATED_ROBOTS = new Set(['noodp','noydir']);
+    const badRobotsMeta = [];
+    for (const p of okPages) {
+      const content = (p.metas['robots'] || '').trim();
+      if (!content) continue;
+      const tokens = content.toLowerCase().split(',').map(t => t.split(':')[0].trim()).filter(Boolean);
+      const bad = tokens.filter(t => !VALID_ROBOTS.has(t) && !DEPRECATED_ROBOTS.has(t));
+      const dep = tokens.filter(t => DEPRECATED_ROBOTS.has(t));
+      if (bad.length || dep.length) badRobotsMeta.push({ p, bad, dep, content });
+    }
+    if (badRobotsMeta.length) {
+      const allBad = [...new Set(badRobotsMeta.flatMap(x => x.bad))];
+      const allDep = [...new Set(badRobotsMeta.flatMap(x => x.dep))];
+      const parts = [];
+      if (allBad.length) parts.push(`directive ที่ไม่มีจริง: "${allBad.join('", "')}" (Google ไม่รู้จัก อาจ ignore ทั้งบรรทัด)`);
+      if (allDep.length) parts.push(`directive ที่เลิกใช้แล้ว: "${allDep.join('", "')}" (deprecated ตั้งแต่ปี 2019)`);
+      checks.push(mk('robots-meta-invalid', 'index', 'med', 'warn', 'meta robots มี directive ที่ไม่ valid',
+        `${badRobotsMeta.length} หน้า — ${parts.join(' · ')}`,
+        'ใช้เฉพาะ directive มาตรฐาน เช่น index, noindex, follow, nofollow, noarchive, max-snippet — เอา token ที่ไม่รู้จัก/deprecated ออก',
+        pageList(badRobotsMeta.map(x => x.p)), true));
+    }
+
     const noCanonical = okPages.filter(p => !p.canonical);
     checks.push(noCanonical.length
       ? mk('canonical-missing', 'index', 'high', 'fail', 'หน้าที่ไม่มี canonical tag', `${noCanonical.length}/${okPages.length} หน้า — เสี่ยง duplicate content (เช่น /, /home, ?param ถูก index แยกกัน)`, 'ใส่ <link rel="canonical"> ทุกหน้า ชี้ URL หลักของตัวเอง', pageList(noCanonical), true)
@@ -182,8 +218,21 @@ export function runChecks(site) {
       checks.push(mk('hreflang', 'index', 'low', badHreflang.length ? 'warn' : 'pass', 'hreflang',
         badHreflang.length ? `มี hreflang แต่ ${badHreflang.length} หน้าไม่มี x-default` : `พบ hreflang บน ${hreflangPages.length} หน้า`,
         badHreflang.length ? 'เพิ่ม hreflang="x-default"' : '', pageList(badHreflang), true));
-    } else if (okPages.some(p => /\/(en|th)\//.test(p.url))) {
-      checks.push(mk('hreflang', 'index', 'med', 'warn', 'มีหลายภาษาแต่ไม่มี hreflang', 'พบ URL แบบ /en/ หรือ /th/ แต่ไม่มี hreflang tags — Google อาจเสิร์ฟภาษาผิดให้ผู้ใช้', 'ใส่ hreflang ครบทุกคู่ภาษา + x-default', [], true));
+    } else {
+      // ตรวจหาสัญญาณว่าเว็บมีหลายภาษา ทั้งแบบ path (/en/, /th/) และ query (?language=en, ?lang=en, ?hl=en)
+      const langPath = /\/(en|th|zh|ja|ko)(\/|$)/i;
+      const langQuery = /[?&](lang|language|locale|hl)=([a-z]{2})/i;
+      const isLangUrl = u => langPath.test(u) || langQuery.test(u);
+      const crawledMulti = okPages.some(p => isLangUrl(p.url));
+      const sitemapMulti = (site.sitemapUrls || []).some(isLangUrl);
+      if (crawledMulti || sitemapMulti) {
+        const where = sitemapMulti && !crawledMulti
+          ? 'sitemap มี URL หลายภาษา (เช่น ?language=en) แต่หน้าที่ตรวจไม่มี hreflang tags เลย'
+          : 'พบ URL หลายภาษา (path /en/ หรือ query ?language=en) แต่ไม่มี hreflang tags';
+        checks.push(mk('hreflang', 'index', 'med', 'warn', 'มีหลายภาษาแต่ไม่มี hreflang',
+          `${where} — Google อาจเสิร์ฟภาษาผิดให้ผู้ใช้ และ index หน้าซ้ำข้ามภาษา`,
+          'ใส่ <link rel="alternate" hreflang="..."> ครบทุกคู่ภาษา + x-default ในทุกหน้า', [], true));
+      }
     }
   }
 
