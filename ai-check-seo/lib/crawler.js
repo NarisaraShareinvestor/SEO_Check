@@ -4,7 +4,8 @@ import * as cheerio from 'cheerio';
 
 // Decode response body ด้วย charset ที่ถูกต้อง
 // — ถ้าไม่ทำ: เว็บ windows-874/TIS-620 (เว็บไทยเก่า) จะได้ข้อความเพี้ยนทั้งหมด
-async function decodeHtmlFromResponse(res) {
+// export เพื่อให้ golden-fixture test เรียก decode byte-level ได้ตรงๆ
+export async function decodeHtmlFromResponse(res) {
   // 1. ลอง charset จาก HTTP Content-Type header ก่อน (reliable ที่สุด)
   const ct = res.headers.get('content-type') || '';
   let charset = ct.match(/charset=([\w-]+)/i)?.[1] || '';
