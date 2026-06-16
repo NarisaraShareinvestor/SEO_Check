@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>หน้าหลายภาษาแบบ query param — ทดสอบ hreflang</title>
+  <meta name="description" content="fixture เลียนแบบ qh.co.th ที่มีหน้า ?language=en/th ใน sitemap แต่ไม่มี hreflang tag บนหน้า">
+  <link rel="canonical" href="https://example.com/home">
+  <!-- จงใจไม่ใส่ <link rel="alternate" hreflang> ทั้งที่เว็บมีหลายภาษาผ่าน query param -->
+</head>
+<body>
+  <h1>หน้าแรกสองภาษา</h1>
+  <p>หน้านี้มีเวอร์ชันภาษาอังกฤษที่ ?language=en แต่ไม่ประกาศ hreflang ทำให้ Google อาจเสิร์ฟภาษาผิดให้ผู้ใช้</p>
+  <a href="/home?language=en">English</a>
+  <a href="/home?language=th">ไทย</a>
+</body>
+</html>

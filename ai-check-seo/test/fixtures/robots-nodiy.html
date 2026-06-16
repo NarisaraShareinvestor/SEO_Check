@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>หน้าที่มี robots meta ผิด — ทดสอบ robots-meta-invalid</title>
+  <meta name="description" content="fixture เลียนแบบ qh.co.th ที่ใช้ meta robots content=nodiy,noodp ซึ่งไม่ใช่ directive มาตรฐาน">
+  <link rel="canonical" href="https://example.com/robots-nodiy">
+  <!-- จงใจใส่ directive ที่ไม่มีจริง (nodiy) + deprecated (noodp) ตรงกับ qh.co.th -->
+  <meta name="robots" content="nodiy,noodp">
+</head>
+<body>
+  <h1>หน้าที่มี robots meta directive ไม่ valid</h1>
+  <p>meta robots ใช้ค่า nodiy ซึ่งไม่ใช่ directive มาตรฐาน และ noodp ที่ deprecated ตั้งแต่ปี 2019 — Google อาจ ignore ทั้งบรรทัด</p>
+</body>
+</html>
