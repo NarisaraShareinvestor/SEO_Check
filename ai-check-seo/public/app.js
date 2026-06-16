@@ -143,13 +143,25 @@ function render(audit) {
   // เข้าเว็บไม่ได้ — โชว์ card แจ้งชัด + ปุ่มลองใหม่ ไม่โชว์เกรด F หลอกตา
   if (audit.unreachable) {
     const info = audit.unreachableInfo || {};
+    const geoHint = info.geoBlock ? `
+          <div class="unreachable-geo">
+            <b>วิธีแก้: ตั้ง Cloudflare Worker relay</b>
+            <ol>
+              <li>ไปที่ <code>dashboard.cloudflare.com</code> &rarr; Workers &amp; Pages &rarr; Create Worker</li>
+              <li>วางโค้ดจากไฟล์ <code>cloudflare-worker/worker.js</code> ในโปรเจคนี้ แล้วกด Deploy</li>
+              <li>เพิ่มบรรทัดนี้ใน <code>.env</code>:<br><code>CRAWL_PROXY=https://&lt;worker-name&gt;.&lt;account&gt;.workers.dev</code></li>
+              <li>รีสตาร์ทเซิร์ฟเวอร์ แล้วลองตรวจใหม่</li>
+            </ol>
+            <p class="unreachable-meta">Worker รันบน edge Cloudflare ใกล้กับเซิร์ฟเวอร์เป้าหมาย — ใช้ฟรีได้ถึง 100,000 req/วัน</p>
+          </div>` : '';
     $('#statRow').innerHTML = `
       <div class="unreachable-card">
-        <div class="unreachable-icon">⚠</div>
+        <div class="unreachable-icon">&#9888;</div>
         <div class="unreachable-body">
-          <b>เข้าถึงเว็บไซต์ไม่ได้ — ยังไม่ได้ประเมิน SEO</b>
+          <b>${info.geoBlock ? 'บล็อก IP ต่างประเทศ (geo-block) — ยังไม่ได้ประเมิน SEO' : 'เข้าถึงเว็บไซต์ไม่ได้ — ยังไม่ได้ประเมิน SEO'}</b>
           <p>${esc(info.message || 'crawl ไม่พบหน้าที่ตอบ 200')}</p>
           <p class="unreachable-meta">พยายามเชื่อมต่อ ${info.errors || 0} ครั้ง · ไม่ได้หน้าเลย${info.statuses?.length ? ` · สถานะที่เจอ: ${info.statuses.join(', ')}` : ''}</p>
+          ${geoHint}
           <button class="btn-retry" onclick="startAudit('${esc(audit.url)}');window.scrollTo({top:0,behavior:'smooth'});">ลองตรวจใหม่อีกครั้ง</button>
         </div>
       </div>`;

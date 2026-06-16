@@ -193,6 +193,12 @@ async function runAudit(job, url, maxPages, competitorUrl) {
     if (tech.pagesAnalyzed === 0) {
       const errStatuses = [...new Set(site.fetchErrors.map(e => e.status).filter(Boolean))];
       const errReasons = [...new Set(site.fetchErrors.map(e => e.error).filter(Boolean))].slice(0, 3);
+      // ตรวจจับ geo-block: domain .th + network error (ไม่มี HTTP status) + ยังไม่ได้ตั้ง CRAWL_PROXY
+      let hostname = ''; try { hostname = new URL(url).hostname; } catch {}
+      const isThai = /\.th$/.test(hostname);
+      const isNetErr = errStatuses.length === 0 && errReasons.some(r => /fetch.failed|timeout|ECON|ETIMED/i.test(r));
+      const proxySet = !!(process.env.CRAWL_PROXY || process.env.PROXY_URL);
+      const geoBlock = isThai && isNetErr && !proxySet;
       audit.unreachable = true;
       audit.unreachableInfo = {
         crawled: site.pages.length,
@@ -200,9 +206,12 @@ async function runAudit(job, url, maxPages, competitorUrl) {
         statuses: errStatuses,
         reasons: errReasons,
         robotsStatus: site.robotsStatus,
-        message: errStatuses.length
-          ? `เซิร์ฟเวอร์ตอบกลับด้วยสถานะ ${errStatuses.join(', ')} — เว็บอาจกำลังจำกัดการเข้าถึง (rate limit/WAF) หรือล่มชั่วคราว`
-          : `เชื่อมต่อเว็บไม่สำเร็จ (${errReasons.join(', ') || 'ไม่ทราบสาเหตุ'}) — เว็บอาจล่มหรือบล็อกการตรวจชั่วคราว`,
+        geoBlock,
+        message: geoBlock
+          ? 'เชื่อมต่อไม่ได้ — น่าจะเป็นการบล็อก IP ต่างประเทศ (geo-block) ซึ่งพบบ่อยในเว็บ .th'
+          : errStatuses.length
+            ? `เซิร์ฟเวอร์ตอบกลับด้วยสถานะ ${errStatuses.join(', ')} — เว็บอาจกำลังจำกัดการเข้าถึง (rate limit/WAF) หรือล่มชั่วคราว`
+            : `เชื่อมต่อเว็บไม่สำเร็จ (${errReasons.join(', ') || 'ไม่ทราบสาเหตุ'}) — เว็บอาจล่มหรือบล็อกการตรวจชั่วคราว`,
       };
       job.status = 'done';
       push(`เข้าเว็บไม่ได้ — crawl 0 หน้า (${audit.unreachableInfo.message}). ข้ามการวิเคราะห์ ลองตรวจใหม่อีกครั้ง`);

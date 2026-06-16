@@ -11,21 +11,20 @@ const CONCURRENCY = 5;
 // สองรูปแบบ:
 //   CRAWL_PROXY=https://xxx.workers.dev  → Cloudflare Worker relay (ฟรี, ใช้กับ fetch เท่านั้น)
 //   CRAWL_PROXY=http://user:pass@host:port → Standard HTTP proxy (ใช้กับทั้ง fetch + Playwright)
-const PROXY_URL = process.env.CRAWL_PROXY || process.env.PROXY_URL || '';
-const workerRelay = PROXY_URL.startsWith('https://') ? PROXY_URL : '';
-
-// standard http:// proxy ไม่รองรับตอนนี้ — ใช้ Worker relay (https://) แทน
-const proxyDispatcher = null;
+// อ่าน dynamic ทุกครั้ง — ES module imports hoisted ก่อน server.js parse .env เสร็จ ถ้าใช้ค่า module-level จะได้ค่าว่างเสมอ
+function getProxyUrl() { return process.env.CRAWL_PROXY || process.env.PROXY_URL || ''; }
+function getWorkerRelay() { const p = getProxyUrl(); return p.startsWith('https://') ? p : ''; }
 
 // แปลง PROXY_URL เป็นรูปแบบที่ Playwright ต้องการ — Worker relay ใช้กับ Playwright ไม่ได้
 function playwrightProxy() {
-  if (!PROXY_URL || workerRelay) return undefined;
+  const p = getProxyUrl(); const wr = getWorkerRelay();
+  if (!p || wr) return undefined;
   try {
-    const u = new URL(PROXY_URL);
-    const p = { server: `${u.protocol}//${u.host}` };
-    if (u.username) p.username = decodeURIComponent(u.username);
-    if (u.password) p.password = decodeURIComponent(u.password);
-    return p;
+    const u = new URL(p);
+    const r = { server: `${u.protocol}//${u.host}` };
+    if (u.username) r.username = decodeURIComponent(u.username);
+    if (u.password) r.password = decodeURIComponent(u.password);
+    return r;
   } catch { return undefined; }
 }
 
@@ -53,6 +52,7 @@ async function fetchWithMeta(url, { method = 'GET', redirect = 'manual' } = {}) 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT);
   const started = Date.now();
+  const workerRelay = getWorkerRelay();
   try {
     if (workerRelay) {
       // ส่งผ่าน Cloudflare Worker relay — Worker fetch ด้วย IP ของ Cloudflare (ใกล้ target)
@@ -77,7 +77,6 @@ async function fetchWithMeta(url, { method = 'GET', redirect = 'manual' } = {}) 
       method, redirect,
       headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'th,en;q=0.8' },
       signal: ctrl.signal,
-      ...(proxyDispatcher ? { dispatcher: proxyDispatcher } : {}),
     });
     const elapsed = Date.now() - started;
     return { res, elapsed };
@@ -526,7 +525,7 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
   // ซึ่งโดน geo-block → ค้างจน timeout ทุกหน้า (raw HTML ผ่าน relay เพียงพอต่อการวิเคราะห์แล้ว)
   const htmlPages = site.pages.filter(p => p.title !== undefined && p.status === 200);
   const renderTargets = htmlPages.slice(0, 3).map(p => p.finalUrl || p.url);
-  if (workerRelay) {
+  if (getWorkerRelay()) {
     onProgress('ข้าม render ด้วย Chrome (ใช้ Worker relay — วิเคราะห์จาก raw HTML)');
     site.rendered = { available: false, skipped: 'worker-relay', pages: {} };
   } else if (renderTargets.length) {
