@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { extractPageData, decodeHtmlFromResponse, parseRobots } from '../lib/crawler.js';
 import { runChecks } from '../lib/checks.js';
 import { validateSchemaNodes } from '../lib/schema-validate.js';
+import { guardAiAnalysis } from '../lib/ai.js';
 
 const DIR = dirname(fileURLToPath(import.meta.url));
 const FIX = join(DIR, 'fixtures');
@@ -201,6 +202,66 @@ console.log('▸ schema validator: required/recommended ตามเกณฑ์
   const e6 = r6.errors.length === 0 && r6.warnings.length === 0 && !r6.hasValidatableType;
   assert(e6, 'schema :: type ไม่รู้จัก ไม่ false-positive', JSON.stringify(r6));
   console.log(`    ${e6 ? '✅' : '❌'} type ไม่รู้จัก → เงียบ`);
+  console.log('');
+}
+
+// ── Layer 3: AI guardrail (กัน AI กุปัญหา / อ้าง check ที่ไม่มี) ─────────
+console.log('▸ AI guardrail: ตัด priority ที่อ้าง check ผิด');
+{
+  const fakeAudit = {
+    checks: [
+      { id: 'h1-multiple', status: 'fail' },
+      { id: 'canonical-missing', status: 'fail' },
+      { id: 'https', status: 'pass' },
+    ],
+  };
+  const aiOutput = {
+    executiveSummary: 'สรุป',
+    topPriorities: [
+      { rank: 1, checkId: 'h1-multiple', title: 'H1 เยอะ' },        // valid issue → keep
+      { rank: 2, checkId: 'made-up-check', title: 'ปัญหาที่กุขึ้น' }, // hallucinated → drop
+      { rank: 3, checkId: 'https', title: 'HTTPS' },                 // pass → drop (กุปัญหาที่ไม่มี)
+      { rank: 4, checkId: 'canonical-missing', title: 'canonical' }, // valid issue → keep
+    ],
+  };
+  const g = guardAiAnalysis(aiOutput, fakeAudit);
+  const keptOk = g.topPriorities.length === 2 && g.topPriorities.every(p => ['h1-multiple', 'canonical-missing'].includes(p.checkId));
+  assert(keptOk, 'guardrail :: เก็บเฉพาะ valid issue', JSON.stringify(g.topPriorities.map(p => p.checkId)));
+  console.log(`    ${keptOk ? '✅' : '❌'} เก็บเฉพาะ check ที่มีจริง+เป็นปัญหา (${g.topPriorities.map(p => p.checkId).join(', ')})`);
+
+  const hallOk = g._guardrail.droppedHallucinated.includes('made-up-check');
+  assert(hallOk, 'guardrail :: จับ hallucinated id', JSON.stringify(g._guardrail));
+  console.log(`    ${hallOk ? '✅' : '❌'} จับ checkId ที่กุขึ้น: ${g._guardrail.droppedHallucinated.join(', ')}`);
+
+  const nonIssueOk = g._guardrail.droppedNonIssue.includes('https');
+  assert(nonIssueOk, 'guardrail :: จับ check ที่ status=pass', JSON.stringify(g._guardrail));
+  console.log(`    ${nonIssueOk ? '✅' : '❌'} จับ check ที่ผ่านแล้ว (AI กุปัญหา): ${g._guardrail.droppedNonIssue.join(', ')}`);
+
+  // จัด rank ใหม่ต่อเนื่อง 1,2 หลังตัด
+  const rankOk = g.topPriorities.map(p => p.rank).join(',') === '1,2';
+  assert(rankOk, 'guardrail :: re-rank หลังตัด', g.topPriorities.map(p => p.rank).join(','));
+  console.log(`    ${rankOk ? '✅' : '❌'} จัดอันดับใหม่ต่อเนื่อง: ${g.topPriorities.map(p => p.rank).join(',')}`);
+
+  // output ปกติ (ไม่มี hallucination) → _guardrail.ok = true
+  const clean = guardAiAnalysis({ topPriorities: [{ rank: 1, checkId: 'h1-multiple' }] }, fakeAudit);
+  const cleanOk = clean._guardrail.ok === true;
+  assert(cleanOk, 'guardrail :: output สะอาด → ok=true', JSON.stringify(clean._guardrail));
+  console.log(`    ${cleanOk ? '✅' : '❌'} output สะอาด → _guardrail.ok = true`);
+  console.log('');
+}
+
+// ── Layer 3: determinism — rule engine ต้องให้ผลเดิมเป๊ะทุกครั้ง ─────────
+console.log('▸ determinism: runChecks ซ้ำต้องได้ผลเหมือนเดิม 100%');
+{
+  const snap = () => {
+    const page = pageFromFixture('h1-abuse.html', 'https://example.com/h1-abuse');
+    const { checks } = runChecks(healthySite(page, {}));
+    return checks.map(c => `${c.id}:${c.status}:${c.severity}`).sort().join('|');
+  };
+  const a = snap(), b = snap(), c = snap();
+  const deterministic = a === b && b === c;
+  assert(deterministic, 'determinism :: 3 รัน identical', deterministic ? '' : 'ผลต่างกันระหว่างรัน!');
+  console.log(`    ${deterministic ? '✅' : '❌'} รัน 3 ครั้งได้ผล identical (${a.split('|').length} checks)`);
   console.log('');
 }
 

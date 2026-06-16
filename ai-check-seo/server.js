@@ -244,6 +244,11 @@ async function runAudit(job, url, maxPages, competitorUrl) {
     drainAiCost(); // เคลียร์ cost ค้างจาก audit ก่อนหน้า (กรณี error กลางคัน)
     push(aiAvailable() ? 'กำลังให้ AI วิเคราะห์และจัดลำดับความสำคัญ...' : 'สรุปผลแบบ template (ยังไม่ได้ใส่ AI API key)...');
     audit.analysis = await aiAnalyze(audit);
+    {
+      const g = audit.analysis?._guardrail;
+      const n = g ? g.droppedHallucinated.length + g.droppedNonIssue.length : 0;
+      if (n > 0) push(`Guardrail: ตัดข้อที่ AI อ้างผิด ${n} ข้อ (กุขึ้นมา ${g.droppedHallucinated.length}, ชี้ check ที่ผ่านแล้ว ${g.droppedNonIssue.length})`);
+    }
 
     push('กำลังวางแผนเติบโต (keyword เป้าหมาย + ประมาณการ 3/6/12 เดือน)...');
     audit.growth = await aiGrowthPlan(audit);
