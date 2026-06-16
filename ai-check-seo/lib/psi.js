@@ -14,11 +14,28 @@ export async function fetchCWV(url) {
   const key = process.env.PAGESPEED_API_KEY;
   const api = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=mobile&category=performance${key ? `&key=${key}` : ''}`;
   try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 75000);
-    const res = await fetch(api, { signal: ctrl.signal });
-    clearTimeout(timer);
-    if (!res.ok) return { ok: false, status: res.status, error: (await res.text()).slice(0, 200) };
+    // retry สำหรับ 429 (quota)/5xx/network — เว้นจังหวะแบบ backoff
+    // หมายเหตุ: 429 จาก "ไม่มี key" มักไม่หายด้วย retry — ทางแก้จริงคือใส่ PAGESPEED_API_KEY (ฟรี)
+    let res, lastErr = '';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 1500));
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 75000);
+      try {
+        res = await fetch(api, { signal: ctrl.signal });
+      } catch (e) { lastErr = String(e.message || e); clearTimeout(timer); continue; }
+      clearTimeout(timer);
+      if (res.ok) break;
+      lastErr = `HTTP ${res.status}`;
+      if (res.status !== 429 && res.status < 500) break; // 4xx อื่น = ไม่ต้อง retry
+    }
+    if (!res || !res.ok) {
+      const status = res?.status;
+      const hint = status === 429 && !key
+        ? 'โดน rate-limit เพราะไม่มี PAGESPEED_API_KEY — ขอ key ฟรีที่ console.cloud.google.com (เปิด PageSpeed Insights API) แล้วใส่ใน .env'
+        : 'ลองใหม่ภายหลัง';
+      return { ok: false, status, error: lastErr, hint };
+    }
     const d = await res.json();
     const audits = d.lighthouseResult?.audits || {};
     const crux = d.loadingExperience?.metrics || {};
@@ -58,7 +75,7 @@ export function buildPsiChecks(psi) {
     return checks;
   }
   if (!psi.ok) {
-    checks.push(mk('cwv', 'low', 'info', 'เชื่อมต่อ Google PageSpeed ไม่สำเร็จ', `${psi.status || ''} ${psi.error || ''}`.trim().slice(0, 200), 'ลองใหม่ภายหลัง หรือใส่ PAGESPEED_API_KEY เพื่อเพิ่ม quota'));
+    checks.push(mk('cwv', 'low', 'info', 'เชื่อมต่อ Google PageSpeed ไม่สำเร็จ', `${psi.status || ''} ${psi.error || ''}`.trim().slice(0, 200), psi.hint || 'ลองใหม่ภายหลัง หรือใส่ PAGESPEED_API_KEY เพื่อเพิ่ม quota'));
     return checks;
   }
 

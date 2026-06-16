@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>หน้าที่ schema ขาด required property — ทดสอบ schema-incomplete</title>
+  <meta name="description" content="fixture จงใจใส่ Product + Offer ที่ขาด price/priceCurrency และ FAQPage ที่ขาด acceptedAnswer.text">
+  <link rel="canonical" href="https://example.com/schema-incomplete">
+</head>
+<body>
+  <h1>สินค้าที่ structured data ไม่ครบ</h1>
+  <p>หน้านี้มี Product schema แต่ Offer ข้างในขาด price และ priceCurrency ซึ่ง Google ต้องการ จึงไม่ได้ rich result</p>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "เก้าอี้ทำงาน Ergonomic",
+    "offers": {
+      "@type": "Offer",
+      "availability": "https://schema.org/InStock"
+    }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "จัดส่งกี่วัน?" }
+    ]
+  }
+  </script>
+</body>
+</html>

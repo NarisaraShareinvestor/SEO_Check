@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>หน้าที่ schema ครบตามเกณฑ์ Google — ทดสอบ schema-incomplete pass</title>
+  <meta name="description" content="fixture ที่มี Organization + Product + Offer ครบ required และ recommended properties ตามเกณฑ์ Google Rich Results">
+  <link rel="canonical" href="https://example.com/schema-valid">
+</head>
+<body>
+  <h1>สินค้าที่ structured data ครบถ้วน</h1>
+  <p>หน้านี้มี Organization และ Product schema ที่มี property ครบตามเกณฑ์ Google ทั้ง required และ recommended</p>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Example Co",
+    "url": "https://example.com",
+    "logo": "https://example.com/logo.png",
+    "sameAs": ["https://facebook.com/example", "https://twitter.com/example"]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "เก้าอี้ทำงาน Ergonomic",
+    "image": "https://example.com/chair.jpg",
+    "brand": { "@type": "Brand", "name": "ErgoBrand" },
+    "offers": {
+      "@type": "Offer",
+      "price": "4990",
+      "priceCurrency": "THB",
+      "availability": "https://schema.org/InStock",
+      "url": "https://example.com/chair"
+    }
+  }
+  </script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 // Rule Engine — ตรวจ Technical SEO ด้วยกฎ deterministic (ไม่ใช้ AI → ผลนิ่ง เร็ว ฟรี)
 // ผลแต่ละข้อ: { id, category, severity, status: pass|warn|fail|info, title, detail, recommendation, pages, fixable }
 import { normalizeUrl } from './crawler.js';
+import { validateSchemaNodes } from './schema-validate.js';
 
 const CATS = {
   onpage: 'Meta & เนื้อหา',
@@ -258,6 +259,35 @@ export function runChecks(site) {
     checks.push(ldTypes.has('BreadcrumbList')
       ? mk('schema-breadcrumb', 'schema', 'low', 'pass', 'มี BreadcrumbList schema', '')
       : mk('schema-breadcrumb', 'schema', 'low', 'warn', 'ไม่มี BreadcrumbList schema', 'breadcrumb ใน SERP ช่วย CTR', 'เพิ่ม BreadcrumbList ทุกหน้า', [], true));
+
+    // ── ความสมบูรณ์ของ schema (เทียบเกณฑ์ rich-result ของ Google เหมือน Rich Results Test) ──
+    {
+      const errPages = [], warnPages = [];
+      const errSet = new Set(), warnSet = new Set();
+      let anyValidatable = false;
+      for (const p of okPages) {
+        const dataArr = p.jsonLd.filter(j => j.ok).map(j => j.data);
+        if (!dataArr.length) continue;
+        const v = validateSchemaNodes(dataArr);
+        if (v.hasValidatableType) anyValidatable = true;
+        if (v.errors.length) { errPages.push(p); v.errors.forEach(e => errSet.add(`${e.type}.${e.prop}`)); }
+        else if (v.warnings.length) { warnPages.push(p); v.warnings.forEach(w => warnSet.add(`${w.type}.${w.prop}`)); }
+      }
+      if (errPages.length) {
+        checks.push(mk('schema-incomplete', 'schema', 'high', 'fail', 'Structured Data ขาด required property',
+          `${errPages.length} หน้ามี schema ที่ขาด property จำเป็นตามเกณฑ์ Google — จะไม่ได้ rich result. ขาด: ${[...errSet].slice(0, 8).join(', ')}`,
+          'เติม property ที่จำเป็นให้ครบ แล้วทดสอบใน Rich Results Test ของ Google',
+          pageList(errPages), true));
+      } else if (warnPages.length) {
+        checks.push(mk('schema-incomplete', 'schema', 'low', 'warn', 'Structured Data ขาด recommended property',
+          `${warnPages.length} หน้ามี schema valid แต่ขาด property แนะนำ — rich result จะสมบูรณ์น้อยลง. ขาด: ${[...warnSet].slice(0, 8).join(', ')}`,
+          'เติม property แนะนำ (เช่น logo, image, datePublished, sameAs) เพื่อ rich result ที่สมบูรณ์',
+          pageList(warnPages), true));
+      } else if (anyValidatable) {
+        checks.push(mk('schema-incomplete', 'schema', 'high', 'pass', 'Structured Data ครบตามเกณฑ์ Google',
+          `schema ที่ตรวจได้ (${[...new Set(okPages.flatMap(p => p.jsonLd.filter(j => j.ok).flatMap(j => validateSchemaNodes([j.data]).types)))].slice(0, 8).join(', ')}) มี required property ครบ`));
+      }
+    }
 
     const noOg = okPages.filter(p => !p.metas['og:title'] || !p.metas['og:image']);
     checks.push(noOg.length
