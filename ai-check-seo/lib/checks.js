@@ -76,6 +76,14 @@ export function runChecks(site) {
       ? mk('h1-missing', 'onpage', 'high', 'fail', 'หน้าที่ไม่มี H1', `${noH1.length}/${okPages.length} หน้าไม่มี H1 ใน HTML${noH1.some(p => p.emptyRoot) ? ' (บางหน้าเป็น SPA shell — H1 ถูก render ด้วย JS เท่านั้น)' : ''}`, 'ทุกหน้าต้องมี H1 เดียว ใส่คีย์เวิร์ดหลัก และต้องอยู่ใน HTML ดิบ', pageList(noH1), true)
       : mk('h1-missing', 'onpage', 'high', 'pass', 'ทุกหน้ามี H1', 'ครบทุกหน้า'));
 
+    // H1 ซ่อนด้วย CSS — inline style (raw) หรือ computed style (Playwright)
+    const hiddenH1Pages = okPages.filter(p => (p.hiddenH1 || 0) + (p.renderedH1Hidden || 0) > 0);
+    if (hiddenH1Pages.length) checks.push(mk('h1-hidden', 'onpage', 'high', 'warn',
+      'H1 ถูกซ่อนด้วย CSS (hidden text)',
+      `${hiddenH1Pages.length} หน้ามี H1 ใน HTML แต่ผู้ใช้มองไม่เห็น (visibility:hidden / display:none) — Google อาจตีว่าเป็น hidden text manipulation`,
+      'เปลี่ยนเป็น H1 ที่มองเห็นได้จริง หรือลบออกถ้าซ้ำกับ visual element อื่น',
+      pageList(hiddenH1Pages), true));
+
     const multiH1 = okPages.filter(p => p.headings.filter(h => h.tag === 'h1').length > 1);
     if (multiH1.length) checks.push(mk('h1-multiple', 'onpage', 'low', 'warn', 'หน้าที่มี H1 มากกว่า 1', `${multiH1.length} หน้า — ไม่ผิดร้ายแรงแต่เจือจางสัญญาณคีย์เวิร์ด`, 'เหลือ H1 เดียว ที่เหลือเปลี่ยนเป็น H2', pageList(multiH1)));
 
@@ -331,6 +339,17 @@ export function runChecks(site) {
 
   // ════════ 9. DEEP CHECKS — ชุดตรวจเชิงลึก ════════
   {
+    // charset ไม่ใช่ UTF-8 — เว็บไทยเก่าหลายเจ้าใช้ windows-874/TIS-620
+    const nonUtf8 = okPages.filter(p => p.detectedCharset && !/^utf-?8$/i.test(p.detectedCharset));
+    if (nonUtf8.length) {
+      const charsets = [...new Set(nonUtf8.map(p => p.detectedCharset))].join(', ');
+      checks.push(mk('charset-not-utf8', 'technical', 'med', 'warn',
+        'Encoding ไม่ใช่ UTF-8',
+        `${nonUtf8.length} หน้าใช้ ${charsets} — Google แนะนำ UTF-8 เป็น encoding หลัก; อาจทำให้ข้อความแสดงผิดเพี้ยนในบางบริบทและ indexing ไม่สมบูรณ์`,
+        'เปลี่ยน server/CMS ให้ serve ด้วย UTF-8 และเพิ่ม <meta charset="UTF-8"> เป็นบรรทัดแรกใน <head>',
+        pageList(nonUtf8), true));
+    }
+
     // doctype
     const noDoctype = okPages.filter(p => p.hasDoctype === false);
     if (noDoctype.length) checks.push(mk('doctype-missing', 'onpage', 'low', 'warn', 'ไม่มี <!DOCTYPE html>', `${noDoctype.length} หน้า — เบราว์เซอร์เข้า quirks mode ผล render เพี้ยนได้`, 'เพิ่ม <!DOCTYPE html> บรรทัดแรกของทุกหน้า', pageList(noDoctype), true));

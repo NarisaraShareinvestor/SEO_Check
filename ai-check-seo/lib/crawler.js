@@ -2,6 +2,28 @@
 // เคารพ robots.txt, ไล่ตาม sitemap + internal links, เก็บ headers/redirects ครบ
 import * as cheerio from 'cheerio';
 
+// Decode response body ด้วย charset ที่ถูกต้อง
+// — ถ้าไม่ทำ: เว็บ windows-874/TIS-620 (เว็บไทยเก่า) จะได้ข้อความเพี้ยนทั้งหมด
+async function decodeHtmlFromResponse(res) {
+  // 1. ลอง charset จาก HTTP Content-Type header ก่อน (reliable ที่สุด)
+  const ct = res.headers.get('content-type') || '';
+  let charset = ct.match(/charset=([\w-]+)/i)?.[1] || '';
+  // 2. อ่าน raw bytes
+  const buf = await res.arrayBuffer();
+  // 3. ถ้าไม่มีใน header ให้ peek ส่วนต้นของ HTML หา <meta charset> (ASCII-safe อ่าน latin1 ได้)
+  if (!charset) {
+    const peek = new TextDecoder('latin1').decode(new Uint8Array(buf).slice(0, 2048));
+    charset = peek.match(/charset=["']?([\w-]+)/i)?.[1] || '';
+  }
+  charset = (charset || 'utf-8').toLowerCase().replace(/\s/g, '');
+  try {
+    return { html: new TextDecoder(charset, { fatal: false }).decode(buf), charset };
+  } catch {
+    // charset ไม่รู้จัก (เช่น ชื่อแปลก) → fallback utf-8
+    return { html: new TextDecoder('utf-8', { fatal: false }).decode(buf), charset: 'utf-8' };
+  }
+}
+
 // ใช้ browser UA จริง — WAF หลายเจ้าบล็อกชื่อ bot แปลกหน้าทั้งที่ robots.txt อนุญาต (เรายังเคารพ robots.txt เสมอ)
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const FETCH_TIMEOUT = 12000; // หน้าจริงตอบใน 1-2 วิ; ที่นานกว่านี้คือ origin ค้าง (เช่น IRPlus flap) — ตัดไว ๆ
@@ -237,8 +259,14 @@ export function extractPageData(html, url, headers, status, elapsed, chain) {
     });
   });
   const headings = [];
+  let hiddenH1 = 0;
   $('h1,h2,h3,h4,h5,h6').each((_, el) => {
     headings.push({ tag: el.tagName.toLowerCase(), text: $(el).text().replace(/\s+/g, ' ').trim().slice(0, 200) });
+  });
+  // ตรวจ H1 ที่ถูกซ่อนด้วย inline style — CSS class ต้องใช้ Playwright computed style
+  $('h1').each((_, el) => {
+    const style = ($(el).attr('style') || '').toLowerCase();
+    if (/visibility\s*:\s*hidden|display\s*:\s*none|opacity\s*:\s*0(?!\.)|(^|\s|;)font-size\s*:\s*0/.test(style)) hiddenH1++;
   });
   const metas = {};
   $('meta').each((_, el) => {
@@ -323,6 +351,7 @@ export function extractPageData(html, url, headers, status, elapsed, chain) {
     listCount: $('ul,ol').length,
     hasDoctype, headBlockingScripts, headStylesheets, deprecatedTags,
     metaRefresh, canonicalCount, emptyHeadings, hasMailto, hasPhone, maxCopyrightYear,
+    hiddenH1,
   };
 }
 
@@ -344,6 +373,11 @@ async function tryRenderPages(urls, onProgress) {
         const data = await page.evaluate(() => ({
           title: document.title,
           h1: [...document.querySelectorAll('h1')].map(h => h.textContent.trim()),
+          h1Hidden: [...document.querySelectorAll('h1')].filter(h => {
+            const s = window.getComputedStyle(h);
+            return s.visibility === 'hidden' || s.display === 'none' ||
+                   parseFloat(s.opacity) === 0 || parseFloat(s.fontSize) < 1;
+          }).length,
           textLength: document.body?.innerText?.replace(/\s+/g, ' ').trim().length || 0,
           metaDescription: document.querySelector('meta[name="description"]')?.content || '',
           linkCount: document.querySelectorAll('a[href]').length,
@@ -449,10 +483,11 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
         try { res.body?.cancel?.(); } catch {}
         return;
       }
-      const rawHtml = await res.text();
+      const { html: rawHtml, charset: detectedCharset } = await decodeHtmlFromResponse(res);
       // ตัด HTML ที่ใหญ่เกินไป — ป้องกัน stack overflow ใน cheerio recursive traversal
       const html = rawHtml.length > MAX_HTML_BYTES ? rawHtml.slice(0, MAX_HTML_BYTES) : rawHtml;
       const page = extractPageData(html, url, res.headers, status, 0, chain);
+      if (detectedCharset && !/^utf-?8$/i.test(detectedCharset)) page.detectedCharset = detectedCharset;
       page.finalUrl = finalUrl;
       if (site.pages.length >= maxPages) return; // ตรวจอีกครั้งหลัง await
       site.pages.push(page);
