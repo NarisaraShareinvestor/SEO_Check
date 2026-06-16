@@ -1,8 +1,9 @@
 // Page Fix — AI แก้หน้าเว็บแบบ "ถูกต้องพิสูจน์ได้"
 // หลักการ: AI แก้ → rule engine ตรวจซ้ำทันที → ถ้ายังมีปัญหา ส่งกลับให้ AI แก้รอบสอง (self-repair loop)
 // ผลลัพธ์มีหลักฐาน ก่อน/หลัง เป็นตัวเลข ไม่ใช่แค่ "AI บอกว่าแก้แล้ว"
+import * as cheerio from 'cheerio';
 import { extractPageData } from './crawler.js';
-import { aiGenerateFixedPage, aiAvailable } from './ai.js';
+import { aiGenerateFixedPage, aiGenerateHeadFix, aiAvailable } from './ai.js';
 
 const UA_HEADERS = { 'User-Agent': 'Mozilla/5.0 (compatible; AICheckSEO/1.0)', 'Accept': 'text/html' };
 
@@ -61,6 +62,106 @@ function sanitizeLdJson(html) {
     }
     return open + '\n' + cleaned + '\n' + close;
   });
+}
+
+// ── Surgical patcher: patch เฉพาะ <head> + JSON-LD + alt ด้วย cheerio (deterministic) ──
+// คง body เดิม 100% → ผ่าน content guard เสมอ เหมาะกับหน้าหนักที่ rewrite ทั้งหน้าไม่ไหว
+export function applyHeadFix(html, fix, url) {
+  const $ = cheerio.load(html, { decodeEntities: false });
+  let head = $('head').first();
+  if (!head.length) { $('html').prepend('<head></head>'); head = $('head').first(); }
+
+  const setName = (name, content) => {
+    if (content == null || content === '') return;
+    let el = head.find(`meta[name="${name}"]`).first();
+    if (!el.length) { head.append(`<meta name="${name}">`); el = head.find(`meta[name="${name}"]`).first(); }
+    el.attr('content', content);
+  };
+  const setProp = (prop, content) => {
+    if (content == null || content === '') return;
+    let el = head.find(`meta[property="${prop}"]`).first();
+    if (!el.length) { head.append(`<meta property="${prop}">`); el = head.find(`meta[property="${prop}"]`).first(); }
+    el.attr('content', content);
+  };
+
+  if (!head.find('meta[charset]').length) head.prepend('<meta charset="UTF-8">');
+
+  if (fix.title) {
+    let t = head.find('title').first();
+    if (!t.length) { head.append('<title></title>'); t = head.find('title').first(); }
+    t.text(fix.title);
+  }
+  setName('description', fix.metaDescription);
+
+  // viewport: ให้มี + ตัด user-scalable=no / maximum-scale ออก
+  let vp = head.find('meta[name="viewport"]').first();
+  if (!vp.length) head.append('<meta name="viewport" content="width=device-width, initial-scale=1">');
+  else {
+    const c = (vp.attr('content') || '').replace(/,?\s*(maximum-scale\s*=\s*[\d.]+|user-scalable\s*=\s*no)/gi, '').replace(/^,\s*/, '').trim();
+    vp.attr('content', c || 'width=device-width, initial-scale=1');
+  }
+
+  if (fix.lang) $('html').attr('lang', fix.lang);
+
+  if (fix.canonical) { head.find('link[rel="canonical"]').remove(); head.append(`<link rel="canonical" href="${fix.canonical}">`); }
+
+  if (fix.og) { setProp('og:title', fix.og.title); setProp('og:description', fix.og.description); setProp('og:image', fix.og.image); setProp('og:url', fix.og.url); }
+  setName('twitter:card', fix.twitterCard);
+
+  // JSON-LD: ใส่เฉพาะเมื่อหน้ายังไม่มีก้อนที่ valid + เฉพาะ object ที่ JSON.parse ผ่าน
+  const hasValidLd = $('script[type="application/ld+json"]').toArray().some(el => { try { JSON.parse($(el).text()); return true; } catch { return false; } });
+  if (Array.isArray(fix.jsonLd) && fix.jsonLd.length && !hasValidLd) {
+    for (const obj of fix.jsonLd) {
+      let json;
+      try { json = JSON.stringify(obj); JSON.parse(json); } catch { continue; }
+      head.append(`<script type="application/ld+json">${json}</script>`);
+    }
+  }
+
+  // alt: เติมเฉพาะรูปที่ยังไม่มี alt และ match src กับ key ที่ AI ให้มา
+  if (fix.imageAlts && typeof fix.imageAlts === 'object') {
+    $('img').each((_, el) => {
+      const $img = $(el);
+      const cur = $img.attr('alt');
+      if (cur != null && cur !== '') return;
+      const src = $img.attr('src') || $img.attr('data-src') || '';
+      for (const [key, alt] of Object.entries(fix.imageAlts)) {
+        if (key && alt && src.includes(key)) { $img.attr('alt', alt); break; }
+      }
+    });
+  }
+
+  return $.html();
+}
+
+// ── Surgical fix: AI คืน head fields → patch DOM → ตรวจซ้ำ (คง body 100%) ──
+export async function aiFixPageSurgical(html, url, brand, onProgress = () => {}) {
+  if (!aiAvailable()) throw new Error('ยังไม่ได้ตั้งค่า AI API key');
+  const before = validatePageHtml(html, url);
+  onProgress(`ตรวจหน้าเดิม: พบ ${before.length} ปัญหา (ร้ายแรง ${countHigh(before)})`);
+
+  onProgress('AI วิเคราะห์ head + schema (surgical)...');
+  const aiIssues = before.map(i => ({ severity: i.sev, title: i.id, detail: i.msg }));
+  const fix = await aiGenerateHeadFix(html, url, aiIssues, brand);
+
+  let patched = sanitizeLdJson(applyHeadFix(html, fix, url));
+  const after = validatePageHtml(patched, url);
+  onProgress(`ตรวจซ้ำ (surgical): เหลือ ${after.length} ปัญหา (ร้ายแรง ${countHigh(after)})`);
+
+  // surgical ต้องคงเนื้อหา body — ถ้าเพี้ยนเกิน 10% แสดงว่า patch ผิดพลาด
+  const fakeHeaders = { get: () => '' };
+  const origText = extractPageData(html, url, fakeHeaders, 200, 0, []).textLength;
+  const newText = extractPageData(patched, url, fakeHeaders, 200, 0, []).textLength;
+  if (origText > 300 && newText < origText * 0.9) throw new Error('surgical patch ทำให้เนื้อหาเปลี่ยนผิดปกติ — ไม่รับ');
+
+  return {
+    fixedHtml: patched,
+    before: { count: before.length, high: countHigh(before), issues: before },
+    after: { count: after.length, high: countHigh(after), issues: after },
+    passes: 1,
+    verified: countHigh(after) === 0,
+    mode: 'surgical',
+  };
 }
 
 // ── แก้ + ตรวจซ้ำ + แก้ซ้ำจนผ่าน (สูงสุด maxPasses รอบ) ──
@@ -135,5 +236,11 @@ export async function fixLivePage(url, onProgress = () => {}) {
     html = await res.text();
   } finally { clearTimeout(timer); }
   const brand = (() => { try { return new URL(url).hostname.replace(/^www\./, '').split('.')[0]; } catch { return ''; } })();
-  return aiFixPageVerified(html.slice(0, 120_000), url, brand, onProgress);
+  // surgical เป็นค่าเริ่มต้น (คง body 100% — เหมาะกับหน้าหนัก); ถ้าพลาดค่อย fallback เป็น full rewrite
+  try {
+    return await aiFixPageSurgical(html.slice(0, 120_000), url, brand, onProgress);
+  } catch (e) {
+    onProgress(`surgical ไม่สำเร็จ (${String(e.message || e).slice(0, 60)}) — ลอง full rewrite`);
+    return aiFixPageVerified(html.slice(0, 120_000), url, brand, onProgress);
+  }
 }

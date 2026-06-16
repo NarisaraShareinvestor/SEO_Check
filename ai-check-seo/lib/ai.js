@@ -300,6 +300,33 @@ function templateGrowth(audit) {
   };
 }
 
+// AI สร้าง "เฉพาะค่าใน <head> + JSON-LD + alt" เป็น JSON (สำหรับ surgical fix)
+// — output เล็ก ไม่ชน token cap, ใช้กับหน้าหนัก (100KB+) ได้ เพราะไม่ rewrite ทั้งหน้า
+export async function aiGenerateHeadFix(html, url, issues, brand) {
+  const system = `คุณคือ senior SEO engineer หน้าที่: ดู HTML ต้นฉบับ + ปัญหาที่พบ แล้วคืน "ค่าที่ถูกต้องสำหรับส่วน head" เป็น JSON เท่านั้น (เราจะเอาไป patch DOM เอง ไม่ต้องส่ง HTML กลับ)
+
+กฎ:
+- title 30-60 ตัวอักษร ขึ้นต้นคีย์เวิร์ดหลัก ลงท้ายแบรนด์ ภาษาเดียวกับเนื้อหา
+- metaDescription 80-160 ตัวอักษร ประโยคธรรมชาติ มีเหตุผลให้คลิก
+- canonical absolute URL ชี้ตัวเอง ตัด query/tracking ออก
+- og ครบ (title/description/image absolute/url), twitterCard = summary_large_image
+- jsonLd: array ของ schema.org object ที่ JSON.parse ผ่าน — อย่างน้อย Organization (name,url,logo) + WebSite; ถ้าหน้ามีถาม-ตอบใส่ FAQPage; ห้ามแต่งข้อเท็จจริง (เบอร์/ที่อยู่/ราคา) ที่ไม่มีในหน้า
+- imageAlts: map จาก "ส่วนหนึ่งของ src (เช่นชื่อไฟล์)" → alt บรรยายรูปจริง เลือกเฉพาะรูปเนื้อหาสำคัญ (ข้ามไอคอน/รูปตกแต่ง) ไม่เกิน 15 รายการ
+- lang = รหัสภาษาเนื้อหาจริง (เช่น th)
+
+ตอบ JSON นี้เท่านั้น:
+{"title":"","metaDescription":"","canonical":"","lang":"th","og":{"title":"","description":"","image":"","url":""},"twitterCard":"summary_large_image","jsonLd":[],"imageAlts":{}}`;
+  const user = `URL: ${url}
+แบรนด์: ${brand}
+ปัญหา:
+${issues.map(i => `- [${i.severity}] ${i.title}: ${i.detail}`).join('\n')}
+
+HTML ต้นฉบับ (ตัดท้ายได้):
+${html.slice(0, 45000)}`;
+  const text = await callLLM(system, user, 3000);
+  return extractJson(text);
+}
+
 // AI สร้าง "หน้าเว็บฉบับแก้แล้ว" ทั้งหน้า จาก HTML จริง + ปัญหาที่ตรวจพบ
 export async function aiGenerateFixedPage(html, url, issues, brand) {
   const system = `คุณคือ senior web engineer + SEO specialist หน้าที่: รับ HTML ต้นฉบับและรายการปัญหา แล้วส่งคืน HTML ฉบับแก้สมบูรณ์ทั้งไฟล์ ตามมาตรฐาน Google Search Essentials
