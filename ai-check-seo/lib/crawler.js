@@ -453,23 +453,31 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
   site.variants = variants;
   site.faviconStatus = faviconStatus;
 
-  // 4. BFS crawl
-  const queue = [normalizeUrl(startUrl)];
-  // เติม URL จาก sitemap (same-site เท่านั้น)
-  for (const u of site.sitemapUrls) {
-    const n = normalizeUrl(u);
-    if (n && sameSite(n, origin)) queue.push(n);
-  }
-  const seen = new Set();
+  // 4. BFS crawl — เลือกหน้าแบบ deterministic เพื่อให้ตรวจเว็บเดิมได้ "ชุดหน้าเดิม" ทุกครั้ง
+  //    (เดิมเลือกหน้าตามลำดับที่ fetch เสร็จ ซึ่งขึ้นกับ network timing → ชุดหน้า/คะแนนไม่นิ่ง)
+  // ข้ามลิงก์ไฟล์ (PDF/รูป/zip ฯลฯ) — ไม่ใช่หน้า HTML ที่ตรวจ SEO ได้ และทำให้ชุดหน้าไม่นิ่ง + เปลือง budget
+  const FILE_EXT = /\.(pdf|docx?|xlsx?|pptx?|zip|rar|7z|gz|tar|jpe?g|png|gif|svg|webp|avif|ico|bmp|mp[34]|m4a|wav|mov|avi|mkv|webm|css|mjs|json|rss|csv|woff2?|ttf|eot|otf|dmg|exe|apk)(\?|#|$)/i;
+  const queued = new Set();          // URL ที่เคยถูกเพิ่มเข้า frontier (กันซ้ำ — แต่ละ URL crawl ครั้งเดียว)
+  const frontier = [];               // คิวหน้า (จัดเรียง deterministic ก่อน shift ทุกครั้ง)
+  const depthOf = (u) => { try { return new URL(u).pathname.replace(/\/+$/, '').split('/').filter(Boolean).length; } catch { return 99; } };
+  const enqueue = (raw, base) => {
+    const n = normalizeUrl(raw, base);
+    if (!n || !sameSite(n, origin) || queued.has(n) || FILE_EXT.test(n)) return;
+    if (queued.size >= maxPages * 50) return; // กันบวมบนเว็บใหญ่มาก
+    queued.add(n);
+    frontier.push(n);
+  };
+  // จัดเรียง frontier: หน้าตื้นก่อน แล้วเรียงตามตัวอักษร → ลำดับเดิมทุกครั้ง ไม่ขึ้นกับ timing
+  const sortFrontier = () => frontier.sort((a, b) => (depthOf(a) - depthOf(b)) || (a < b ? -1 : a > b ? 1 : 0));
+  enqueue(startUrl);
+  for (const u of site.sitemapUrls) enqueue(u);
   const externalChecked = new Map();
-  let active = 0, idx = 0;
+  let active = 0, claimed = 0;
 
   const MAX_HTML_BYTES = 600_000;
 
-  const crawlOne = async (url) => {
-    // ป้องกัน race condition: ถ้าถึง maxPages แล้ว ไม่เพิ่มอีก
-    if (site.pages.length >= maxPages) return;
-    onProgress(`กำลังตรวจหน้า (${site.pages.length + 1}/${maxPages}): ${url}`);
+  const crawlOne = async (url, num) => {
+    onProgress(`กำลังตรวจหน้า (${num}/${maxPages}): ${url}`);
     try {
       const path = new URL(url).pathname + new URL(url).search;
       if (site.robots && !robotsAllows(site.robots, 'AICheckSEO', path)) {
@@ -490,34 +498,30 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
       const page = extractPageData(html, url, res.headers, status, 0, chain);
       if (detectedCharset && !/^utf-?8$/i.test(detectedCharset)) page.detectedCharset = detectedCharset;
       page.finalUrl = finalUrl;
-      if (site.pages.length >= maxPages) return; // ตรวจอีกครั้งหลัง await
       site.pages.push(page);
 
       // เก็บ HTML ต้นฉบับของหน้าแรกไว้ให้ AI สร้าง "หน้าฉบับแก้แล้ว"
       if (!site.homeHtml && status === 200) { site.homeHtml = html.slice(0, 120_000); site.homeHtmlUrl = url; }
 
-      // เก็บลิงก์ภายในเข้า queue
+      // เก็บลิงก์ภายในเข้า frontier (กรองไฟล์ + กันซ้ำใน enqueue)
       if (status === 200) {
-        for (const l of page.links) {
-          const n = normalizeUrl(l.href, finalUrl);
-          if (n && sameSite(n, origin) && !seen.has(n) && queue.length + seen.size < maxPages * 4) {
-            queue.push(n);
-          }
-        }
+        for (const l of page.links) enqueue(l.href, finalUrl);
       }
     } catch (e) {
       site.fetchErrors.push({ what: url, error: String(e.message || e) });
     }
   };
 
-  while ((queue.length || active > 0) && site.pages.length < maxPages) {
-    if (!queue.length) { await new Promise(r => setTimeout(r, 100)); continue; }
-    const url = queue.shift();
-    if (!url || seen.has(url)) continue;
-    seen.add(url);
+  // เลือกหน้าตามลำดับ deterministic จนครบ maxPages (claimed = จำนวนหน้าที่ "จอง" แล้ว ไม่ขึ้นกับว่า fetch เสร็จเมื่อไหร่)
+  while (claimed < maxPages && (frontier.length || active > 0)) {
+    if (!frontier.length) { await new Promise(r => setTimeout(r, 50)); continue; }
+    sortFrontier();
+    const url = frontier.shift();
+    claimed++;
+    const num = claimed;
     while (active >= CONCURRENCY) await new Promise(r => setTimeout(r, 50));
     active++;
-    crawlOne(url).finally(() => { active--; });
+    crawlOne(url, num).finally(() => { active--; });
   }
   while (active > 0) await new Promise(r => setTimeout(r, 100));
 
