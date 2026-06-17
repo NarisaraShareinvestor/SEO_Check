@@ -512,18 +512,29 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
     }
   };
 
-  // เลือกหน้าตามลำดับ deterministic จนครบ maxPages (claimed = จำนวนหน้าที่ "จอง" แล้ว ไม่ขึ้นกับว่า fetch เสร็จเมื่อไหร่)
-  while (claimed < maxPages && (frontier.length || active > 0)) {
-    if (!frontier.length) { await new Promise(r => setTimeout(r, 50)); continue; }
-    sortFrontier();
-    const url = frontier.shift();
-    claimed++;
-    const num = claimed;
-    while (active >= CONCURRENCY) await new Promise(r => setTimeout(r, 50));
-    active++;
-    crawlOne(url, num).finally(() => { active--; });
+  // เลือกหน้าแบบ deterministic: BFS ไล่ "ทีละชั้นความลึก" — crawl ครบทั้งชั้นก่อนลงชั้นถัดไป
+  // → ชุดหน้านิ่ง 100% แม้ไม่มี sitemap เพราะลิงก์ของชั้นถัดไปถูกค้นพบครบก่อนเลือกเสมอ (ไม่ขึ้นกับ timing)
+  while (claimed < maxPages && frontier.length) {
+    // ความลึกน้อยสุดที่ยังเหลือใน frontier
+    let minDepth = Infinity;
+    for (const u of frontier) { const d = depthOf(u); if (d < minDepth) minDepth = d; }
+    // แยก URL ของชั้นนี้ออกมา (เรียงตัวอักษร deterministic) — ที่เหลือคืน frontier ไว้ทำชั้นถัดไป
+    const levelUrls = [], rest = [];
+    for (const u of frontier) (depthOf(u) === minDepth ? levelUrls : rest).push(u);
+    frontier.length = 0; frontier.push(...rest);
+    levelUrls.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    // crawl ทั้งชั้น (ขนานภายในชั้น) จนครบ budget
+    for (const url of levelUrls) {
+      if (claimed >= maxPages) break;
+      claimed++;
+      const num = claimed;
+      while (active >= CONCURRENCY) await new Promise(r => setTimeout(r, 50));
+      active++;
+      crawlOne(url, num).finally(() => { active--; });
+    }
+    // barrier: รอชั้นนี้เสร็จทั้งหมด (ลิงก์ชั้นถัดไปถูกค้นพบครบ) ก่อนเลือกชั้นถัดไป
+    while (active > 0) await new Promise(r => setTimeout(r, 50));
   }
-  while (active > 0) await new Promise(r => setTimeout(r, 100));
 
   // 5. ตรวจ broken internal links (sample จากลิงก์ที่ยังไม่ crawl)
   onProgress('กำลังตรวจหา broken links...');
@@ -538,15 +549,28 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
     }
   }
   const crawledStatus = new Map(site.pages.map(p => [p.url, p.status]));
-  const toCheck = [...linkTargets.entries()].filter(([u]) => !crawledStatus.has(u)).slice(0, 40);
+  // เรียง deterministic ก่อน sample เพื่อให้ได้ชุดลิงก์เดิมทุกครั้ง
+  const toCheck = [...linkTargets.entries()]
+    .filter(([u]) => !crawledStatus.has(u))
+    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+    .slice(0, 40);
+  // ดึงสถานะลิงก์ — คืน status จริง (4xx/5xx) หรือ 0 ถ้าเชื่อมไม่ติด/timeout
+  const probe = async (u) => {
+    try {
+      const { res } = await fetchWithMeta(u, { method: 'HEAD', redirect: 'follow' });
+      let st = res.status;
+      try { res.body?.cancel?.(); } catch {}
+      if (st === 405 || st === 403 || st === 0) { const r2 = await fetchWithMeta(u, { redirect: 'follow' }); st = r2.res.status; try { r2.res.body?.cancel?.(); } catch {} }
+      return st;
+    } catch { return 0; }
+  };
   for (let i = 0; i < toCheck.length; i += CONCURRENCY) {
     await Promise.all(toCheck.slice(i, i + CONCURRENCY).map(async ([u, from]) => {
-      try {
-        const { res } = await fetchWithMeta(u, { method: 'HEAD', redirect: 'follow' });
-        let st = res.status;
-        if (st === 405 || st === 403) { const r2 = await fetchWithMeta(u, { redirect: 'follow' }); st = r2.res.status; try { r2.res.body?.cancel?.(); } catch {} }
-        if (st >= 400) site.brokenLinks.push({ from, to: u, status: st });
-      } catch { site.brokenLinks.push({ from, to: u, status: 0 }); }
+      let st = await probe(u);
+      // status 0 = เชื่อมไม่ติด/timeout (ไม่ใช่ลิงก์เสียจริง) → retry หนึ่งครั้ง ถ้ายัง 0 ก็ไม่ฟันธงว่าเสีย
+      if (st === 0) { await new Promise(r => setTimeout(r, 400)); st = await probe(u); }
+      // นับเป็น broken เฉพาะที่ยืนยันได้ว่าเสียจริง (4xx/5xx) เท่านั้น — กัน false positive จาก network
+      if (st >= 400) site.brokenLinks.push({ from, to: u, status: st });
     }));
   }
   for (const p of site.pages) {
