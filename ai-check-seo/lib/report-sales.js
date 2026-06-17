@@ -1,6 +1,7 @@
 // Sales Deck — รายงานฉบับ "เซลส์/ลูกค้าที่ไม่ใช่สาย tech อ่านเข้าใจ"
 // ธีม/รูปแบบสไลด์ A4 เดียวกับ report.js แต่: ข้อความเต็ม ไม่ตัด "..." + อธิบายทุกศัพท์เป็นภาษาคน + บอกผลต่อยอดขาย/ลูกค้า
 import { COPYRIGHT_HTML, MAKER_CSS, watermarkScript } from './brand-logo.js';
+import { premiumCover, PREMIUM_CSS } from './premium.js';
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const stripEmoji = (s) => String(s ?? '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '').trim();
 // แปลง mojibake "…" ที่อาจติดมาจาก data เก่า ให้เป็นข้อความปกติ (เราจะไม่ตัดข้อความเองเด็ดขาด)
@@ -504,6 +505,9 @@ export function renderSalesReport(audit, brand = {}) {
     <div class="goldstrip"></div>
   </section>`;
 
+  // ปกพรีเมียม (แบบ B) — แสดงเมื่อ theme=premium
+  const coverPremium = premiumCover({ host, dateTh, brandName, s, gradeWord, passesLen: passes.length, pagesAnalyzed: audit.pagesAnalyzed });
+
   // ── สไลด์ 2: สรุปแบบเข้าใจง่าย ──
   const execSlide = `
   <section class="slide">
@@ -717,12 +721,23 @@ footer{margin-top:auto;padding-top:22px;display:flex;justify-content:space-betwe
   @page{size:A4 landscape;margin:0}
 }
 ${MAKER_CSS}
+${PREMIUM_CSS}
 </style>
 ${brandColor ? `<style>:root{--gold:${esc(brandColor)};--goldtx:${esc(brandColor)}}</style>` : ''}
 </head>
 <body>
-<div class="toolbar"><button onclick="exportPPTX('SEO-เซลส์-${esc(host)}', this)">บันทึกเป็น PowerPoint</button><button onclick="window.print()">บันทึกเป็น PDF</button></div>
-${cover}
+<div class="toolbar">
+  <div class="ppt-menu" id="pptMenu">
+    <button onclick="togglePptMenu(event)">บันทึกเป็น PowerPoint ▾</button>
+    <div class="ppt-pop">
+      <button onclick="exportThemed('standard')">แบบมาตรฐาน<small>โลโก้ลายน้ำกลางหน้า · ปกเรียบ</small></button>
+      <button onclick="exportThemed('premium')">แบบพรีเมียม<small>ปกหรู + โลโก้มุมขวาบน</small></button>
+    </div>
+  </div>
+  <button onclick="window.print()">บันทึกเป็น PDF</button>
+</div>
+<div id="cover-standard">${cover}</div>
+<div id="cover-premium">${coverPremium}</div>
 ${execSlide}
 ${divider(1, 'ปัญหาที่ต้องแก้', 'เรื่องที่กระทบอันดับ Google และยอดขายมากที่สุด — อธิบายว่าแต่ละข้อคืออะไร และทำไมถึงสำคัญ')}
 ${issueSlides(nonGeoFails, 'ปัญหาที่ต้องแก้', 'เรื่องที่ต้องแก้', 'แต่ละข้อด้านล่างอธิบายว่า "ตรวจเจออะไรจริง" "มันคืออะไรแบบเข้าใจง่าย" และ "ทำไมถึงกระทบธุรกิจ" — เรียงจากผลกระทบมากไปน้อย')}
@@ -736,6 +751,21 @@ ${closeSlide}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <script src="/export-pptx.js"></script>
+<script>
+  var HOST = ${JSON.stringify(host)};
+  // ?theme=premium → ดู/พิมพ์ PDF เป็นแบบพรีเมียมได้
+  if (new URLSearchParams(location.search).get('theme') === 'premium') document.body.classList.add('theme-premium');
+  function togglePptMenu(e){ e.stopPropagation(); document.getElementById('pptMenu').classList.toggle('open'); }
+  document.addEventListener('click', function(){ var m=document.getElementById('pptMenu'); if(m) m.classList.remove('open'); });
+  async function exportThemed(theme){
+    var m=document.getElementById('pptMenu'); if(m) m.classList.remove('open');
+    var wasPremium = document.body.classList.contains('theme-premium');
+    document.body.classList.toggle('theme-premium', theme==='premium');
+    await new Promise(function(r){ requestAnimationFrame(function(){ requestAnimationFrame(r); }); });
+    await window.exportPPTX('SEO-เซลส์-' + HOST + (theme==='premium'?'-premium':''), m ? m.firstElementChild : null);
+    document.body.classList.toggle('theme-premium', wasPremium);
+  }
+</script>
 ${watermarkScript()}
 </body>
 </html>`;

@@ -18,7 +18,8 @@
       alert('โหลดไลบรารีสร้าง PowerPoint ไม่สำเร็จ — ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง');
       return;
     }
-    const slides = Array.from(document.querySelectorAll('.slide'));
+    // เฉพาะสไลด์ที่มองเห็น (กันปกที่ซ่อนอยู่ตาม theme ถูกถ่ายเป็นหน้าว่าง)
+    const slides = Array.from(document.querySelectorAll('.slide')).filter(el => el.getClientRects().length > 0);
     if (!slides.length) return;
 
     const toolbar = document.querySelector('.toolbar');
