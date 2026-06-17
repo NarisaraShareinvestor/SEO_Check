@@ -13,6 +13,7 @@ import { fixLivePage, fixPagesBatch } from './lib/pagefix.js';
 import { execFile } from 'node:child_process';
 import { renderReport } from './lib/report.js';
 import { renderSalesReport } from './lib/report-sales.js';
+import { renderSalesQA } from './lib/sales-qa.js';
 import { renderPresentation } from './lib/present.js';
 import { scoreAudit, CAT_LABELS } from './lib/scorer.js';
 import { aiAnalyze, aiCompare, aiGrowthPlan, aiAvailable, drainAiCost } from './lib/ai.js';
@@ -456,6 +457,19 @@ app.get('/report-sale/:id', (req, res) => {
     color: /^#[0-9a-fA-F]{6}$/.test(String(req.query.bc || '')) ? String(req.query.bc) : '',
   };
   res.type('html').send(renderSalesReport(audit, brand));
+});
+
+// คู่มือ "เตรียมตอบคำถาม (Q&A)" สำหรับเซลส์ — คำถามที่ลูกค้าจะถามตอนนำเสนอ + คำตอบแนะนำ
+app.get('/report-qa/:id', (req, res) => {
+  const job = jobs.get(req.params.id);
+  const audit = job?.result || loadAudit(req.params.id);
+  if (!audit) return res.status(404).send('ไม่พบรายงานนี้');
+  const brand = {
+    name: String(req.query.bn || '').slice(0, 60),
+    logo: /^https?:\/\//.test(String(req.query.bl || '')) ? String(req.query.bl).slice(0, 300) : '',
+    color: /^#[0-9a-fA-F]{6}$/.test(String(req.query.bc || '')) ? String(req.query.bc) : '',
+  };
+  res.type('html').send(renderSalesQA(audit, brand));
 });
 
 // รายงานรูปแบบ Presentation (สไลด์ 16:9 เลื่อนทีละหน้า เต็มจอได้)

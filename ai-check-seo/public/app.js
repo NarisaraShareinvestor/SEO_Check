@@ -284,6 +284,7 @@ function brandQuery() {
 }
 function reportUrl(id) { return '/report/' + id + brandQuery(); }
 function saleReportUrl(id) { return '/report-sale/' + id + brandQuery(); }
+function qaUrl(id) { return '/report-qa/' + id + brandQuery(); }
 function presentUrl(id) { return '/present/' + id + brandQuery(); }
 
 // ── เทียบคู่แข่ง ──

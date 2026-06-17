@@ -14,7 +14,7 @@ const ST_TH = { fail: 'ต้องแก้', warn: 'ควรปรับ', pa
 //   why   = "ทำไมถึงสำคัญ" ผลต่อยอดขาย/ลูกค้า/อันดับ Google เป็นรูปธรรม
 // ถ้าไม่มี id ตรง จะ fallback ไปคำอธิบายระดับหมวด (CAT_EXPLAIN ด้านล่าง)
 // ────────────────────────────────────────────────────────────────────────────
-const EXPLAIN = {
+export const EXPLAIN = {
   // ── META & เนื้อหา ──
   'title-missing': {
     what: 'Title คือชื่อหน้าเว็บ — เป็นบรรทัดสีน้ำเงินตัวใหญ่ที่คนเห็นเป็นอันดับแรกบนหน้าผลการค้นหา Google และเป็นชื่อที่โชว์บนแท็บเบราว์เซอร์ ถ้าหน้าไหนไม่ใส่ Google จะเดาชื่อให้เอง ซึ่งมักออกมาไม่ตรงกับที่เราอยากสื่อ',
@@ -391,7 +391,79 @@ const CAT_EXPLAIN = {
   geo: { what: 'เกี่ยวกับความพร้อมของเว็บบนการค้นหายุค AI (ChatGPT/Perplexity/AI Overview)', why: 'มีผลว่า AI จะหยิบข้อมูลเราไปตอบลูกค้าหรือไปอ้างคู่แข่ง' },
 };
 
-const explainOf = (c) => EXPLAIN[c.id] || CAT_EXPLAIN[c.category] || { what: '', why: '' };
+export const explainOf = (c) => EXPLAIN[c.id] || CAT_EXPLAIN[c.category] || { what: '', why: '' };
+
+// ────────────────────────────────────────────────────────────────────────────
+// อภิธานศัพท์เทคนิค — คำที่โผล่ในข้อมูลดิบ (detail/recommendation) ที่เซลส์ไม่เข้าใจ
+// ใช้ไฮไลต์คำในข้อความ (เส้นประใต้คำ + tooltip) และสร้างสไลด์ "คำศัพท์ที่ควรรู้" ท้ายเล่ม
+// ────────────────────────────────────────────────────────────────────────────
+export const TERM_GLOSSARY = {
+  // ── ความเร็ว / Core Web Vitals ──
+  'Core Web Vitals': 'ชุดคะแนนประสบการณ์ผู้ใช้หลักของ Google (ความเร็วโหลด · การตอบสนอง · ความนิ่งของหน้า) — Google ใช้เป็นปัจจัยจัดอันดับโดยตรง',
+  'Lighthouse': 'เครื่องมือของ Google ที่จำลองการเปิดเว็บบนมือถือแล้วให้คะแนนความเร็ว/คุณภาพ 0–100',
+  'PageSpeed': 'Google PageSpeed Insights — บริการของ Google ที่วัดความเร็วเว็บจริงและบอกจุดที่ควรแก้',
+  'CrUX': 'Chrome User Experience Report — ข้อมูลความเร็ว "จริง" ที่ Google เก็บจากผู้ใช้ Chrome ทั่วโลกที่เข้าเว็บเรา (ไม่ใช่ค่าจำลอง)',
+  'LCP': 'Largest Contentful Paint — เวลาที่ส่วนเนื้อหาใหญ่สุดของหน้า (เช่นรูปหลัก/พาดหัว) แสดงครบ · ยิ่งน้อยยิ่งดี เกณฑ์ผ่าน ≤ 2.5 วินาที',
+  'INP': 'Interaction to Next Paint — เวลาที่หน้าตอบสนองหลังผู้ใช้กด/แตะ · ยิ่งน้อยยิ่งลื่น เกณฑ์ผ่าน ≤ 200 มิลลิวินาที',
+  'CLS': 'Cumulative Layout Shift — ระดับที่หน้ากระตุก/ขยับเองตอนโหลด (ทำให้กดผิดปุ่ม) · ยิ่งน้อยยิ่งดี เกณฑ์ผ่าน ≤ 0.1',
+  'TBT': 'Total Blocking Time — ช่วงเวลารวมที่หน้า "ค้าง" กดอะไรไม่ได้ระหว่างโหลด · ยิ่งน้อยยิ่งดี',
+  'FCP': 'First Contentful Paint — เวลาที่ผู้ใช้เห็นเนื้อหาแรกบนจอหลังเปิดหน้า',
+  'TTFB': 'Time To First Byte — เวลาที่เซิร์ฟเวอร์ตอบกลับครั้งแรก (ก่อนหน้าจะเริ่มแสดงอะไรเลย) · ยิ่งน้อยยิ่งดี',
+  'ranking signal': 'ปัจจัยที่ Google ใช้ตัดสินว่าจะจัดอันดับหน้าเว็บไว้ตรงไหนในผลค้นหา',
+  'opportunity': 'รายการที่ Lighthouse ชี้ว่า "ถ้าแก้แล้วจะลดเวลาโหลดได้" พร้อมประเมินว่าประหยัดได้กี่วินาที',
+  // ── ชื่อจุดแก้ความเร็วจาก Google (ภาษาอังกฤษ) ──
+  'Reduce unused JavaScript': 'ลดโค้ดโปรแกรม (JavaScript) ที่โหลดมาแต่ไม่ได้ใช้ — ตัดออกแล้วหน้าโหลดเร็วขึ้น',
+  'Reduce unused CSS': 'ลดโค้ดตกแต่งหน้า (CSS) ที่โหลดมาแต่ไม่ได้ใช้',
+  'Eliminate render-blocking resources': 'เอาไฟล์ที่ขวางการแสดงผลออก เพื่อให้หน้าเริ่มโชว์เนื้อหาเร็วขึ้น',
+  'Properly size images': 'ปรับขนาดรูปให้พอดีกับที่แสดงจริง ไม่โหลดรูปใหญ่เกินจำเป็น',
+  'Serve images in next-gen formats': 'ใช้ไฟล์รูปยุคใหม่ (เช่น WebP) ที่เล็กกว่าแต่คมเท่าเดิม',
+  'Efficiently encode images': 'บีบไฟล์รูปให้เล็กลงโดยคุณภาพไม่ลด',
+  'Defer offscreen images': 'เลื่อนโหลดรูปที่ยังไม่อยู่ในจอ ไว้โหลดตอนผู้ใช้เลื่อนถึง',
+  'Minify JavaScript': 'บีบโค้ดโปรแกรมให้เล็กลงโดยตัดช่องว่าง/คอมเมนต์ที่ไม่จำเป็น',
+  'Minify CSS': 'บีบโค้ดตกแต่งให้เล็กลงโดยตัดช่องว่างที่ไม่จำเป็น',
+  'Reduce initial server response time': 'ทำให้เซิร์ฟเวอร์ตอบกลับเร็วขึ้นตั้งแต่วินาทีแรก',
+  'Reduce JavaScript execution time': 'ลดเวลาที่เบราว์เซอร์ใช้ประมวลผลโค้ดโปรแกรม',
+  'Avoid enormous network payloads': 'ลดขนาดรวมของไฟล์ที่ต้องดาวน์โหลดต่อหน้า',
+  'Enable text compression': 'เปิดการบีบอัดไฟล์ข้อความก่อนส่งให้ผู้ใช้ ทำให้โหลดเร็วขึ้น',
+  'Avoid multiple page redirects': 'ลดการเด้งหน้าหลายต่อ ที่ทำให้โหลดช้าลง',
+  'Preload Largest Contentful Paint image': 'สั่งโหลดรูปหลักของหน้าให้เร็วขึ้น เพื่อให้เนื้อหาเด่นแสดงไว',
+  // ── ศัพท์ SEO/GEO ที่โผล่ในข้อมูลดิบ ──
+  'JSON-LD': 'รูปแบบการติด "ฉลากข้อมูล" ในหน้าให้เครื่อง (Google/AI) อ่านได้ว่าหน้านี้คือสินค้า/บริษัท/รีวิวอะไร',
+  'Structured Data': 'ฉลากข้อมูลมาตรฐานที่บอก Google/AI ว่าหน้าเกี่ยวกับอะไร — ทำให้ได้ผลค้นหาแบบพิเศษ (ดาว/ราคา/รูป)',
+  'canonical': 'ป้ายบอก Google ว่า "หน้าตัวจริงคือหน้าไหน" กันปัญหา Google นับหน้าเดียวเป็นหลายหน้าซ้ำ',
+  'hreflang': 'ป้ายบอก Google ว่าหน้าไหนเป็นภาษาไทย/อังกฤษ สำหรับเว็บหลายภาษา',
+  'sitemap': 'แผนผัง/สารบัญที่รวมทุกหน้าของเว็บ ให้ Google เก็บข้อมูลได้ครบและเร็ว',
+  'robots.txt': 'ไฟล์คู่มือที่บอก Google ว่าหน้าไหนเข้าได้/หน้าไหนไม่ต้องเข้า',
+  'llms.txt': 'ไฟล์มาตรฐานใหม่ (เหมือน robots.txt สำหรับ AI) ที่สรุปเว็บให้ AI เช่น ChatGPT อ่านเข้าใจ',
+  'Open Graph': 'ข้อมูลที่กำหนดรูป+หัวข้อที่จะขึ้นเวลาแชร์ลิงก์เว็บลง Facebook/LINE/X',
+  'alt text': 'คำบรรยายรูปที่เขียนในโค้ด — ช่วยให้รูปขึ้น Google Images และผู้พิการทางสายตาเข้าถึงได้',
+  'meta description': 'คำโปรย 1–2 บรรทัดใต้ชื่อหน้าในผลค้นหา Google — เหมือนคำโฆษณาที่เราเขียนเองได้',
+  'E-E-A-T': 'สัญญาณความน่าเชื่อถือที่ Google/AI ดู: ประสบการณ์ · ความเชี่ยวชาญ · อำนาจในวงการ · ความน่าไว้วางใจ',
+  'SERP': 'หน้าผลการค้นหาของ Google (Search Engine Results Page)',
+  'soft 404': 'หน้าที่ไม่มีอยู่จริงแต่ตอบว่า "ปกติ" ทำให้ Google เก็บหน้าขยะเข้าระบบ',
+  'FAQPage': 'ฉลากข้อมูลสำหรับส่วนคำถาม-คำตอบ ที่ Google AI และ ChatGPT ชอบหยิบไปตอบ',
+  'FAQ schema': 'ฉลากข้อมูลสำหรับส่วนคำถาม-คำตอบ ที่ Google AI และ ChatGPT ชอบหยิบไปตอบ',
+  'Organization schema': 'ฉลากข้อมูลบริษัท (ชื่อ · โลโก้ · ที่อยู่ · ช่องทางติดต่อ) ที่ทำให้ Google/AI รู้จักแบรนด์เรา',
+  'Knowledge Panel': 'กล่องข้อมูลบริษัทที่ Google แสดงด้านขวาของหน้าผลค้นหา',
+  'index': 'การที่ Google เก็บหน้าเว็บเข้าระบบเพื่อนำไปแสดงในผลค้นหา',
+  'noindex': 'คำสั่งห้าม Google เก็บหน้านี้เข้าระบบ — เท่ากับซ่อนหน้าจากผลค้นหา',
+  'SSR': 'Server-Side Rendering — การส่งเนื้อหาหน้าแบบสำเร็จรูปมาเลย (ดีต่อ Google/AI) แทนที่จะให้โปรแกรมค่อยประกอบหน้าทีหลัง',
+  'SPA': 'Single-Page Application — เว็บที่ใช้โปรแกรม (JavaScript) ประกอบเนื้อหาหลังเปิดหน้า ทำให้ AI ที่ไม่รอประกอบหน้ามองไม่เห็นเนื้อหา',
+};
+
+const escAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// เรียงคำยาวก่อนสั้น เพื่อให้ "Reduce unused JavaScript" จับก่อน "JavaScript"
+const TERM_KEYS = Object.keys(TERM_GLOSSARY).sort((a, b) => b.length - a.length);
+const TERM_RE = new RegExp('(?<![A-Za-z0-9])(' + TERM_KEYS.map(reEsc).join('|') + ')(?![A-Za-z0-9])', 'g');
+
+// ไฮไลต์คำเทคนิคในข้อความ "ที่ผ่าน esc แล้ว" + บันทึกคำที่เจอลงใน used (Set)
+function annotateTerms(escaped, used) {
+  return String(escaped).replace(TERM_RE, (m) => {
+    used.add(m);
+    return `<span class="gloss" title="${escAttr(TERM_GLOSSARY[m])}">${m}</span>`;
+  });
+}
 
 export function renderSalesReport(audit, brand = {}) {
   const host = audit.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
@@ -406,6 +478,10 @@ export function renderSalesReport(audit, brand = {}) {
   const fails = audit.checks.filter(c => c.status === 'fail');
   const warns = audit.checks.filter(c => c.status === 'warn');
   const passes = audit.checks.filter(c => c.status === 'pass');
+
+  // เก็บคำเทคนิคที่โผล่จริง เพื่อสร้างสไลด์อภิธานศัพท์เฉพาะคำที่ใช้ · ann = esc + ไฮไลต์คำ
+  const usedTerms = new Set();
+  const ann = (text) => annotateTerms(esc(full(text)), usedTerms);
 
   // เกรดเป็นคำพูดคน
   const gradeWord = (g) => ({ A: 'แข็งแรงมาก', B: 'ดี แต่มีจุดพัฒนา', C: 'พอใช้ ต้องปรับหลายจุด', D: 'อ่อน ต้องรีบแก้', F: 'วิกฤต ต้องลงมือด่วน' }[g] || 'ต้องปรับปรุง');
@@ -446,7 +522,7 @@ export function renderSalesReport(audit, brand = {}) {
     ${(a.topPriorities || []).length ? `
     <div class="why-box" style="border-left-color:var(--red)">
       <b>3 เรื่องที่ควรแก้ก่อนเป็นอันดับแรก (คุ้มที่สุด)</b>
-      <ol class="prio">${a.topPriorities.slice(0, 3).map(p => `<li><b>${esc(full(p.title))}</b> — ${esc(full(p.businessImpact))}</li>`).join('')}</ol>
+      <ol class="prio">${a.topPriorities.slice(0, 3).map(p => `<li><b>${esc(full(p.title))}</b> — ${ann(p.businessImpact)}</li>`).join('')}</ol>
     </div>` : ''}
     ${foot()}
   </section>`;
@@ -462,10 +538,10 @@ export function renderSalesReport(audit, brand = {}) {
         <div class="ic-title">${esc(full(c.title))}</div>
         <div class="ic-badges">${chip(c.status, ST_TH[c.status])}${c.severity && sevWord[c.severity] ? `<span class="sev">${sevWord[c.severity]}</span>` : ''}${cnt ? `<span class="cnt">พบ ${cnt} หน้า</span>` : ''}</div>
       </div>
-      <div class="ic-found"><span class="lbl">ตรวจเจอจริง</span> ${esc(full(c.detail))}</div>
+      <div class="ic-found"><span class="lbl">ตรวจเจอจริง</span> ${ann(c.detail)}</div>
       ${ex.what ? `<div class="ic-what"><span class="lbl">อธิบายง่ายๆ ว่าคืออะไร</span> ${esc(ex.what)}</div>` : ''}
       ${ex.why ? `<div class="ic-why"><span class="lbl">ทำไมสำคัญต่อธุรกิจ</span> ${esc(ex.why)}</div>` : ''}
-      ${c.recommendation ? `<div class="ic-fix"><span class="lbl">แนวทางแก้</span> ${esc(full(c.recommendation))}</div>` : ''}
+      ${c.recommendation ? `<div class="ic-fix"><span class="lbl">แนวทางแก้</span> ${ann(c.recommendation)}</div>` : ''}
     </div>`;
   };
 
@@ -531,6 +607,24 @@ export function renderSalesReport(audit, brand = {}) {
     <div class="goldstrip"></div>
   </section>`;
 
+  // ── สไลด์อภิธานศัพท์ (สร้างหลังเรนเดอร์การ์ดเสร็จ — เฉพาะคำเทคนิคที่โผล่จริง) ──
+  const glossarySlide = () => {
+    const terms = [...usedTerms].sort((x, y) => x.toLowerCase().localeCompare(y.toLowerCase()));
+    if (!terms.length) return '';
+    const perPage = 14;
+    const pages = chunk(terms, perPage);
+    return pages.map((grp, i) => `
+    <section class="slide">
+      <div class="kick">คำศัพท์ที่ควรรู้</div>
+      <h2>อภิธานศัพท์ — แปลคำเทคนิคเป็นภาษาคน${pages.length > 1 ? ` <span class="pgof">(${i + 1}/${pages.length})</span>` : ''}</h2>
+      ${i === 0 ? `<p class="lede">คำภาษาอังกฤษ/เทคนิคที่ปรากฏในรายงานนี้ พร้อมคำอธิบายสั้นๆ — เผื่อลูกค้าถามระหว่างนำเสนอ (ในเล่มจริงคำเหล่านี้จะมีเส้นประใต้คำ ชี้เมาส์เพื่อดูคำอธิบายได้)</p>` : ''}
+      <dl class="glos">
+        ${grp.map(t => `<div class="grow"><dt>${esc(t)}</dt><dd>${esc(TERM_GLOSSARY[t])}</dd></div>`).join('')}
+      </dl>
+      ${foot()}
+    </section>`).join('');
+  };
+
   const out = `<!DOCTYPE html>
 <html lang="th">
 <head>
@@ -569,6 +663,13 @@ h2 .pgof{font-size:15px;font-weight:600;color:var(--mut)}
 .prio{padding-left:22px;margin-top:6px}
 .prio li{font-size:13.5px;color:#3b4d68;margin-bottom:8px}
 .prio b{color:var(--navy)}
+/* คำเทคนิคที่ไฮไลต์ + tooltip */
+.gloss{border-bottom:1.5px dotted var(--goldtx);cursor:help;font-weight:600;color:#2a3a52;white-space:nowrap}
+/* สไลด์อภิธานศัพท์ */
+.glos{display:flex;flex-direction:column;gap:0}
+.grow{display:flex;gap:0;padding:9px 0;border-bottom:1px solid #eef1f6;align-items:baseline}
+.grow dt{flex:0 0 230px;font-weight:800;color:var(--navy);font-size:13.5px;font-family:'Inter','Noto Sans Thai',sans-serif}
+.grow dd{flex:1;font-size:13px;color:#3b4d68;line-height:1.55}
 /* การ์ดปัญหา */
 .icard{border:1px solid var(--border);border-left:5px solid var(--mut);border-radius:8px;padding:15px 20px;margin-bottom:13px;background:#fff}
 .icard.fail{border-left-color:var(--red);background:#fffafa}
@@ -628,6 +729,7 @@ ${issueSlides(nonGeoWarns, 'จุดที่ควรปรับปรุง'
 ${(geoFails.length || geoWarns.length) ? divider(3, 'ความพร้อมบนยุค AI Search', 'คนเริ่มถาม ChatGPT / Google AI / Perplexity แทนการค้นหาแบบเดิม — เว็บคุณพร้อมให้ AI หยิบไปตอบหรือยัง') : ''}
 ${issueSlides([...geoFails, ...geoWarns], 'GEO — ความพร้อมบน AI', 'ความพร้อมบนการค้นหายุค AI', 'การค้นหากำลังเปลี่ยนไป ChatGPT และ AI ต่างๆ — ข้อด้านล่างคือสิ่งที่ทำให้ AI เลือกหยิบข้อมูลของเราไปตอบลูกค้า แทนที่จะไปอ้างคู่แข่ง')}
 ${goodSlide}
+${glossarySlide()}
 ${closeSlide}
 </body>
 </html>`;
