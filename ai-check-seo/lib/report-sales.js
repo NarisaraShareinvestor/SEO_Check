@@ -617,7 +617,7 @@ export function renderSalesReport(audit, brand = {}) {
     return pages.map((grp, i) => `
     <section class="slide">
       <div class="kick">คำศัพท์ที่ควรรู้</div>
-      <h2>อภิธานศัพท์ — แปลคำเทคนิคเป็นภาษาคน${pages.length > 1 ? ` <span class="pgof">(${i + 1}/${pages.length})</span>` : ''}</h2>
+      <h2>อภิธานศัพท์${pages.length > 1 ? ` <span class="pgof">(${i + 1}/${pages.length})</span>` : ''}</h2>
       ${i === 0 ? `<p class="lede">คำภาษาอังกฤษ/เทคนิคที่ปรากฏในรายงานนี้ พร้อมคำอธิบายสั้นๆ — เผื่อลูกค้าถามระหว่างนำเสนอ (ในเล่มจริงคำเหล่านี้จะมีเส้นประใต้คำ ชี้เมาส์เพื่อดูคำอธิบายได้)</p>` : ''}
       <dl class="glos">
         ${grp.map(t => `<div class="grow"><dt>${esc(t)}</dt><dd>${esc(TERM_GLOSSARY[t])}</dd></div>`).join('')}

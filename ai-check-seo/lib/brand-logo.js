@@ -3,7 +3,7 @@
 import { readFileSync } from 'fs';
 
 // แหล่งโลโก้ watermark — Logo.png (มี tagline "Invest with Knowledge") · สลับเป็น ../data/image.png ได้ถ้าต้องการแบบกระชับ
-const WM_SRC = '../data/image.png';
+const WM_SRC = '../data/Logo.png';
 let MAKER_LOGO = '';
 try { MAKER_LOGO = 'data:image/png;base64,' + readFileSync(new URL(WM_SRC, import.meta.url)).toString('base64'); } catch { MAKER_LOGO = ''; }
 export { MAKER_LOGO };
@@ -14,7 +14,7 @@ export const COPYRIGHT_HTML = 'Copyright © 2026 <span class="cr-brand">ShareInv
 // CSS: watermark (เฉพาะสไลด์พื้นขาว) + footer + ลิขสิทธิ์ (ชื่อ export = MAKER_CSS คงเดิมเพื่อไม่ต้องแก้จุดแทรก)
 export const MAKER_CSS = `
 .slide > *{position:relative;z-index:1}
-.wm{position:absolute;left:50%;top:72%;transform:translate(-50%,-50%);width:52%;max-width:620px;height:auto;opacity:.10;z-index:0;pointer-events:none;user-select:none}
+.wm{position:absolute;left:50%;top:68%;transform:translate(-50%,-50%);width:96%;max-width:1200px;height:auto;opacity:.18;z-index:0;pointer-events:none;user-select:none}
 footer{align-items:center}
 .cr-brand{color:var(--goldtx);font-weight:700}
 @media print{.wm{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
