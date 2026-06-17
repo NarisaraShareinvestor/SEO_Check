@@ -475,7 +475,7 @@ export function renderSalesReport(audit, brand = {}) {
   const brandColor = brand.color || '';
   const s = audit.score;
   const a = audit.analysis || {};
-  const foot = () => `<footer><span>${esc(host)}</span><span>${COPYRIGHT_HTML}</span><span>รายงาน SEO ฉบับเข้าใจง่าย · ${esc(brandName)} · ${esc(dateTh)}</span><span>__PG__ / __TOTAL__</span></footer>`;
+  const foot = () => `<footer class="foot-center"><span>${COPYRIGHT_HTML}</span></footer>`;
 
   const fails = audit.checks.filter(c => c.status === 'fail');
   const warns = audit.checks.filter(c => c.status === 'warn');
@@ -715,11 +715,13 @@ footer{margin-top:auto;padding-top:22px;display:flex;justify-content:space-betwe
 @media print{
   body{background:#fff}
   .toolbar{display:none}
-  .slide{margin:0;box-shadow:none;page-break-after:always;width:100%;min-height:100vh}
+  /* @page ตรงขนาดสไลด์เป๊ะ (สัดส่วน A4 แนวนอน) — กันเนื้อหาล้นลงหน้าถัดไป */
+  .slide{margin:0;box-shadow:none;page-break-after:always;width:1188px;min-height:840px;height:840px;overflow:hidden}
   .icard{break-inside:avoid}
-  th,.chip,.dark,.bstat,.goldstrip{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  @page{size:A4 landscape;margin:0}
+  th,.chip,.dark,.bstat,.goldstrip,.cover-premium,.pc-stat,.pc-num,.pc-hero,.wm,.wm-corner{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{size:1188px 840px;margin:0}
 }
+.foot-center{justify-content:center;text-align:center}
 ${MAKER_CSS}
 ${PREMIUM_CSS}
 </style>

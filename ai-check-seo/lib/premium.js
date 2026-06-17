@@ -63,7 +63,7 @@ export function premiumCover(ctx) {
     <footer class="pc-foot">
       <span class="pc-foot-l"><span class="pc-foot-ic">${IC.globe}</span>${esc(host)}</span>
       <span>Copyright © 2026 <b>ShareInvestor Group</b> · All Rights Reserved</span>
-      <span>1 / __TOTAL__</span>
+      <span></span>
     </footer>
   </section>`;
 }
@@ -74,11 +74,9 @@ export const PREMIUM_CSS = `
 #cover-premium{display:none}
 body.theme-premium #cover-standard{display:none}
 body.theme-premium #cover-premium{display:flex}
-/* ===== ปกพรีเมียม (ย่อพอดี 1 หน้า A4 + พื้นน้ำเงินเข้มที่ print ไม่เพี้ยน) ===== */
+/* ===== ปกพรีเมียม (ย่อพอดี 1 หน้า A4 + พื้นน้ำเงินเข้มสะอาด ไม่เพี้ยนตอน print) ===== */
 .cover-premium{position:relative;overflow:hidden;color:#fff;padding:32px 58px 16px;
-  background-color:#0e2240;background-image:linear-gradient(135deg,#15294b 0%,#0e2240 52%,#0a1a32 100%)}
-.cover-premium::before{content:'';position:absolute;inset:0;background-image:
-  repeating-linear-gradient(115deg,rgba(245,194,66,.04) 0 2px,transparent 2px 28px);pointer-events:none}
+  background-color:#0e2240;background-image:linear-gradient(150deg,#16315a 0%,#0e2240 55%,#0a1a33 100%)}
 .pc-hero{position:absolute;top:3%;right:-3%;width:40%;max-width:480px;opacity:.06;pointer-events:none;z-index:0}
 .cover-premium>*{position:relative;z-index:1}
 .pc-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
