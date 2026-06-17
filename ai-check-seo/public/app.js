@@ -283,6 +283,7 @@ function brandQuery() {
   return qs ? '?' + qs : '';
 }
 function reportUrl(id) { return '/report/' + id + brandQuery(); }
+function saleReportUrl(id) { return '/report-sale/' + id + brandQuery(); }
 function presentUrl(id) { return '/present/' + id + brandQuery(); }
 
 // ── เทียบคู่แข่ง ──
