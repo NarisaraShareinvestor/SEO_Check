@@ -7,7 +7,9 @@ const toDataUri = (rel) => { try { return 'data:image/png;base64,' + readFileSyn
 const MAKER_LOGO = toDataUri('../data/Logo.png');
 // CORNER_LOGO = โลโก้กระชับ (บูล+SHAREINVESTOR) ใช้เป็น watermark มุมขวาบนแบบพรีเมียม
 const CORNER_LOGO = toDataUri('../data/image.png');
-export { MAKER_LOGO, CORNER_LOGO };
+// HERO_LOGO = โลโก้พื้นโปร่งใส + ข้อความสว่าง (สำหรับวางบนพื้นเข้ม เช่นปกพรีเมียม)
+const HERO_LOGO = toDataUri('../data/logo-dark.png');
+export { MAKER_LOGO, CORNER_LOGO, HERO_LOGO };
 
 // ข้อความลิขสิทธิ์ใน footer (ส่วนชื่อแบรนด์เน้นสีทอง)
 export const COPYRIGHT_HTML = 'Copyright © 2026 <span class="cr-brand">ShareInvestor Thailand</span>';
@@ -17,7 +19,7 @@ export const COPYRIGHT_HTML = 'Copyright © 2026 <span class="cr-brand">ShareInv
 export const MAKER_CSS = `
 .slide > *{position:relative;z-index:1}
 .wm{position:absolute;left:50%;top:68%;transform:translate(-50%,-50%);width:96%;max-width:1200px;height:auto;opacity:.18;z-index:0;pointer-events:none;user-select:none}
-.wm-corner{position:absolute;top:30px;right:46px;width:215px;height:auto;opacity:.30;z-index:0;pointer-events:none;user-select:none}
+.wm-corner{position:absolute;top:26px;right:42px;width:215px;height:auto;opacity:1;z-index:0;pointer-events:none;user-select:none}
 body.theme-premium .wm{display:none}
 body:not(.theme-premium) .wm-corner{display:none}
 footer{align-items:center}

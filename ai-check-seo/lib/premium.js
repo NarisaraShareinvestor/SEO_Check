@@ -1,6 +1,6 @@
 // Premium theme — ปกหรู (พื้นเข้ม + การ์ดสถิติไอคอน + แถบความน่าเชื่อถือ ShareInvestor) แนวนอน A4
 // + watermark โลโก้มุมขวาบนแบบจาง (theme-premium) · ใช้คู่กับ report-sales.js
-import { MAKER_LOGO } from './brand-logo.js';
+import { HERO_LOGO, COPYRIGHT_HTML } from './brand-logo.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -34,7 +34,7 @@ export function premiumCover(ctx) {
 
   return `
   <section class="slide cover-premium">
-    ${MAKER_LOGO ? `<img class="pc-hero" src="${MAKER_LOGO}" alt="">` : ''}
+    ${HERO_LOGO ? `<img class="pc-hero" src="${HERO_LOGO}" alt="">` : ''}
     <div class="pc-head">
       <div class="pc-brandline">รายงานสุขภาพเว็บไซต์ ฉบับเข้าใจง่าย · โดย ${esc(brandName)}<br><span>${esc(dateTh)}</span></div>
     </div>
@@ -60,11 +60,7 @@ export function premiumCover(ctx) {
         ${cred(IC.shield, 'SET', 'Authorized Service Providers', 'ผู้ให้บริการที่ได้รับอนุญาตจาก SET')}
       </div>
     </div>
-    <footer class="pc-foot">
-      <span class="pc-foot-l"><span class="pc-foot-ic">${IC.globe}</span>${esc(host)}</span>
-      <span>Copyright © 2026 <b>ShareInvestor Group</b> · All Rights Reserved</span>
-      <span></span>
-    </footer>
+    <footer class="pc-foot"><span>${COPYRIGHT_HTML}</span></footer>
   </section>`;
 }
 
@@ -77,8 +73,8 @@ body.theme-premium #cover-premium{display:flex}
 /* ===== ปกพรีเมียม (ย่อพอดี 1 หน้า A4 + พื้นน้ำเงินเข้มสะอาด ไม่เพี้ยนตอน print) ===== */
 .cover-premium{position:relative;overflow:hidden;color:#fff;padding:32px 58px 16px;
   background-color:#0e2240;background-image:linear-gradient(150deg,#16315a 0%,#0e2240 55%,#0a1a33 100%)}
-.pc-hero{position:absolute;top:3%;right:-3%;width:40%;max-width:480px;opacity:.06;pointer-events:none;z-index:0}
-.cover-premium>*{position:relative;z-index:1}
+.pc-hero{position:absolute;top:5%;right:1%;width:34%;max-width:430px;opacity:.55;pointer-events:none;z-index:0}
+.cover-premium>*:not(.pc-hero){position:relative;z-index:1}
 .pc-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
 .pc-brandline{font-size:11px;font-weight:700;letter-spacing:.06em;color:#9fb6d6;text-transform:uppercase;line-height:1.6}
 .pc-brandline span{color:#6f86a8;font-weight:600}
@@ -109,7 +105,7 @@ body.theme-premium #cover-premium{display:flex}
 .pc-cred-tx span{font-size:12px;font-weight:700;color:var(--gold);display:block;margin-top:3px}
 .pc-cred-tx i{font-size:10.5px;font-style:normal;color:#9fb0c8;display:block;margin-top:2px}
 /* footer ปก */
-.pc-foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;
+.pc-foot{display:flex;justify-content:center;align-items:center;text-align:center;margin-top:12px;padding-top:10px;
   border-top:1px solid rgba(255,255,255,.1);font-size:11px;color:#8fa3c2}
 .pc-foot-l{display:inline-flex;align-items:center;gap:7px}
 .pc-foot-ic{width:14px;height:14px;color:#8fa3c2}.pc-foot-ic svg{width:100%;height:100%;display:block}
