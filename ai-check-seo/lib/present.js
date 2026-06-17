@@ -1,5 +1,6 @@
 // Presentation Mode — รายงาน SEO รูปแบบสไลด์นำเสนอ 16:9 (ไม่ใช่ PDF A4)
 // เลื่อนทีละสไลด์ด้วยคีย์บอร์ด/คลิก · เต็มจอได้ · กราฟ SVG จริง · มุมทแยงแบรนด์ · print เป็น PDF ได้
+import { MAKER_CSS, COPYRIGHT_HTML, watermarkScript } from './brand-logo.js';
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const stripEmoji = (s) => String(s ?? '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '').trim();
 const trunc = (s, n) => { s = stripEmoji(s); return s.length > n ? s.slice(0, n) + '…' : s; };
@@ -78,8 +79,10 @@ export function renderPresentation(audit, brand = {}) {
   const comp = audit.competitor && !audit.competitor.error ? audit.competitor : null;
   const slides = [];
 
-  // มุมทแยง + เลขหน้า (ใส่ทุกสไลด์เนื้อหา)
-  const corner = `<div class="corner"><div class="corner-badge">${brandLogo ? `<img src="${esc(brandLogo)}" alt="">` : 'SEO<br><small>AUDIT</small>'}</div></div>`;
+  // ลิขสิทธิ์ผู้จัดทำ มุมล่างซ้ายทุกสไลด์ (watermark โลโก้จางๆ ฝังด้วย script ตอนโหลด)
+  const maker = `<div class="pres-cr">${COPYRIGHT_HTML}</div>`;
+  // มุมทแยง + เลขหน้า (ใส่ทุกสไลด์เนื้อหา) + ลิขสิทธิ์
+  const corner = `<div class="corner"><div class="corner-badge">${brandLogo ? `<img src="${esc(brandLogo)}" alt="">` : 'SEO<br><small>AUDIT</small>'}</div></div>${maker}`;
   const head = (kick, title) => `<div class="s-head"><div class="kick">${esc(kick)}</div><h2>${title}</h2></div>`;
 
   // ── 1. ปก ──
@@ -92,6 +95,7 @@ export function renderPresentation(audit, brand = {}) {
       <p class="cover-sub">Technical SEO · Generative Engine Optimization · Core Web Vitals · เทียบคู่แข่ง<br>ตรวจ ${audit.pagesAnalyzed} หน้า · ${esc(dateTh)}</p>
     </div>
     <div class="cover-badge"><b>${s.overall}</b><span>/100 · เกรด ${s.grade}</span></div>
+    ${maker}
   </section>`);
 
   // ── 2. สารบัญ ──
@@ -362,7 +366,7 @@ export function renderPresentation(audit, brand = {}) {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--navy:#0e2240;--navy2:#16305a;--accent:${accent};--good:#19b394;--mid:#f0a92e;--bad:#e74c5e;--ink:#1c2b40;--mut:#5b6c85}
+:root{--navy:#0e2240;--navy2:#16305a;--accent:${accent};--goldtx:${accent};--good:#19b394;--mid:#f0a92e;--bad:#e74c5e;--ink:#1c2b40;--mut:#5b6c85}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Inter','Noto Sans Thai',sans-serif;background:#0a0f18;overflow:hidden;color:var(--ink)}
 #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
@@ -374,6 +378,10 @@ body{font-family:'Inter','Noto Sans Thai',sans-serif;background:#0a0f18;overflow
 .corner-badge{position:absolute;top:20px;right:18px;color:#fff;font-weight:800;font-size:17px;line-height:1;text-align:center;z-index:1}
 .corner-badge small{font-size:9px;letter-spacing:.1em;font-weight:600;color:var(--accent)}
 .corner-badge img{height:34px;width:auto;object-fit:contain}
+.pres-cr{position:absolute;left:34px;bottom:22px;font-size:11px;color:var(--mut);z-index:4}
+.cover .pres-cr{color:#9fb0c8}
+.cr-brand{color:var(--accent);font-weight:700}
+${MAKER_CSS}
 .kick{font-size:13px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--mut)}
 .kick.gold{color:var(--accent)}
 .s-head{margin-bottom:24px}
@@ -532,7 +540,7 @@ h2::after{content:'';display:block;width:60px;height:5px;background:var(--accent
   #bar,#hint{display:none}
   #stage{position:static;display:block}
   .slide{position:relative;opacity:1!important;pointer-events:auto;page-break-after:always;box-shadow:none;margin:0 auto}
-  .corner::before,.corner-badge,.cover,.cover-tri,.cover-tri::after,.cover-badge,.bar-fill,.chip,.tl-dot,.cnt,.find-x,.ptab th,.geo-dot,.vsbar-fill,.cover-badge b{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .corner::before,.corner-badge,.cover,.cover-tri,.cover-tri::after,.cover-badge,.bar-fill,.chip,.tl-dot,.cnt,.find-x,.ptab th,.geo-dot,.vsbar-fill,.cover-badge b,.pres-maker{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   @page{size:1280px 720px;margin:0}
 }
 </style></head>
@@ -566,5 +574,6 @@ addEventListener('keydown',e=>{
 stage.addEventListener('click',e=>{if(e.clientX>innerWidth*0.6)go(1);else if(e.clientX<innerWidth*0.4)go(-1);});
 addEventListener('resize',scale);scale();set(0);
 </script>
+${watermarkScript()}
 </body></html>`;
 }

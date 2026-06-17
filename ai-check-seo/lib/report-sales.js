@@ -1,5 +1,6 @@
 // Sales Deck — รายงานฉบับ "เซลส์/ลูกค้าที่ไม่ใช่สาย tech อ่านเข้าใจ"
 // ธีม/รูปแบบสไลด์ A4 เดียวกับ report.js แต่: ข้อความเต็ม ไม่ตัด "..." + อธิบายทุกศัพท์เป็นภาษาคน + บอกผลต่อยอดขาย/ลูกค้า
+import { COPYRIGHT_HTML, MAKER_CSS, watermarkScript } from './brand-logo.js';
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const stripEmoji = (s) => String(s ?? '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '').trim();
 // แปลง mojibake "…" ที่อาจติดมาจาก data เก่า ให้เป็นข้อความปกติ (เราจะไม่ตัดข้อความเองเด็ดขาด)
@@ -473,7 +474,7 @@ export function renderSalesReport(audit, brand = {}) {
   const brandColor = brand.color || '';
   const s = audit.score;
   const a = audit.analysis || {};
-  const foot = () => `<footer><span>${esc(host)}</span><span>รายงาน SEO ฉบับเข้าใจง่าย · ${esc(brandName)} · ${esc(dateTh)}</span><span>__PG__ / __TOTAL__</span></footer>`;
+  const foot = () => `<footer><span>${esc(host)}</span><span>${COPYRIGHT_HTML}</span><span>รายงาน SEO ฉบับเข้าใจง่าย · ${esc(brandName)} · ${esc(dateTh)}</span><span>__PG__ / __TOTAL__</span></footer>`;
 
   const fails = audit.checks.filter(c => c.status === 'fail');
   const warns = audit.checks.filter(c => c.status === 'warn');
@@ -715,6 +716,7 @@ footer{margin-top:auto;padding-top:22px;display:flex;justify-content:space-betwe
   th,.chip,.dark,.bstat,.goldstrip{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   @page{size:A4 landscape;margin:0}
 }
+${MAKER_CSS}
 </style>
 ${brandColor ? `<style>:root{--gold:${esc(brandColor)};--goldtx:${esc(brandColor)}}</style>` : ''}
 </head>
@@ -734,6 +736,7 @@ ${closeSlide}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <script src="/export-pptx.js"></script>
+${watermarkScript()}
 </body>
 </html>`;
   let n = 0;

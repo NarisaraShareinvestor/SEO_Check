@@ -1,5 +1,6 @@
 // Report Deck — รายงานฉบับลูกค้าระดับ proposal เอเจนซี่ สร้างจากข้อมูล audit จริง
 // โครงอ้างอิง deck มาตรฐานเอเจนซี่ (เช่นตัวอย่างใน EXsam/) แต่เหนือกว่า: ข้อมูลสด + หลักฐานเชิงประจักษ์
+import { COPYRIGHT_HTML, MAKER_CSS, watermarkScript } from './brand-logo.js';
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const stripEmoji = (s) => String(s ?? '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '').trim();
 const trunc = (s, n) => { s = stripEmoji(s); return s.length > n ? s.slice(0, n) + '…' : s; };
@@ -31,7 +32,7 @@ export function renderReport(audit, brand = {}) {
   const spaShell = byId('spa-shell');
   const a = audit.analysis || {};
   const comp = audit.competitor && !audit.competitor.error ? audit.competitor : null;
-  const foot = () => `<footer><span>${esc(host)}</span><span>SEO &amp; GEO Audit · ${esc(brandName)} · ${esc(dateTh)}</span><span>__PG__ / __TOTAL__</span></footer>`;
+  const foot = () => `<footer><span>${esc(host)}</span><span>${COPYRIGHT_HTML}</span><span>SEO &amp; GEO Audit · ${esc(brandName)} · ${esc(dateTh)}</span><span>__PG__ / __TOTAL__</span></footer>`;
 
   // ── สไลด์ 1: ปก ──
   const cover = `
@@ -338,6 +339,7 @@ table,.findbox,.cols,.vsline,.cwvrow,.alert,.okbox,.refs{margin-bottom:18px}
   th,.chip,.circ,.dark,.bstat,.qwin{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   @page{size:A4 landscape;margin:0}
 }
+${MAKER_CSS}
 </style>
 ${brandColor ? `<style>:root{--gold:${esc(brandColor)};--goldtx:${esc(brandColor)}}</style>` : ''}
 </head>
@@ -360,6 +362,7 @@ ${methodSlide}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <script src="/export-pptx.js"></script>
+${watermarkScript()}
 </body>
 </html>`;
   // ไล่เลขหน้าตามลำดับแสดงผลจริง (หน้าคั่นถูกสร้างทีหลังแต่แทรกกลางเล่ม)
