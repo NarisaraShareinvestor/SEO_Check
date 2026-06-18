@@ -18,9 +18,10 @@ export const COPYRIGHT_HTML = 'Copyright © 2026 <span class="cr-brand">ShareInv
 // .wm = ลายน้ำกลางหน้าใหญ่ (ซ่อนในธีมพรีเมียม) · .wm-corner = โลโก้แบรนด์มุมขวาบน โชว์ทุกธีมทุกสไลด์เนื้อหา
 export const MAKER_CSS = `
 .slide > *{position:relative;z-index:1}
-.wm{position:absolute;left:50%;top:68%;transform:translate(-50%,-50%);width:96%;max-width:1200px;height:auto;opacity:.18;z-index:0;pointer-events:none;user-select:none}
-/* โลโก้แบรนด์มุมขวาบน — โชว์ทุกสไลด์เนื้อหา ทุกธีม (เหมือนหัวกระดาษรายงาน) */
-.wm-corner{position:absolute;top:30px;right:48px;width:190px;height:auto;opacity:1;z-index:2;pointer-events:none;user-select:none}
+/* ลายน้ำกลางหน้า — วางทับ "อยู่หน้า" ข้อความ (z-index สูงกว่าเนื้อหา) แต่จางมากจึงยังอ่านข้อความได้ */
+.wm{position:absolute;left:50%;top:68%;transform:translate(-50%,-50%);width:96%;max-width:1200px;height:auto;opacity:.14;z-index:2;pointer-events:none;user-select:none}
+/* โลโก้แบรนด์มุมขวาบน — โชว์ทุกสไลด์เนื้อหา ทุกธีม (เหมือนหัวกระดาษรายงาน) อยู่บนสุด */
+.wm-corner{position:absolute;top:30px;right:48px;width:190px;height:auto;opacity:1;z-index:3;pointer-events:none;user-select:none}
 body.theme-premium .wm{display:none}
 footer{align-items:center}
 .cr-brand{color:var(--goldtx);font-weight:700}
