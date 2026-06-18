@@ -13,6 +13,7 @@ import { fixLivePage, fixPagesBatch } from './lib/pagefix.js';
 import { execFile } from 'node:child_process';
 import { renderReport } from './lib/report.js';
 import { renderSalesReport } from './lib/report-sales.js';
+import { buildPlan, pushToClickUp, resolveRouting } from './lib/clickup.js';
 import { renderExecReport } from './lib/report-exec.js';
 import { renderSalesQA } from './lib/sales-qa.js';
 import { renderPresentation } from './lib/present.js';
@@ -472,6 +473,29 @@ app.get('/report-sale/:id', (req, res) => {
     color: /^#[0-9a-fA-F]{6}$/.test(String(req.query.bc || '')) ? String(req.query.bc) : '',
   };
   res.type('html').send(renderSalesReport(audit, brand));
+});
+
+// ส่ง Action Items เข้า ClickUp (เฟส 1 — กดเองจากแดชบอร์ด) · ?dryRun=1 = ดูแผนงานก่อนไม่ยิงจริง
+app.post('/api/clickup/:id', async (req, res) => {
+  const audit = jobs.get(req.params.id)?.result || loadAudit(req.params.id);
+  if (!audit) return res.status(404).json({ error: 'ไม่พบรายงานนี้' });
+  const route = resolveRouting(audit, __dirname);
+  if (req.query.dryRun === '1' || !process.env.CLICKUP_API_TOKEN) {
+    const plan = buildPlan(audit);
+    return res.json({
+      dryRun: true,
+      configured: !!process.env.CLICKUP_API_TOKEN,
+      listId: route.listId || null,
+      parent: plan.parent.name,
+      subtasks: plan.subtasks.length,
+      preview: plan.subtasks.slice(0, 8).map(s => ({ name: s.name, priority: s.priorityLabel, group: s.group, team: s.team })),
+      note: process.env.CLICKUP_API_TOKEN ? 'ตัวอย่างแผนงาน (ยังไม่ยิงจริง)' : 'ยังไม่ได้ตั้ง CLICKUP_API_TOKEN — แสดงตัวอย่างแผนงานเท่านั้น',
+    });
+  }
+  try {
+    const result = await pushToClickUp(audit, { token: process.env.CLICKUP_API_TOKEN, listId: route.listId, assignee: route.assignee });
+    res.json(result);
+  } catch (e) { res.status(502).json({ error: String(e.message || e) }); }
 });
 
 // รายงานสำหรับผู้บริหาร — ภาษาทางการ โครงสร้าง สิ่งที่ตรวจพบ/ผลกระทบ/ระดับความสำคัญ/คำแนะนำ

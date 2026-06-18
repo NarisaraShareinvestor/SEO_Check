@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design — Report → ClickUp Action Item Automation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter','Noto Sans Thai',sans-serif;background:#0f1117;color:#e2e8f0;line-height:1.65}
+.wrap{max-width:1120px;margin:0 auto;padding:38px 22px 70px}
+h1{font-size:1.85rem;font-weight:800;color:#f8fafc;margin-bottom:6px;letter-spacing:-.01em}
+.sub{color:#94a3b8;font-size:.97rem;margin-bottom:6px}
+.meta{color:#64748b;font-size:.8rem;margin-bottom:28px}
+h2{font-size:1.28rem;font-weight:700;color:#f1f5f9;margin:38px 0 13px;padding-bottom:9px;border-bottom:1px solid #1e2a3a;display:flex;align-items:center;gap:11px}
+h2 .n{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:#1e3a5f;color:#7dd3fc;font-size:.88rem;font-weight:700;flex-shrink:0}
+h3{font-size:1.04rem;font-weight:600;color:#cbd5e1;margin:22px 0 9px}
+p{font-size:.9rem;color:#cbd5e1}
+a{color:#7dd3fc}
+strong{color:#f1f5f9}
+table{width:100%;border-collapse:collapse;font-size:.84rem;margin:10px 0 4px}
+th{background:#1a2235;color:#94a3b8;text-align:left;padding:9px 12px;font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+td{padding:9px 12px;border-bottom:1px solid #1e2a3a;vertical-align:top;color:#cbd5e1}
+tr:hover td{background:#161d2e}
+code{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.82em;background:#1a2235;color:#fcd34d;padding:1px 6px;border-radius:5px}
+.card{background:#141b2d;border-radius:13px;padding:20px 22px;margin-bottom:14px;border:1px solid #1c2740}
+.pill{display:inline-block;padding:1px 9px;border-radius:20px;font-size:.7rem;font-weight:700;white-space:nowrap}
+.urgent{background:#450a0a;color:#fca5a5}.high{background:#5b1d0e;color:#fdba74}.normal{background:#1e3a5f;color:#7dd3fc}.low{background:#1f2937;color:#9ca3af}
+.tag{background:#1e293b;color:#93c5fd;font-size:.72rem;padding:2px 9px;border-radius:6px;white-space:nowrap}
+.note{background:#0f1a2a;border-left:3px solid #3b82f6;padding:12px 16px;border-radius:0 8px 8px 0;font-size:.85rem;color:#a8c0d8;margin:14px 0}
+.warn{background:#1f1607;border-left:3px solid #f59e0b;padding:12px 16px;border-radius:0 8px 8px 0;font-size:.85rem;color:#e8d4b0;margin:14px 0}
+.ok{background:#0d1f14;border-left:3px solid #22c55e;padding:12px 16px;border-radius:0 8px 8px 0;font-size:.85rem;color:#b9e6c8;margin:14px 0}
+ul,ol{margin:8px 0 8px 22px}li{font-size:.88rem;color:#cbd5e1;margin-bottom:5px}
+.flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:14px 0;background:#0f1726;border-radius:12px;padding:18px 14px}
+.fstep{flex:1;min-width:150px;text-align:center;padding:10px 12px;position:relative}
+.fstep .ic{width:42px;height:42px;border-radius:11px;background:#1e3a5f;color:#7dd3fc;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:1.1rem;font-weight:800}
+.fstep b{display:block;font-size:.86rem;color:#f1f5f9;margin-bottom:3px}
+.fstep span{font-size:.76rem;color:#8fa3c2;line-height:1.45;display:block}
+.fstep:not(:last-child)::after{content:'→';position:absolute;right:-8px;top:30px;color:#475569;font-size:1.1rem}
+pre{background:#0b1220;border:1px solid #1c2740;border-radius:10px;padding:15px 17px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.78rem;color:#cbd5e1;line-height:1.6;margin:10px 0}
+pre .k{color:#7dd3fc}.s{color:#86efac}.c{color:#64748b}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.phase{background:#141b2d;border-radius:12px;margin-bottom:12px;overflow:hidden;border-left:4px solid #3b82f6}
+.phase.p1{border-left-color:#22c55e}.phase.p2{border-left-color:#3b82f6}.phase.p3{border-left-color:#a855f7}
+.phead{display:flex;align-items:center;gap:10px;padding:13px 18px;background:#171f30;flex-wrap:wrap}
+.phead .pn{font-weight:700;color:#f1f5f9;font-size:1rem}.phead .est{margin-left:auto;font-size:.76rem;color:#94a3b8}
+.ptasks{padding:8px 18px 14px}.ptasks li{font-size:.85rem;margin-bottom:6px}
+.kv{font-size:.8rem;color:#64748b;margin-top:2px}
+footer{margin-top:44px;padding-top:18px;border-top:1px solid #1e2a3a;font-size:.78rem;color:#475569;text-align:center}
+@media print{body{background:#fff;color:#111}.card,.phase,.phead,.flow,pre,.note,.warn,.ok{background:#f7f8fa;color:#111;border-color:#ddd}code{background:#eee;color:#92400e}th{background:#eef}}
+@media(max-width:720px){.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Automation: SEO / AI Readiness Report → ClickUp Action Items</h1>
+  <p class="sub">ออกแบบระบบอ่านผลตรวจจาก AI SEO Audit Pro แล้วแปลงประเด็นที่พบเป็น Todo / Action Item ใน ClickUp อัตโนมัติ</p>
+  <p class="meta">เอกสารออกแบบ (Design Spec) · เวอร์ชัน 0.1 · 18 มิ.ย. 2569 · สำหรับเสนอที่ประชุม + วางระบบใน ClickUp</p>
+
+  <div class="note">เอกสารนี้คือ <strong>การออกแบบก่อนพัฒนา</strong> — อธิบายว่าจะดึงข้อมูลจาก report ที่ระบบเราผลิตอยู่แล้ว (audit JSON ใน <code>data/audits/</code>) มาแปลงเป็นงานใน ClickUp อย่างไร, แมปฟิลด์อะไรไปอะไร, และเดินงานเป็นเฟสไหน — เพื่อให้เห็นภาพตรงกันก่อนลงมือเขียนโค้ด</div>
+
+  <!-- ───────── 1 ───────── -->
+  <h2><span class="n">1</span> เป้าหมาย &amp; ปัญหาที่แก้</h2>
+  <div class="card">
+    <p>ทุกวันนี้พอตรวจเว็บเสร็จ ได้รายงานปัญหา 30–40 ข้อต่อเว็บ ทีมต้อง <strong>อ่าน report เอง แล้วเปิด Todo ใน ClickUp ทีละข้อ</strong> — เสียเวลา, ตกหล่น, และคัดลอกผิดมือ เมื่อมีหลายเว็บ/หลายรอบยิ่งไม่ไหว</p>
+    <p style="margin-top:8px"><strong>เป้าหมาย:</strong> เมื่อมี report ใหม่ ระบบ <strong>สร้าง Action Item ใน ClickUp ให้อัตโนมัติ</strong> — จัด Priority / Category / Team ให้ครบ, ส่งเข้า Project ปลายทางที่ถูกต้อง (เช่น เว็บลูกค้า PTG → Project PTG), และ <strong>นำ workflow เดียวไปใช้ซ้ำกับทุกเว็บได้</strong></p>
+  </div>
+
+  <!-- ───────── 2 ───────── -->
+  <h2><span class="n">2</span> ภาพรวมการทำงาน (Architecture)</h2>
+  <div class="flow">
+    <div class="fstep"><div class="ic">1</div><b>Audit เสร็จ</b><span>ระบบตรวจเว็บ → ได้ audit JSON (มี checks/score/GEO อยู่แล้ว)</span></div>
+    <div class="fstep"><div class="ic">2</div><b>Transformer</b><span>กรองเฉพาะปัญหา (fail/warn) → แปลงเป็น Action Item ตามกฎแมป</span></div>
+    <div class="fstep"><div class="ic">3</div><b>Router</b><span>ดูว่าเว็บนี้เป็นของลูกค้าไหน → เลือก ClickUp List ปลายทาง</span></div>
+    <div class="fstep"><div class="ic">4</div><b>ClickUp API</b><span>สร้าง/อัปเดต Task (เว็บ) + Subtask (ปัญหา) แบบกันซ้ำ</span></div>
+    <div class="fstep"><div class="ic">5</div><b>ทีมรับงาน</b><span>เห็นงานพร้อม URL/วิธีแก้/Priority/Owner — ลงมือต่อได้ทันที</span></div>
+  </div>
+  <p>จุดแข็ง: ระบบเรา<strong>มีข้อมูลโครงสร้างพร้อมอยู่แล้ว</strong> — แต่ละ check มี <code>id / category / severity / status / title / detail / recommendation / pages / fixable</code> ฉะนั้น automation นี้คือ "ชั้นแปลง + ส่ง" บางๆ ไม่ต้องตีความ report ใหม่</p>
+
+  <!-- ───────── 3 ───────── -->
+  <h2><span class="n">3</span> โครงสร้างใน ClickUp</h2>
+  <p>ใช้หลัก <strong>1 เว็บไซต์ = 1 Task</strong> และ <strong>1 ปัญหา = 1 Subtask</strong> (ตามที่ทีมเสนอ)</p>
+  <div class="two">
+    <div class="card">
+      <h3 style="margin-top:0">📦 Parent Task = เว็บไซต์</h3>
+      <p class="kv">ชื่อ: <code>[SEO] richsport.co.th — 57/100 (D)</code></p>
+      <table>
+        <tr><th>Custom Field</th><th>มาจาก</th></tr>
+        <tr><td>Website URL</td><td><code>audit.url</code></td></tr>
+        <tr><td>SEO Score</td><td><code>score.overall</code> + เกรด</td></tr>
+        <tr><td>GEO Score</td><td><code>score.categoryScores.geo</code></td></tr>
+        <tr><td>Severity (รวม)</td><td>นับ fail → ป้ายระดับ</td></tr>
+        <tr><td>Last Scan Date</td><td><code>audit.createdAt</code></td></tr>
+        <tr><td>Assigned Team</td><td>ทีมหลักของเว็บ</td></tr>
+        <tr><td>Fix ETA</td><td>roll-up จาก subtask</td></tr>
+      </table>
+      <p class="kv" style="margin-top:8px">Description: บทสรุป + จำนวน fail/warn + ลิงก์รายงานเต็ม (<code>/report-sale/:id</code>)</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">✅ Subtask = 1 ปัญหา (check)</h3>
+      <p class="kv">สร้างเฉพาะ check ที่ <code>status = fail | warn</code> (ข้าม pass/info)</p>
+      <table>
+        <tr><th>Field</th><th>มาจาก</th></tr>
+        <tr><td>Title</td><td><code>check.title</code></td></tr>
+        <tr><td>Priority</td><td><code>severity</code> → ตารางข้อ 4</td></tr>
+        <tr><td>Tag / Category</td><td><code>category</code> → กลุ่มงาน</td></tr>
+        <tr><td>Assignee / Team</td><td>category → ทีม</td></tr>
+        <tr><td>Description</td><td>detail + recommendation + หน้าที่กระทบ</td></tr>
+        <tr><td>Issue Key (ซ่อน)</td><td><code>check.id</code> (ไว้กันซ้ำ/re-scan)</td></tr>
+        <tr><td>Fix ETA / Due</td><td>ตาม Priority (ดีฟอลต์) หรือ AI timeline</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="ok"><strong>ข้อดีของโครงสร้างนี้:</strong> Re-scan ได้เป็นราย Issue · Dev เห็นภาพรวมทั้งเว็บใน Task เดียว · PM ติดตาม progress จาก subtask ที่ปิด · รองรับหลายร้อยเว็บ (1 เว็บ = 1 Task) · ต่อยอด AI Auto-Fix &amp; Auto-Recheck ได้ (ผูกกับ Issue Key)</div>
+
+  <!-- ───────── 4 ───────── -->
+  <h2><span class="n">4</span> กฎการแมป (Mapping Rules)</h2>
+
+  <h3>4.1 Severity → ClickUp Priority</h3>
+  <table>
+    <tr><th>ในระบบเรา</th><th>เงื่อนไข</th><th>ClickUp Priority</th><th>Due (ดีฟอลต์)</th></tr>
+    <tr><td><code>severity:high</code> + <code>fail</code></td><td>ปัญหาร้ายแรง</td><td><span class="pill urgent">Urgent</span></td><td>3 วัน</td></tr>
+    <tr><td><code>high</code>+<code>warn</code> หรือ <code>med</code>+<code>fail</code></td><td>ควรรีบแก้</td><td><span class="pill high">High</span></td><td>7 วัน</td></tr>
+    <tr><td><code>med</code> + <code>warn</code></td><td>ควรปรับปรุง</td><td><span class="pill normal">Normal</span></td><td>14 วัน</td></tr>
+    <tr><td><code>low</code></td><td>เล็กน้อย</td><td><span class="pill low">Low</span></td><td>30 วัน</td></tr>
+  </table>
+  <p class="kv">ปัญหาที่อยู่ใน <code>analysis.topPriorities</code> (AI จัดอันดับผลกระทบธุรกิจ) ดัน Priority ขึ้น 1 ขั้น + ขึ้นต้น list</p>
+
+  <h3>4.2 Category (ของเรา) → กลุ่มงาน / ทีมที่รับผิดชอบ</h3>
+  <table>
+    <tr><th>category (เรา)</th><th>กลุ่มงาน ClickUp</th><th>ทีม</th><th>ตัวอย่าง check</th></tr>
+    <tr><td><code>index</code></td><td><span class="tag">Indexing</span></td><td>Technical SEO / Dev</td><td>canonical, sitemap, robots, noindex</td></tr>
+    <tr><td><code>schema</code></td><td><span class="tag">Schema</span></td><td>Technical SEO / Dev</td><td>jsonld-missing, schema-incomplete, og-tags</td></tr>
+    <tr><td><code>performance</code></td><td><span class="tag">Performance</span></td><td>Dev / DevOps</td><td>cwv-score, ttfb-slow, compression</td></tr>
+    <tr><td><code>onpage</code></td><td><span class="tag">Content / SEO</span></td><td>Content / SEO</td><td>title, meta description, thin content</td></tr>
+    <tr><td><code>geo</code></td><td><span class="tag">AI Readiness</span></td><td>SEO + Dev</td><td>geo-faq-schema, llms.txt, geo-entity</td></tr>
+    <tr><td><code>links</code> / <code>images</code> / <code>rendering</code> / <code>security</code></td><td><span class="tag">Technical SEO</span></td><td>Dev</td><td>broken-links, img-alt, spa-shell, https</td></tr>
+  </table>
+  <p class="kv">แมปนี้เก็บเป็น config (ตารางเดียว) — แก้ทีหลังได้ไม่ต้องแตะโค้ด · 9 category ของเราครอบคลุมกลุ่มที่ขอ (SEO, Technical SEO, Content, AI Readiness, Schema, Indexing, Performance) ครบ</p>
+
+  <h3>4.3 หน้าตา Subtask (Description Template)</h3>
+  <pre><span class="c"># {check.title}  — เช่น "ไม่มี Structured Data (JSON-LD) เลย"</span>
+
+<span class="k">🔍 ตรวจเจอจริง</span>   : {check.detail}
+<span class="k">💡 แนวทางแก้</span>      : {check.recommendation}
+<span class="k">📄 หน้าที่กระทบ</span>   : {affectedCount} หน้า
+   - https://site/a   - https://site/b  <span class="c">(สูงสุด 10 + "และอีก N")</span>
+<span class="k">🔗 รายงานเต็ม</span>     : https://seo.ohmai.me/report-sale/{auditId}
+<span class="k">🏷 หมวด</span>          : {กลุ่มงาน}   |  <span class="k">Owner</span>: {ทีม}
+<span class="c">issue-key: {auditId}:{check.id}   ← ฟิลด์ซ่อน ไว้กันซ้ำ/re-scan</span></pre>
+
+  <!-- ───────── 5 ───────── -->
+  <h2><span class="n">5</span> กันซ้ำ &amp; Re-scan (Idempotency)</h2>
+  <p>หัวใจที่ทำให้ใช้ซ้ำได้และต่อยอด Auto-Recheck — ทุก subtask ฝัง <code>issue-key = {auditId หรือ domain}:{check.id}</code> ใน 1 เว็บ = 1 parent task พอตรวจรอบใหม่:</p>
+  <table>
+    <tr><th>สถานะ check รอบใหม่</th><th>การกระทำใน ClickUp</th></tr>
+    <tr><td>เคย fail/warn → ตอนนี้ <strong>pass</strong></td><td>ปิด subtask เป็น <code>Complete</code> ✅ (= แก้แล้ว, ผูก Auto-Recheck)</td></tr>
+    <tr><td>ยัง fail/warn (มีอยู่แล้ว)</td><td>อัปเดต detail/affectedCount/Priority — ไม่สร้างซ้ำ</td></tr>
+    <tr><td>ปัญหาใหม่ (ไม่เคยมี)</td><td>สร้าง subtask ใหม่</td></tr>
+  </table>
+  <p class="kv">จับคู่ด้วย issue-key (ค้นใน parent task ก่อนสร้าง) → รันกี่รอบก็ไม่เกิด Todo ซ้ำ · ตรงกับ Acceptance "นำ workflow ไปใช้ซ้ำได้"</p>
+
+  <!-- ───────── 6 ───────── -->
+  <h2><span class="n">6</span> ส่งเข้า Project ปลายทาง (Routing)</h2>
+  <p>เว็บแต่ละเว็บส่งเข้า ClickUp List ของลูกค้าที่ถูกต้องอัตโนมัติ — เก็บเป็น config <code>data/clickup-routing.json</code></p>
+  <pre>{
+  <span class="s">"ptgenergy.co.th"</span>: { <span class="k">"listId"</span>: <span class="s">"901xxx..."</span>, <span class="k">"team"</span>: <span class="s">"PTG"</span>, <span class="k">"defaultAssignee"</span>: <span class="s">"u123"</span> },
+  <span class="s">"richsport.co.th"</span>: { <span class="k">"listId"</span>: <span class="s">"902xxx..."</span>, <span class="k">"team"</span>: <span class="s">"RichSport"</span> },
+  <span class="c">"_default"</span>:        { <span class="k">"listId"</span>: <span class="s">"900xxx..."</span>, <span class="k">"team"</span>: <span class="s">"SEO Inbox"</span> }
+}</pre>
+  <p class="kv">เช่น report ของเว็บ PTG → สร้าง Action Item ที่ <strong>Project PTG</strong> · เว็บที่ยังไม่ตั้ง routing → เข้า "SEO Inbox" (ดีฟอลต์) แล้วค่อยย้าย</p>
+
+  <!-- ───────── 7 ───────── -->
+  <h2><span class="n">7</span> ตัวจุดชนวน (Trigger)</h2>
+  <ul>
+    <li><strong>ปุ่มในแดชบอร์ด</strong> "ส่ง Action Items เข้า ClickUp" บนหน้าผลตรวจ — กดเองเมื่อพร้อม (เฟส 1)</li>
+    <li><strong>อัตโนมัติเมื่อ audit เสร็จ</strong> — server.js hook: ถ้าเว็บนี้มี routing ตั้งไว้ → ส่งทันที (เฟส 2)</li>
+    <li><strong>ผูกกับ Watchlist</strong> ที่มีอยู่ — ตรวจตามรอบแล้ว sync subtask อัตโนมัติ (เฟส 3)</li>
+  </ul>
+
+  <!-- ───────── 8 ───────── -->
+  <h2><span class="n">8</span> การเชื่อมต่อ ClickUp (API / MCP)</h2>
+  <div class="two">
+    <div class="card">
+      <h3 style="margin-top:0">ทางเลือก A — ClickUp REST API v2 <span class="pill normal">แนะนำ (production)</span></h3>
+      <table>
+        <tr><th>งาน</th><th>Endpoint</th></tr>
+        <tr><td>สร้าง Task (เว็บ)</td><td><code>POST /list/{listId}/task</code></td></tr>
+        <tr><td>สร้าง Subtask</td><td><code>POST /list/{listId}/task</code> + <code>parent</code></td></tr>
+        <tr><td>ตั้ง custom field</td><td><code>POST /task/{id}/field/{fieldId}</code></td></tr>
+        <tr><td>ค้นกันซ้ำ</td><td><code>GET /list/{listId}/task?...</code></td></tr>
+        <tr><td>ปิดงาน (re-scan)</td><td><code>PUT /task/{id}</code> status</td></tr>
+      </table>
+      <p class="kv">Auth: Personal API Token หรือ OAuth · รองรับ priority/tags/assignees/due date ครบ</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">ทางเลือก B — ClickUp MCP <span class="pill low">prototype / ทดสอบเร็ว</span></h3>
+      <p>มี ClickUp MCP ที่ต่อกับ Claude ได้เลย — เหมาะ <strong>ทดสอบ flow / สร้าง list/field โครงครั้งแรก</strong> โดยไม่ต้องเขียน API client</p>
+      <p class="kv" style="margin-top:6px">แต่ production ควรเป็น REST API (รันเองบน VPS, ไม่ผูกกับ session) — ใช้ MCP ช่วยตอน setup ครั้งแรกแล้วย้ายเป็น API</p>
+    </div>
+  </div>
+  <pre><span class="c">// ตัวอย่าง payload สร้าง subtask 1 ปัญหา</span>
+POST /api/v2/list/901.../task
+{
+  <span class="k">"name"</span>: <span class="s">"ไม่มี Structured Data (JSON-LD) เลย"</span>,
+  <span class="k">"parent"</span>: <span class="s">"&lt;website-task-id&gt;"</span>,
+  <span class="k">"priority"</span>: 1,                     <span class="c">// Urgent (จาก severity:high+fail)</span>
+  <span class="k">"tags"</span>: [<span class="s">"Schema"</span>],
+  <span class="k">"assignees"</span>: [<span class="s">123</span>],
+  <span class="k">"due_date"</span>: 1718800000000,
+  <span class="k">"markdown_description"</span>: <span class="s">"🔍 ตรวจเจอจริง: 0/30 หน้า ...\n💡 แนวทางแก้: ..."</span>,
+  <span class="k">"custom_fields"</span>: [{ <span class="k">"id"</span>:<span class="s">"issue_key"</span>, <span class="k">"value"</span>:<span class="s">"a1b2:jsonld-missing"</span> }]
+}</pre>
+
+  <!-- ───────── 9 ───────── -->
+  <h2><span class="n">9</span> Scope / Expected Result / Acceptance — แมปกับดีไซน์นี้</h2>
+  <table>
+    <tr><th>ข้อกำหนด</th><th>ตอบด้วยส่วนไหน</th></tr>
+    <tr><td>รับ + วิเคราะห์ report</td><td>ใช้ audit JSON ที่มีอยู่ (ข้อ 2) — ไม่ต้องตีความใหม่</td></tr>
+    <tr><td>แยกประเด็นเป็น Action Item</td><td>1 check (fail/warn) = 1 subtask (ข้อ 3)</td></tr>
+    <tr><td>Priority / Category / Team</td><td>ตารางแมป 4.1 + 4.2</td></tr>
+    <tr><td>รายละเอียดครบ (URL/Issue/Reco/Priority/Owner/Note)</td><td>Description template 4.3</td></tr>
+    <tr><td>จัดกลุ่มงาน 7 ประเภท</td><td>category → กลุ่มงาน (ข้อ 4.2 ครบทุกกลุ่ม)</td></tr>
+    <tr><td>ส่งเข้า project ปลายทาง (เช่น PTG)</td><td>Routing config (ข้อ 6)</td></tr>
+    <tr><td>Title/Description ชัด + Priority + URL + แยกทีม</td><td>ข้อ 3, 4.1, 4.3 ✓</td></tr>
+    <tr><td>ใช้ซ้ำกับเว็บอื่นได้</td><td>config-driven + กันซ้ำด้วย issue-key (ข้อ 5, 6)</td></tr>
+    <tr><td>ลด manual / ลดผิดพลาด</td><td>trigger อัตโนมัติ (ข้อ 7)</td></tr>
+  </table>
+
+  <!-- ───────── 10 ───────── -->
+  <h2><span class="n">10</span> แผนพัฒนา (เป็นเฟส ส่งมอบได้ทีละก้อน)</h2>
+  <div class="phase p1">
+    <div class="phead"><span class="pn">เฟส 1 — Transformer + ส่งแบบกดเอง</span><span class="est">~3–4 วัน</span></div>
+    <div class="ptasks"><ul>
+      <li>เขียน <code>lib/clickup.js</code>: แปลง audit → action items (ตารางแมป 4.1/4.2/4.3)</li>
+      <li>ต่อ ClickUp API (token + 1 list ทดสอบ) สร้าง parent task + subtasks</li>
+      <li>ปุ่ม "ส่งเข้า ClickUp" บนหน้าผล + custom field "issue-key"</li>
+      <li>เกณฑ์ผ่าน: กดแล้วเกิด Task เว็บ + subtask ครบทุกปัญหา พร้อม Priority/URL/วิธีแก้</li>
+    </ul></div>
+  </div>
+  <div class="phase p2">
+    <div class="phead"><span class="pn">เฟส 2 — Routing + อัตโนมัติ + กันซ้ำ</span><span class="est">~3 วัน</span></div>
+    <div class="ptasks"><ul>
+      <li><code>data/clickup-routing.json</code> (domain → list/team) + map หลายลูกค้า (PTG ฯลฯ)</li>
+      <li>กันซ้ำด้วย issue-key (ค้นก่อนสร้าง) — รันซ้ำไม่เกิด Todo ซ้ำ</li>
+      <li>auto-trigger เมื่อ audit เสร็จ (server.js hook)</li>
+    </ul></div>
+  </div>
+  <div class="phase p3">
+    <div class="phead"><span class="pn">เฟส 3 — Re-scan Sync + ผูก Auto-Fix</span><span class="est">~2–3 วัน</span></div>
+    <div class="ptasks"><ul>
+      <li>Re-scan: ปิด subtask ที่แก้แล้ว / อัปเดตที่ยังค้าง / เพิ่มปัญหาใหม่ (ข้อ 5)</li>
+      <li>ผูกกับ Watchlist (ตรวจตามรอบ → sync เอง)</li>
+      <li>ปุ่ม/ลิงก์ AI Auto-Fix จาก subtask → แก้แล้ว recheck → ปิดงานอัตโนมัติ</li>
+    </ul></div>
+  </div>
+
+  <!-- ───────── 11 ───────── -->
+  <h2><span class="n">11</span> สิ่งที่ต้องขอ / ตัดสินใจก่อนเริ่ม</h2>
+  <div class="warn">
+    <strong>ข้อมูลที่ต้องขอ:</strong>
+    <ul style="margin-bottom:0">
+      <li><strong>ClickUp API Token</strong> (หรือ OAuth) + สิทธิ์เขียนใน Workspace</li>
+      <li><strong>List ID ปลายทางของแต่ละลูกค้า</strong> (เช่น Project PTG) + โครง Space/Folder/List ที่ต้องการ</li>
+      <li><strong>Custom Field IDs</strong> (SEO Score, GEO Score, Severity, Issue Key ฯลฯ) — หรือให้เราสร้างให้ผ่าน MCP/API</li>
+      <li><strong>รายชื่อสมาชิก/ทีม</strong> ใน ClickUp (assignee IDs) สำหรับแมป category → owner</li>
+      <li>ยืนยันชุด <strong>Priority/Due date</strong> ตามตาราง 4.1 ว่าตรงกับ SLA ทีมไหม</li>
+    </ul>
+    <p style="margin-top:8px">หากต้องการข้อมูล API / MCP ขอจาก: <strong>__________</strong> · ขอคำปรึกษาจาก: <strong>__________</strong></p>
+  </div>
+
+  <footer>Design Spec v0.1 · Report → ClickUp Action Item Automation · AI SEO Audit Pro · 18 มิ.ย. 2569</footer>
+
+</div>
+</body>
+</html>

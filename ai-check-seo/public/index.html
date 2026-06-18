@@ -308,6 +308,7 @@ main{flex:1;padding:34px 44px 80px;max-width:1240px}
           <button class="btn ghost sm" onclick="window.open(execReportUrl(currentAudit.id),'_blank')">รายงานสำหรับผู้บริหาร</button>
           <button class="btn ghost sm" onclick="window.open(saleReportUrl(currentAudit.id),'_blank')">รายงานสำหรับเซลส์</button>
           <button class="btn ghost sm" onclick="window.open(qaUrl(currentAudit.id),'_blank')">เตรียมตอบคำถาม (Q&amp;A)</button>
+          <button class="btn ghost sm" id="clickupBtn" onclick="sendToClickUp()">ส่ง Action Items เข้า ClickUp</button>
           <button class="btn ghost sm" id="watchBtn" onclick="toggleWatch()">เฝ้าระวังอัตโนมัติ</button>
           <button class="btn ghost sm" onclick="rescan()">ตรวจซ้ำหลังแก้</button>
         </div>

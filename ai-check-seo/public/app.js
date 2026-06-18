@@ -290,6 +290,31 @@ function execReportUrl(id) { return '/report-exec/' + id + brandQuery(); }
 function qaUrl(id) { return '/report-qa/' + id + brandQuery(); }
 function presentUrl(id) { return '/present/' + id + brandQuery(); }
 
+// ── ส่ง Action Items เข้า ClickUp (เฟส 1) ──
+async function sendToClickUp() {
+  if (!currentAudit) return;
+  const btn = document.getElementById('clickupBtn');
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = 'กำลังส่ง…';
+  try {
+    const res = await fetch('/api/clickup/' + currentAudit.id, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || 'ส่งไม่สำเร็จ');
+    if (d.dryRun) {
+      const lines = (d.preview || []).map(p => `• [${p.priority}] ${p.name} → ${p.group}`).join('\n');
+      alert(`ตัวอย่างแผนงาน (ยังไม่ได้ยิงเข้า ClickUp จริง)\n\nParent: ${d.parent}\nจะสร้าง ${d.subtasks} subtask\n\n${lines}${d.subtasks > 8 ? '\n…' : ''}\n\n${d.note}`);
+    } else {
+      const errTxt = (d.errors && d.errors.length) ? `\n⚠️ พลาด ${d.errors.length} รายการ` : '';
+      alert(`ส่งเข้า ClickUp สำเร็จ ✅\n\nสร้าง Task เว็บ + ${d.created}/${d.total} subtask${errTxt}\n\nเปิดดู: ${d.parentUrl || '(ClickUp)'}`);
+      if (d.parentUrl) window.open(d.parentUrl, '_blank');
+    }
+  } catch (e) {
+    alert('ส่งเข้า ClickUp ไม่สำเร็จ: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
 // ── เทียบคู่แข่ง ──
 const FLAG_LABELS = {
   ssr: 'เนื้อหาอยู่ใน HTML ดิบ (SSR)', jsonld: 'Structured Data (JSON-LD)', orgSchema: 'Organization schema',
