@@ -13,6 +13,7 @@ import { fixLivePage, fixPagesBatch } from './lib/pagefix.js';
 import { execFile } from 'node:child_process';
 import { renderReport } from './lib/report.js';
 import { renderSalesReport } from './lib/report-sales.js';
+import { renderExecReport } from './lib/report-exec.js';
 import { renderSalesQA } from './lib/sales-qa.js';
 import { renderPresentation } from './lib/present.js';
 import { scoreAudit, CAT_LABELS } from './lib/scorer.js';
@@ -471,6 +472,19 @@ app.get('/report-sale/:id', (req, res) => {
     color: /^#[0-9a-fA-F]{6}$/.test(String(req.query.bc || '')) ? String(req.query.bc) : '',
   };
   res.type('html').send(renderSalesReport(audit, brand));
+});
+
+// รายงานสำหรับผู้บริหาร — ภาษาทางการ โครงสร้าง สิ่งที่ตรวจพบ/ผลกระทบ/ระดับความสำคัญ/คำแนะนำ
+app.get('/report-exec/:id', (req, res) => {
+  const job = jobs.get(req.params.id);
+  const audit = job?.result || loadAudit(req.params.id);
+  if (!audit) return res.status(404).send('ไม่พบรายงานนี้');
+  const brand = {
+    name: String(req.query.bn || '').slice(0, 60),
+    logo: /^https?:\/\//.test(String(req.query.bl || '')) ? String(req.query.bl).slice(0, 300) : '',
+    color: /^#[0-9a-fA-F]{6}$/.test(String(req.query.bc || '')) ? String(req.query.bc) : '',
+  };
+  res.type('html').send(renderExecReport(audit, brand));
 });
 
 // คู่มือ "เตรียมตอบคำถาม (Q&A)" สำหรับเซลส์ — คำถามที่ลูกค้าจะถามตอนนำเสนอ + คำตอบแนะนำ
