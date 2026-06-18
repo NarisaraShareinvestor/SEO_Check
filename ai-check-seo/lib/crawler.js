@@ -179,6 +179,27 @@ async function fetchFollowing(url, maxHops = 8, retries = 2) {
   return { finalUrl: url, status: 0, chain: [], res: null, error: lastErr || 'fetch-failed', insecure: forceInsecure, tlsErrorCode };
 }
 
+// fetch เดี่ยว (ไม่ไล่ redirect chain เอง) พร้อม fallback ชุดเดียวกับ fetchFollowing:
+// relay 52x → ต่อตรง, worker error → ต่อตรง, cert chain พัง → ผ่อน TLS verify
+// ใช้กับ robots/llms/sitemap/favicon/404/broken-link ที่เดิมเรียก fetchWithMeta ตรงๆ —
+// กัน false negative บนเว็บ cert พัง/relay มีปัญหา (เช่น www.vgi.co.th: robots/sitemap เคยได้ 526 → รายงานว่า "ไม่มี")
+async function tryFetch(url, { method = 'GET', redirect = 'follow' } = {}) {
+  const relay = !!getWorkerRelay();
+  let direct = false, insecure = false;
+  for (let pass = 0; pass < 4; pass++) {
+    try {
+      const { res, elapsed, error } = await fetchWithMeta(url, { method, redirect, direct, insecure });
+      if (!res) { if (relay && !direct) { direct = true; continue; } return { res: null, error, insecure }; }
+      if (relay && !direct && res.status >= 520 && res.status <= 527) { try { res.body?.cancel?.(); } catch {} direct = true; continue; }
+      return { res, elapsed, insecure };
+    } catch (e) {
+      if (!insecure && INSECURE_DISPATCHER && isTlsChainError(e)) { insecure = true; direct = true; continue; }
+      return { res: null, error: String(e.message || e), insecure };
+    }
+  }
+  return { res: null, error: 'fetch-failed', insecure };
+}
+
 export function parseRobots(txt) {
   const groups = []; // {agents:[], rules:[{type, path}]}
   let cur = null;
@@ -228,7 +249,7 @@ async function fetchSitemapUrls(sitemapUrl, seen = new Set(), depth = 0, stats =
   if (depth > 2 || seen.has(sitemapUrl)) return [];
   seen.add(sitemapUrl);
   try {
-    const { res } = await fetchWithMeta(sitemapUrl, { redirect: 'follow' });
+    const { res } = await tryFetch(sitemapUrl, { redirect: 'follow' });
     if (!res?.ok) return [];
     // ตัด XML ที่ใหญ่เกิน 2MB — sitemap บางเจ้ามีแสน URL
     const rawXml = await res.text();
@@ -454,7 +475,8 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
   // 1. robots.txt
   onProgress('กำลังอ่าน robots.txt...');
   try {
-    const { res } = await fetchWithMeta(new URL('/robots.txt', origin).toString(), { redirect: 'follow' });
+    const { res, insecure } = await tryFetch(new URL('/robots.txt', origin).toString(), { redirect: 'follow' });
+    if (insecure) site.tlsInsecure = true;
     site.robotsStatus = res.status;
     if (res.ok) {
       site.robotsTxt = await res.text();
@@ -464,7 +486,7 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
 
   // 2. llms.txt (GEO) — ต้องเป็น text จริง ไม่ใช่หน้า HTML จาก soft-404
   try {
-    const { res } = await fetchWithMeta(new URL('/llms.txt', origin).toString(), { redirect: 'follow' });
+    const { res } = await tryFetch(new URL('/llms.txt', origin).toString(), { redirect: 'follow' });
     if (res.ok) {
       const txt = await res.text();
       const looksHtml = /^\s*<(!doctype|html|head|body)/i.test(txt) || (res.headers.get('content-type') || '').includes('text/html');
@@ -489,7 +511,7 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
   onProgress('กำลังตรวจ www/https variants และ favicon...');
   const [variants, faviconStatus] = await Promise.all([
     checkOriginVariants(origin).catch(() => []),
-    (async () => { try { const { res } = await fetchWithMeta(new URL('/favicon.ico', origin).toString(), { redirect: 'follow' }); try { res.body?.cancel?.(); } catch {} return res.status; } catch { return 0; } })(),
+    (async () => { try { const { res } = await tryFetch(new URL('/favicon.ico', origin).toString(), { redirect: 'follow' }); const st = res?.status ?? 0; try { res?.body?.cancel?.(); } catch {} return st; } catch { return 0; } })(),
   ]);
   site.variants = variants;
   site.faviconStatus = faviconStatus;
@@ -600,10 +622,10 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
   // ดึงสถานะลิงก์ — คืน status จริง (4xx/5xx) หรือ 0 ถ้าเชื่อมไม่ติด/timeout
   const probe = async (u) => {
     try {
-      const { res } = await fetchWithMeta(u, { method: 'HEAD', redirect: 'follow' });
-      let st = res.status;
-      try { res.body?.cancel?.(); } catch {}
-      if (st === 405 || st === 403 || st === 0) { const r2 = await fetchWithMeta(u, { redirect: 'follow' }); st = r2.res.status; try { r2.res.body?.cancel?.(); } catch {} }
+      const { res } = await tryFetch(u, { method: 'HEAD', redirect: 'follow' });
+      let st = res?.status ?? 0;
+      try { res?.body?.cancel?.(); } catch {}
+      if (st === 405 || st === 403 || st === 0) { const r2 = await tryFetch(u, { redirect: 'follow' }); st = r2.res?.status ?? 0; try { r2.res?.body?.cancel?.(); } catch {} }
       return st;
     } catch { return 0; }
   };
@@ -622,9 +644,9 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
 
   // 6. ทดสอบหน้า 404
   try {
-    const { res } = await fetchWithMeta(new URL('/ai-check-seo-404-test-' + 'x'.repeat(8), origin).toString(), { redirect: 'follow' });
-    site.notFoundHandling = { status: res.status, ok: res.status === 404 || res.status === 410 };
-    try { res.body?.cancel?.(); } catch {}
+    const { res } = await tryFetch(new URL('/ai-check-seo-404-test-' + 'x'.repeat(8), origin).toString(), { redirect: 'follow' });
+    site.notFoundHandling = res ? { status: res.status, ok: res.status === 404 || res.status === 410 } : null;
+    try { res?.body?.cancel?.(); } catch {}
   } catch { site.notFoundHandling = null; }
 
   // 7. Rendered crawl (ถ้ามี playwright) — render หน้าแรก + อีก 2 หน้าสำคัญ
