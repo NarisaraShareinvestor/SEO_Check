@@ -30,6 +30,18 @@ const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (
 const FETCH_TIMEOUT = 12000; // หน้าจริงตอบใน 1-2 วิ; ที่นานกว่านี้คือ origin ค้าง (เช่น IRPlus flap) — ตัดไว ๆ
 const CONCURRENCY = 5;
 
+// Dispatcher ผ่อน TLS verify — ใช้เฉพาะ fallback ตอน origin ส่ง cert chain ไม่ครบ (ขาด intermediate)
+// โหลดครั้งเดียวตอน import; ถ้า undici ไม่มีก็ปล่อย null (จะ fallback ไม่ได้แต่ไม่ crash)
+// scope แคบ: ใช้กับ fetch ที่ขอ insecure เท่านั้น ไม่แตะ TLS ของ request อื่น (ต่างจาก NODE_TLS_REJECT_UNAUTHORIZED ที่ global)
+let INSECURE_DISPATCHER = null;
+try { const { Agent } = await import('undici'); INSECURE_DISPATCHER = new Agent({ connect: { rejectUnauthorized: false } }); } catch {}
+// error code ของ TLS/cert ที่ "ผ่อน verify แล้วยังดึงเนื้อหาได้" — ใช้ตัดสินว่าควร fallback insecure
+const TLS_ERROR_RE = /UNABLE_TO_VERIFY_LEAF_SIGNATURE|UNABLE_TO_GET_ISSUER_CERT|SELF_SIGNED_CERT|DEPTH_ZERO|CERT_HAS_EXPIRED|ERR_TLS_CERT_ALTNAME|CERT_UNTRUSTED|UNABLE_TO_GET_CRL/i;
+function isTlsChainError(e) {
+  const code = e?.cause?.code || e?.code || '';
+  return TLS_ERROR_RE.test(code) || TLS_ERROR_RE.test(String(e?.message || ''));
+}
+
 // Proxy (optional) — เว็บไทยหลายเจ้า (irplus IR, ราชการ) บล็อก IP ดาต้าเซ็นเตอร์/ต่างประเทศ
 // สองรูปแบบ:
 //   CRAWL_PROXY=https://xxx.workers.dev  → Cloudflare Worker relay (ฟรี, ใช้กับ fetch เท่านั้น)
@@ -71,11 +83,13 @@ function sameSite(url, origin) {
   } catch { return false; }
 }
 
-async function fetchWithMeta(url, { method = 'GET', redirect = 'manual', direct = false } = {}) {
+async function fetchWithMeta(url, { method = 'GET', redirect = 'manual', direct = false, insecure = false } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT);
   const started = Date.now();
   // direct=true → ข้าม relay บังคับต่อตรง (ใช้ตอน relay เจอ Cloudflare 52x = ปัญหา relay↔origin)
+  // insecure=true → ต่อตรงแบบผ่อน TLS verify (ใช้ตอน cert chain origin ไม่ครบ) — บังคับ direct เสมอ
+  if (insecure) direct = true;
   const workerRelay = direct ? '' : getWorkerRelay();
   try {
     if (workerRelay) {
@@ -101,6 +115,7 @@ async function fetchWithMeta(url, { method = 'GET', redirect = 'manual', direct 
       method, redirect,
       headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'th,en;q=0.8' },
       signal: ctrl.signal,
+      ...(insecure && INSECURE_DISPATCHER ? { dispatcher: INSECURE_DISPATCHER } : {}),
     });
     const elapsed = Date.now() - started;
     return { res, elapsed };
@@ -112,18 +127,20 @@ async function fetchWithMeta(url, { method = 'GET', redirect = 'manual', direct 
 async function fetchFollowing(url, maxHops = 8, retries = 2) {
   let lastErr = null;
   const relayActive = !!getWorkerRelay();
-  let forceDirect = false; // เมื่อ relay เจอ Cloudflare 52x หรือ worker error → สลับมาต่อตรงสำหรับ URL นี้
+  let forceDirect = false;   // relay เจอ Cloudflare 52x หรือ worker error → สลับมาต่อตรงสำหรับ URL นี้
+  let forceInsecure = false; // origin ส่ง cert chain ไม่ครบ → ต่อตรงแบบผ่อน TLS verify (ยัง analyze ได้ + รายงานเป็น finding)
+  let tlsErrorCode = null;
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) await new Promise(r => setTimeout(r, 600 * attempt)); // backoff
     const chain = [];
     let current = url;
     try {
       for (let hop = 0; hop <= maxHops; hop++) {
-        let { res, elapsed, error } = await fetchWithMeta(current, { direct: forceDirect });
+        let { res, elapsed, error } = await fetchWithMeta(current, { direct: forceDirect, insecure: forceInsecure });
         // relay ตอบ error (worker ล่ม/บล็อก = res null) → ลองต่อตรงทันที (origin มักต่อตรงได้)
         if (!res && relayActive && !forceDirect) {
           forceDirect = true;
-          ({ res, elapsed, error } = await fetchWithMeta(current, { direct: true }));
+          ({ res, elapsed, error } = await fetchWithMeta(current, { direct: true, insecure: forceInsecure }));
         }
         if (!res) throw new Error(error || 'no-response');
         let status = res.status;
@@ -132,28 +149,34 @@ async function fetchFollowing(url, maxHops = 8, retries = 2) {
         if (relayActive && !forceDirect && status >= 520 && status <= 527) {
           try { res.body?.cancel?.(); } catch {}
           forceDirect = true;
-          ({ res, elapsed, error } = await fetchWithMeta(current, { direct: true }));
+          ({ res, elapsed, error } = await fetchWithMeta(current, { direct: true, insecure: forceInsecure }));
           if (!res) throw new Error(error || 'no-response');
           status = res.status;
         }
         if (status >= 300 && status < 400) {
           const loc = res.headers.get('location');
           chain.push({ url: current, status, location: loc, elapsed });
-          if (!loc) return { finalUrl: current, status, chain, res: null };
+          if (!loc) return { finalUrl: current, status, chain, res: null, insecure: forceInsecure, tlsErrorCode };
           try { res.body?.cancel?.(); } catch {}
           current = new URL(loc, current).toString();
           continue;
         }
         // 5xx = ชั่วคราว → retry; 4xx/2xx = ถาวร → คืนเลย
         if (status >= 500 && attempt < retries) { try { res.body?.cancel?.(); } catch {} lastErr = `http-${status}`; break; }
-        return { finalUrl: current, status, chain, res, elapsed };
+        return { finalUrl: current, status, chain, res, elapsed, insecure: forceInsecure, tlsErrorCode };
       }
       if (chain.length > maxHops) return { finalUrl: current, status: 0, chain, res: null, error: 'redirect-loop' };
     } catch (e) {
       lastErr = String(e.message || e); // network error / timeout → retry
+      // cert chain ของ origin ไม่ครบ (ขาด intermediate ฯลฯ) → รอบหน้าต่อตรงแบบผ่อน TLS verify
+      if (!forceInsecure && INSECURE_DISPATCHER && isTlsChainError(e)) {
+        forceInsecure = true; forceDirect = true;
+        tlsErrorCode = e?.cause?.code || e?.code || 'TLS_CHAIN_INCOMPLETE';
+        if (attempt >= retries) retries = attempt + 1; // ให้โอกาส retry แบบ insecure อย่างน้อยหนึ่งครั้ง
+      }
     }
   }
-  return { finalUrl: url, status: 0, chain: [], res: null, error: lastErr || 'fetch-failed' };
+  return { finalUrl: url, status: 0, chain: [], res: null, error: lastErr || 'fetch-failed', insecure: forceInsecure, tlsErrorCode };
 }
 
 export function parseRobots(txt) {
@@ -502,7 +525,9 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
         site.pages.push({ url, status: 'blocked-by-robots', blocked: true });
         return;
       }
-      const { finalUrl, status, chain, res, error } = await fetchFollowing(url);
+      const { finalUrl, status, chain, res, error, insecure, tlsErrorCode } = await fetchFollowing(url);
+      // origin cert chain ไม่ครบ → ดึงเนื้อหาได้ผ่าน fallback ผ่อน TLS แต่ต้องรายงานเป็นปัญหา security
+      if (insecure) { site.tlsInsecure = true; if (tlsErrorCode) site.tlsErrorCode = tlsErrorCode; }
       if (!res) { site.fetchErrors.push({ what: url, error: error || 'no-response', status }); return; }
       const ct = res.headers.get('content-type') || '';
       if (!ct.includes('text/html')) {

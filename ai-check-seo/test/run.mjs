@@ -353,6 +353,53 @@ console.log('▸ surgical patcher: patch head + คง body เดิม');
   }
 }
 
+// ── cert chain ไม่ครบ → insecure fallback + รายงาน ssl-chain-incomplete ────
+// จำลอง: relay คืน 526, direct (secure) โยน UNABLE_TO_VERIFY_LEAF_SIGNATURE,
+// direct (insecure/ผ่อน TLS) สำเร็จ → ต้อง crawl ได้ + ตั้ง tlsInsecure + ยิง check
+{
+  console.log('▸ cert chain ไม่ครบ → insecure fallback');
+  const RELAY = 'https://fake-worker2.example.workers.dev';
+  const prevProxy = process.env.CRAWL_PROXY;
+  process.env.CRAWL_PROXY = RELAY;
+  const HTML = '<!doctype html><html lang="th"><head><title>VGI Corp</title>' +
+    '<meta name="description" content="หน้าทดสอบ cert"></head><body><h1>VGI</h1></body></html>';
+  let relayCalls = 0, insecureCalls = 0, secureDirectCalls = 0;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (url === RELAY && init.method === 'POST') {
+      relayCalls++;
+      return new Response('', { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'x-ps': '526' } });
+    }
+    if (init.dispatcher) { // insecure (ผ่อน TLS) → สำเร็จ
+      insecureCalls++;
+      if (url.endsWith('/robots.txt')) return new Response('User-agent: *', { status: 200, headers: { 'content-type': 'text/plain' } });
+      if (url.endsWith('/llms.txt') || url.endsWith('/sitemap.xml') || url.endsWith('/favicon.ico')) return new Response('', { status: 404 });
+      return new Response(HTML, { status: 200, headers: { 'content-type': 'text/html; charset=UTF-8' } });
+    }
+    secureDirectCalls++; // direct ปกติ → cert chain error
+    const e = new TypeError('fetch failed');
+    e.cause = { code: 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' };
+    throw e;
+  };
+  try {
+    const site = await crawlSite('https://www.example.co.th', { maxPages: 2, onProgress: () => {} });
+    const { checks, pagesAnalyzed } = runChecks(site);
+    const sslCheck = checks.find(c => c.id === 'ssl-chain-incomplete');
+    assert(site.tlsInsecure === true, 'cert :: ตั้ง site.tlsInsecure', `ได้ ${site.tlsInsecure}`);
+    assert(insecureCalls > 0, 'cert :: ใช้ insecure dispatcher fallback', `insecureCalls=${insecureCalls}`);
+    assert(pagesAnalyzed >= 1, 'cert :: ยัง crawl/วิเคราะห์ได้', `pagesAnalyzed=${pagesAnalyzed}`);
+    assert(sslCheck?.status === 'fail', 'cert :: ยิง check ssl-chain-incomplete', `ได้ ${sslCheck?.status ?? '(absent)'}`);
+    console.log(`    ${site.tlsInsecure ? '✅' : '❌'} ตั้ง tlsInsecure (${site.tlsErrorCode || '-'})`);
+    console.log(`    ${insecureCalls > 0 ? '✅' : '❌'} insecure fallback (relay=${relayCalls} secure=${secureDirectCalls} insecure=${insecureCalls})`);
+    console.log(`    ${pagesAnalyzed >= 1 ? '✅' : '❌'} crawl ได้ ${pagesAnalyzed} หน้า`);
+    console.log(`    ${sslCheck?.status === 'fail' ? '✅' : '❌'} รายงาน ssl-chain-incomplete = ${sslCheck?.status ?? '(absent)'}\n`);
+  } finally {
+    globalThis.fetch = realFetch;
+    if (prevProxy === undefined) delete process.env.CRAWL_PROXY; else process.env.CRAWL_PROXY = prevProxy;
+  }
+}
+
 // ── Summary ─────────────────────────────────────────────────────────────
 console.log('══════════════════════════════════════════════════════════════');
 if (failed === 0) {

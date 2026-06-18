@@ -132,6 +132,15 @@ export function runChecks(site) {
       ? mk('https', 'security', 'high', 'pass', 'ใช้ HTTPS', 'เว็บเสิร์ฟผ่าน HTTPS')
       : mk('https', 'security', 'high', 'fail', 'ไม่ใช้ HTTPS', 'HTTP ธรรมดาเป็น negative ranking factor และเบราว์เซอร์ขึ้นเตือน "ไม่ปลอดภัย"', 'ติดตั้ง SSL certificate (Let\'s Encrypt ฟรี) และ redirect ทั้งเว็บไป https'));
 
+    // SSL certificate chain ไม่ครบ — origin ส่งแค่ leaf cert ไม่ส่ง intermediate
+    // (เราต้อง bypass TLS verify ถึงจะ crawl ได้ → ตรวจเจอตอน crawl, เก็บใน site.tlsInsecure)
+    // เบราว์เซอร์เดสก์ท็อปมัก "เดา" intermediate ผ่าน AIA จึงดูปกติ แต่ Node/บอท/มือถือบางตัว/Cloudflare ปฏิเสธ
+    if (site.tlsInsecure) {
+      checks.push(mk('ssl-chain-incomplete', 'security', 'high', 'fail', 'ใบรับรอง SSL ส่งไม่ครบสาย (ขาด intermediate)',
+        `เซิร์ฟเวอร์ส่งเฉพาะ leaf certificate ไม่แนบ intermediate CA${site.tlsErrorCode ? ` (${site.tlsErrorCode})` : ''} — ไคลเอนต์ที่ตรวจเข้ม (บอท SEO, มือถือบางรุ่น, Cloudflare, API) จะมองว่าใบรับรองใช้ไม่ได้และเชื่อมต่อล้มเหลว ทั้งที่เบราว์เซอร์เดสก์ท็อปอาจเปิดได้ปกติ`,
+        'ตั้งค่า full certificate chain บนเซิร์ฟเวอร์ (แนบ intermediate CA ต่อท้าย leaf เช่น fullchain.pem ของ Let\'s Encrypt หรือ bundle ของผู้ออกใบรับรอง) แล้วเช็คด้วย SSL Labs ให้ขึ้น chain ครบ'));
+    }
+
     if (site.robotsTxt == null)
       checks.push(mk('robots-missing', 'index', 'med', 'warn', 'ไม่มี robots.txt', `สถานะ: ${site.robotsStatus ?? 'fetch ไม่ได้'} — bot จะ crawl ทุกอย่างโดยไม่มีไกด์`, 'สร้าง robots.txt ระบุ sitemap และส่วนที่ไม่ต้อง crawl', [], true));
     else {
