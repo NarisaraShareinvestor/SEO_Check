@@ -193,27 +193,41 @@ async function runAudit(job, url, maxPages, competitorUrl) {
     // เข้าเว็บไม่ได้เลย — แยกออกจาก "เว็บ SEO แย่" ชัดเจน
     // (เว็บ throttle/flap/WAF บล็อก → crawl ไม่ติด ไม่ใช่ความผิดของ SEO เว็บ ไม่ควรโชว์ 0/F หลอกตา)
     if (tech.pagesAnalyzed === 0) {
+      // รวมสถานะจาก "ทั้งสองที่": network error (fetchErrors) + หน้าที่ตอบกลับแต่ไม่ใช่ 200 (site.pages)
+      // — เว็บที่โดน WAF/rate-limit จะตอบ 403/429/503 พร้อม body HTML → ถูกเก็บใน site.pages ไม่ใช่ fetchErrors
+      //   ถ้าดูแค่ fetchErrors จะได้ statuses ว่าง → ฟ้อง "ไม่ทราบสาเหตุ" ทั้งที่จริงโดนบล็อก (bug เดิม)
       const errStatuses = [...new Set(site.fetchErrors.map(e => e.status).filter(Boolean))];
       const errReasons = [...new Set(site.fetchErrors.map(e => e.error).filter(Boolean))].slice(0, 3);
+      const pageStatuses = [...new Set(site.pages.map(p => p.status).filter(s => typeof s === 'number' && s !== 200))];
+      const allStatuses = [...new Set([...errStatuses, ...pageStatuses])].sort((a, b) => a - b);
+      const blockedByRobots = site.pages.filter(p => p.blocked).length;
+      // "พยายามเชื่อมต่อ" จริง = network error + หน้าที่ตอบ non-200 (เคยนับแค่ fetchErrors → โชว์ 0 ครั้งหลอกตา)
+      const attempts = site.fetchErrors.length + site.pages.filter(p => typeof p.status === 'number' && p.status !== 200).length;
       // ตรวจจับ geo-block: domain .th + network error (ไม่มี HTTP status) + ยังไม่ได้ตั้ง CRAWL_PROXY
       let hostname = ''; try { hostname = new URL(url).hostname; } catch {}
       const isThai = /\.th$/.test(hostname);
-      const isNetErr = errStatuses.length === 0 && errReasons.some(r => /fetch.failed|timeout|ECON|ETIMED/i.test(r));
+      const isNetErr = allStatuses.length === 0 && errReasons.some(r => /fetch.failed|timeout|ECON|ETIMED/i.test(r));
       const proxySet = !!(process.env.CRAWL_PROXY || process.env.PROXY_URL);
       const geoBlock = isThai && isNetErr && !proxySet;
+      const wafStatus = allStatuses.find(s => s === 403 || s === 429 || s === 503 || s === 401);
       audit.unreachable = true;
       audit.unreachableInfo = {
         crawled: site.pages.length,
-        errors: site.fetchErrors.length,
-        statuses: errStatuses,
+        errors: attempts,
+        statuses: allStatuses,
         reasons: errReasons,
         robotsStatus: site.robotsStatus,
+        blockedByRobots,
         geoBlock,
         message: geoBlock
           ? 'เชื่อมต่อไม่ได้ — น่าจะเป็นการบล็อก IP ต่างประเทศ (geo-block) ซึ่งพบบ่อยในเว็บ .th'
-          : errStatuses.length
-            ? `เซิร์ฟเวอร์ตอบกลับด้วยสถานะ ${errStatuses.join(', ')} — เว็บอาจกำลังจำกัดการเข้าถึง (rate limit/WAF) หรือล่มชั่วคราว`
-            : `เชื่อมต่อเว็บไม่สำเร็จ (${errReasons.join(', ') || 'ไม่ทราบสาเหตุ'}) — เว็บอาจล่มหรือบล็อกการตรวจชั่วคราว`,
+          : blockedByRobots && !allStatuses.length && !errReasons.length
+            ? 'robots.txt ของเว็บบล็อกการ crawl ทุกหน้า — ไม่สามารถตรวจได้ (ต้องอนุญาตใน robots.txt ก่อน)'
+            : wafStatus
+              ? `เซิร์ฟเวอร์ตอบกลับด้วยสถานะ ${allStatuses.join(', ')} — IP ของเซิร์ฟเวอร์ตรวจน่าจะโดน WAF/firewall บล็อกหรือ rate-limit (เว็บออนไลน์ปกติแต่กันการเข้าถึงจาก IP นี้)${proxySet ? ' — proxy/relay ที่ตั้งไว้อาจโดนบล็อกด้วย' : ' — ลองตั้ง CRAWL_PROXY เป็น relay'}`
+              : allStatuses.length
+                ? `เซิร์ฟเวอร์ตอบกลับด้วยสถานะ ${allStatuses.join(', ')} — เว็บอาจกำลังจำกัดการเข้าถึง (rate limit/WAF) หรือล่มชั่วคราว`
+                : `เชื่อมต่อเว็บไม่สำเร็จ (${errReasons.join(', ') || 'ไม่ทราบสาเหตุ'}) — เว็บอาจล่มหรือบล็อกการตรวจชั่วคราว`,
       };
       job.status = 'done';
       push(`เข้าเว็บไม่ได้ — crawl 0 หน้า (${audit.unreachableInfo.message}). ข้ามการวิเคราะห์ ลองตรวจใหม่อีกครั้ง`);

@@ -143,7 +143,9 @@ function render(audit) {
   // เข้าเว็บไม่ได้ — โชว์ card แจ้งชัด + ปุ่มลองใหม่ ไม่โชว์เกรด F หลอกตา
   if (audit.unreachable) {
     const info = audit.unreachableInfo || {};
-    const geoHint = info.geoBlock ? `
+    // โชว์วิธีตั้ง relay ทั้งกรณี geo-block และกรณีโดน WAF/rate-limit (403/429/503/401) — วิธีแก้เดียวกัน
+    const wafBlock = (info.statuses || []).some(s => s === 403 || s === 429 || s === 503 || s === 401);
+    const geoHint = (info.geoBlock || wafBlock) ? `
           <div class="unreachable-geo">
             <b>วิธีแก้: ตั้ง Cloudflare Worker relay</b>
             <ol>
@@ -158,7 +160,7 @@ function render(audit) {
       <div class="unreachable-card">
         <div class="unreachable-icon">&#9888;</div>
         <div class="unreachable-body">
-          <b>${info.geoBlock ? 'บล็อก IP ต่างประเทศ (geo-block) — ยังไม่ได้ประเมิน SEO' : 'เข้าถึงเว็บไซต์ไม่ได้ — ยังไม่ได้ประเมิน SEO'}</b>
+          <b>${info.geoBlock ? 'บล็อก IP ต่างประเทศ (geo-block) — ยังไม่ได้ประเมิน SEO' : wafBlock ? 'เว็บบล็อกการตรวจ (WAF/rate-limit) — ยังไม่ได้ประเมิน SEO' : 'เข้าถึงเว็บไซต์ไม่ได้ — ยังไม่ได้ประเมิน SEO'}</b>
           <p>${esc(info.message || 'crawl ไม่พบหน้าที่ตอบ 200')}</p>
           <p class="unreachable-meta">พยายามเชื่อมต่อ ${info.errors || 0} ครั้ง · ไม่ได้หน้าเลย${info.statuses?.length ? ` · สถานะที่เจอ: ${info.statuses.join(', ')}` : ''}</p>
           ${geoHint}
