@@ -71,11 +71,12 @@ function sameSite(url, origin) {
   } catch { return false; }
 }
 
-async function fetchWithMeta(url, { method = 'GET', redirect = 'manual' } = {}) {
+async function fetchWithMeta(url, { method = 'GET', redirect = 'manual', direct = false } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT);
   const started = Date.now();
-  const workerRelay = getWorkerRelay();
+  // direct=true → ข้าม relay บังคับต่อตรง (ใช้ตอน relay เจอ Cloudflare 52x = ปัญหา relay↔origin)
+  const workerRelay = direct ? '' : getWorkerRelay();
   try {
     if (workerRelay) {
       // ส่งผ่าน Cloudflare Worker relay — Worker fetch ด้วย IP ของ Cloudflare (ใกล้ target)
@@ -110,14 +111,31 @@ async function fetchWithMeta(url, { method = 'GET', redirect = 'manual' } = {}) 
 // (เว็บหลายเจ้า flap/throttle: drop connection หรือ 5xx เป็นพักๆ — retry กันผลหลอกตา 0/F)
 async function fetchFollowing(url, maxHops = 8, retries = 2) {
   let lastErr = null;
+  const relayActive = !!getWorkerRelay();
+  let forceDirect = false; // เมื่อ relay เจอ Cloudflare 52x หรือ worker error → สลับมาต่อตรงสำหรับ URL นี้
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) await new Promise(r => setTimeout(r, 600 * attempt)); // backoff
     const chain = [];
     let current = url;
     try {
       for (let hop = 0; hop <= maxHops; hop++) {
-        const { res, elapsed } = await fetchWithMeta(current);
-        const status = res.status;
+        let { res, elapsed, error } = await fetchWithMeta(current, { direct: forceDirect });
+        // relay ตอบ error (worker ล่ม/บล็อก = res null) → ลองต่อตรงทันที (origin มักต่อตรงได้)
+        if (!res && relayActive && !forceDirect) {
+          forceDirect = true;
+          ({ res, elapsed, error } = await fetchWithMeta(current, { direct: true }));
+        }
+        if (!res) throw new Error(error || 'no-response');
+        let status = res.status;
+        // Cloudflare 52x (520–527) ผ่าน relay = ปัญหา relay(CF)↔origin (มัก TLS/526) ไม่ใช่ origin ล่มจริง
+        // → ต่อตรงทันทีในรอบเดียวกัน แล้วใช้ direct ต่อทั้ง URL นี้ (เคยทำให้ VGI ขึ้น 526 หลอกตา)
+        if (relayActive && !forceDirect && status >= 520 && status <= 527) {
+          try { res.body?.cancel?.(); } catch {}
+          forceDirect = true;
+          ({ res, elapsed, error } = await fetchWithMeta(current, { direct: true }));
+          if (!res) throw new Error(error || 'no-response');
+          status = res.status;
+        }
         if (status >= 300 && status < 400) {
           const loc = res.headers.get('location');
           chain.push({ url: current, status, location: loc, elapsed });

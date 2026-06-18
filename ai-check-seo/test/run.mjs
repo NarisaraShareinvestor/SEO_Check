@@ -10,7 +10,7 @@
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { extractPageData, decodeHtmlFromResponse, parseRobots } from '../lib/crawler.js';
+import { extractPageData, decodeHtmlFromResponse, parseRobots, crawlSite } from '../lib/crawler.js';
 import { runChecks } from '../lib/checks.js';
 import { validateSchemaNodes } from '../lib/schema-validate.js';
 import { guardAiAnalysis } from '../lib/ai.js';
@@ -308,6 +308,49 @@ console.log('▸ surgical patcher: patch head + คง body เดิม');
   assert(ldOk, 'surgical :: inject JSON-LD', '');
   console.log(`    ${ldOk ? '✅' : '❌'} inject Organization JSON-LD`);
   console.log('');
+}
+
+// ── relay 526 → direct fallback (stub fetch, ไม่แตะเน็ตจริง) ───────────────
+// พิสูจน์: เมื่อ Cloudflare Worker relay รายงาน x-ps 52x (TLS/origin flake)
+// crawler ต้อง fall back ไป fetch ตรง แล้วตรวจได้ปกติ — กัน regression อาการ VGI 526
+{
+  console.log('▸ relay 52x → direct fallback');
+  const RELAY = 'https://fake-worker.example.workers.dev';
+  const prevProxy = process.env.CRAWL_PROXY;
+  process.env.CRAWL_PROXY = RELAY;
+  const HTML = '<!doctype html><html lang="th"><head><title>VGI Test</title>' +
+    '<meta name="description" content="หน้าทดสอบ fallback"></head>' +
+    '<body><h1>VGI</h1><a href="/th/contact">ติดต่อ</a></body></html>';
+  let relayCalls = 0, directCalls = 0;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (url === RELAY && init.method === 'POST') {
+      relayCalls++;
+      return new Response('cf 526', { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'x-ps': '526' } });
+    }
+    directCalls++;
+    if (url.endsWith('/robots.txt')) return new Response('User-agent: *\nDisallow: /admin', { status: 200, headers: { 'content-type': 'text/plain' } });
+    if (url.endsWith('/llms.txt') || url.endsWith('/sitemap.xml') || url.endsWith('/favicon.ico')) return new Response('', { status: 404 });
+    return new Response(HTML, { status: 200, headers: { 'content-type': 'text/html; charset=UTF-8' } });
+  };
+  try {
+    const site = await crawlSite('https://investor.vgi.co.th/th/home', { maxPages: 3, onProgress: () => {} });
+    const analyzed = runChecks(site).pagesAnalyzed;
+    const statuses = [...new Set(site.pages.map(p => p.status))];
+    const okStatus = statuses.length === 1 && statuses[0] === 200;
+    assert(relayCalls > 0, 'fallback :: relay ถูกเรียกก่อน', `relayCalls=${relayCalls}`);
+    assert(directCalls > 0, 'fallback :: fall back ไป direct', `directCalls=${directCalls}`);
+    assert(okStatus, 'fallback :: ทุกหน้าได้ 200 หลัง fallback', `statuses=${JSON.stringify(statuses)}`);
+    assert(analyzed >= 1, 'fallback :: ตรวจได้อย่างน้อย 1 หน้า', `pagesAnalyzed=${analyzed}`);
+    console.log(`    ${relayCalls > 0 ? '✅' : '❌'} relay ถูกเรียก (${relayCalls})`);
+    console.log(`    ${directCalls > 0 ? '✅' : '❌'} fall back ไป direct (${directCalls})`);
+    console.log(`    ${okStatus ? '✅' : '❌'} ทุกหน้า 200 หลัง fallback`);
+    console.log(`    ${analyzed >= 1 ? '✅' : '❌'} ตรวจได้ ${analyzed} หน้า\n`);
+  } finally {
+    globalThis.fetch = realFetch;
+    if (prevProxy === undefined) delete process.env.CRAWL_PROXY; else process.env.CRAWL_PROXY = prevProxy;
+  }
 }
 
 // ── Summary ─────────────────────────────────────────────────────────────
