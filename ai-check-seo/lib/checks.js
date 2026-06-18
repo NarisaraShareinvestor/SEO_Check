@@ -22,6 +22,43 @@ function mk(id, category, severity, status, title, detail, recommendation = '', 
 const trunc = (s, n = 80) => (s || '').length > n ? s.slice(0, n) + '…' : (s || '');
 const pageList = (pages) => pages.map(p => p.url);
 
+// ── หลักฐานรายหน้า (per-page evidence) ──
+// คำนวณ "ข้อเท็จจริงที่ตรวจพบจริง" จาก page object (จาก HTML ที่ crawl มา) ต่อ checkId
+// → พิสูจน์ได้ว่า "หน้านี้ไม่มีจริง" ไม่ใช่แค่บอกลอยๆ (ลูกค้า/AI engine เปิด view-source ยืนยันได้)
+const h1Count = (p) => (p.headings || []).filter(h => h.tag === 'h1').length;
+const EVIDENCE_FN = {
+  'h1-missing': (p) => `ตรวจ HTML แล้วพบแท็ก <h1> จำนวน ${h1Count(p)} รายการ`,
+  'h1-multiple': (p) => `พบแท็ก <h1> จำนวน ${h1Count(p)} รายการ (ควรมี 1)`,
+  'h1-duplicate': (p) => { const h1 = (p.headings || []).find(h => h.tag === 'h1'); return h1 ? `ข้อความ H1: "${trunc(h1.text, 60)}"` : 'พบ H1 ซ้ำกับหน้าอื่น'; },
+  'title-missing': (p) => `แท็ก <title> ${p.title ? `= "${trunc(p.title, 60)}"` : 'ว่างเปล่าหรือไม่มี'}`,
+  'title-length': (p) => `ความยาว <title> = ${(p.title || '').length} ตัวอักษร: "${trunc(p.title, 60)}"`,
+  'title-duplicate': (p) => `ข้อความ <title>: "${trunc(p.title, 60)}"`,
+  'desc-missing': (p) => 'ไม่พบ <meta name="description"> ในหน้า',
+  'desc-length': (p) => `ความยาว description = ${(p.metas?.description || '').length} ตัวอักษร`,
+  'canonical-missing': (p) => 'ไม่พบ <link rel="canonical"> ในหน้า',
+  'viewport-missing': (p) => 'ไม่พบ <meta name="viewport"> ในหน้า',
+  'lang-missing': (p) => 'แอตทริบิวต์ lang ใน <html> ว่างเปล่า/ไม่มี',
+  'content-thin': (p) => `จำนวนคำในหน้า ≈ ${p.wordCount} คำ (ต่ำกว่าเกณฑ์ 150)`,
+  'img-alt': (p) => { const imgs = (p.images || []).filter(i => i.src); const miss = imgs.filter(i => i.alt == null || i.alt === '').length; return `รูปภาพไม่มี alt ${miss}/${imgs.length} รูป`; },
+  'noindex': () => 'พบคำสั่ง noindex (meta robots หรือ X-Robots-Tag)',
+  'heading-order': (p) => `ลำดับหัวข้อข้ามระดับ (พบ ${(p.headings || []).map(h => h.tag).join(' → ') || '—'})`,
+  'jsonld-missing': () => 'ไม่พบ <script type="application/ld+json"> ในหน้า',
+  'og-tags': (p) => { const m = p.metas || {}; const have = ['og:title', 'og:description', 'og:image'].filter(k => m[k]); return `พบ Open Graph: ${have.length ? have.join(', ') : 'ไม่พบเลย'}`; },
+};
+// แนบหลักฐานรายหน้าเข้า check (เรียกก่อน return) — จับคู่ check.pages (URL) กับ page object จริง
+function attachEvidence(checks, pages) {
+  const byUrl = new Map(pages.map(p => [p.url, p]));
+  for (const c of checks) {
+    const fn = EVIDENCE_FN[c.id];
+    if (!fn || !c.pages?.length) continue;
+    c.evidence = c.pages.slice(0, 50).map(u => {
+      const p = byUrl.get(u);
+      let note = ''; try { note = p ? fn(p) : ''; } catch { note = ''; }
+      return { url: u, note };
+    });
+  }
+}
+
 export function runChecks(site) {
   const checks = [];
   const pages = site.pages.filter(p => p.title !== undefined && !p.nonHtml && !p.blocked);
@@ -555,5 +592,6 @@ export function runChecks(site) {
     if (relOg.length) checks.push(mk('og-image-relative', 'schema', 'low', 'warn', 'og:image เป็น relative URL', `${relOg.length} หน้า — Facebook/LINE ต้องการ absolute URL รูปจะไม่ขึ้นตอนแชร์`, 'ใช้ URL เต็ม https://... ใน og:image', pageList(relOg), true));
   }
 
+  attachEvidence(checks, site.pages || []);
   return { checks, categories: CATS, pagesAnalyzed: okPages.length };
 }

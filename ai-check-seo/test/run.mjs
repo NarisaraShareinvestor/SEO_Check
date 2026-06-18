@@ -400,6 +400,21 @@ console.log('▸ surgical patcher: patch head + คง body เดิม');
   }
 }
 
+// ── หลักฐานรายหน้า (per-page evidence) — พิสูจน์ว่า "หน้านี้ไม่มีจริง" ──
+{
+  console.log('▸ หลักฐานรายหน้า (evidence)');
+  const page = pageFromFixture('h1-abuse.html', 'https://example.com/h1-abuse');
+  const { checks } = runChecks(healthySite(page));
+  const c = checks.find(x => x.id === 'h1-multiple');
+  const ev = c && c.evidence && c.evidence[0];
+  const okUrl = !!ev && ev.url === 'https://example.com/h1-abuse';
+  const okNote = !!ev && /<h1>/.test(ev.note) && /\d/.test(ev.note);
+  assert(okUrl, 'evidence :: ระบุ URL รายหน้า', JSON.stringify(ev));
+  assert(okNote, 'evidence :: note คำนวณจำนวน h1 จริง', ev && ev.note);
+  console.log(`    ${okUrl ? '✅' : '❌'} URL รายหน้า: ${ev && ev.url}`);
+  console.log(`    ${okNote ? '✅' : '❌'} note: ${ev && ev.note}\n`);
+}
+
 // ── Summary ─────────────────────────────────────────────────────────────
 console.log('══════════════════════════════════════════════════════════════');
 if (failed === 0) {

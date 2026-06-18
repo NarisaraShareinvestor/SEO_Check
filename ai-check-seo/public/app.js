@@ -405,7 +405,9 @@ function renderChecks(audit, filter) {
       <div class="body">
         <div>${esc(stripEmoji(ch.detail))}</div>
         ${ch.recommendation ? `<div class="rec"><b>วิธีแก้</b> — ${esc(stripEmoji(ch.recommendation))}</div>` : ''}
-        ${(ch.pages || []).length ? `<div class="plist">${ch.pages.map(p => esc(p)).join('<br>')}</div>` : ''}
+        ${(ch.evidence || []).length
+          ? `<div class="plist"><b>หลักฐานรายหน้า:</b>${ch.evidence.map(e => `<div class="evrow"><a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.url)}</a>${e.note ? `<span class="evnote"> — ${esc(e.note)}</span>` : ''}</div>`).join('')}</div>`
+          : (ch.pages || []).length ? `<div class="plist">${ch.pages.map(p => `<a href="${esc(p)}" target="_blank" rel="noopener">${esc(p)}</a>`).join('<br>')}</div>` : ''}
         ${ch.fixable ? `<div class="note">มีไฟล์แก้ในแท็บ Auto-Fix</div>` : ''}
       </div>
     </details>`).join('') || '<div class="empty">ไม่มีรายการในหมวดนี้</div>';

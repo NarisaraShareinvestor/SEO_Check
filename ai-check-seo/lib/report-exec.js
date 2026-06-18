@@ -224,6 +224,16 @@ export function renderExecReport(audit, brand = {}) {
   </section>` : '';
 
   // ── การ์ดปัญหา (4 หัวข้อทางการ) ──
+  const EV_MAX = 6; // จำกัดจำนวนหลักฐานต่อการ์ดให้พอดี A4
+  const evidenceRow = (c) => {
+    const ev = (c.evidence || []).filter(e => e && e.url);
+    const src = ev.length ? ev : (c.pages || []).map(u => ({ url: u, note: '' }));
+    if (!src.length) return '';
+    const shown = src.slice(0, EV_MAX);
+    const items = shown.map(e => `<li><span class="ev-url">${esc(e.url.replace(/^https?:\/\//, ''))}</span>${e.note ? ` <span class="ev-note">— ${esc(e.note)}</span>` : ''}</li>`).join('');
+    const more = src.length > EV_MAX ? `<li class="ev-more">และอีก ${src.length - EV_MAX} หน้า</li>` : '';
+    return `<div class="ic-row ic-ev"><span class="lbl">หน้าที่ตรวจพบ<br><span class="lbl-sub">(หลักฐาน)</span></span><ul class="ev-list">${items}${more}</ul></div>`;
+  };
   const issueCard = (c) => {
     const cnt = c.affectedCount || (c.pages || []).length;
     return `
@@ -235,6 +245,7 @@ export function renderExecReport(audit, brand = {}) {
       <div class="ic-row"><span class="lbl">สิ่งที่ตรวจพบ</span><span class="val">${esc(foundOf(c))}${cnt ? ` (ตรวจพบ ${cnt} หน้า)` : ''}</span></div>
       <div class="ic-row"><span class="lbl">ผลกระทบ</span><span class="val">${esc(impactOf(c))}</span></div>
       <div class="ic-row"><span class="lbl">คำแนะนำ</span><span class="val">${esc(recOf(c))}</span></div>
+      ${evidenceRow(c)}
     </div>`;
   };
 
@@ -354,6 +365,13 @@ h2 .pgof{font-size:15px;font-weight:600;color:var(--mut)}
 .ic-row:last-of-type{margin-bottom:0}
 .ic-row .lbl{flex:0 0 116px;font-weight:800;color:var(--navy);font-size:12.5px}
 .ic-row .val{flex:1;color:#33455f}
+.ic-ev{margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)}
+.ic-ev .lbl-sub{font-weight:600;color:var(--mut);font-size:11px}
+.ev-list{flex:1;list-style:none;margin:0;padding:0}
+.ev-list li{font-size:12px;color:#33455f;padding:2px 0;line-height:1.5}
+.ev-url{font-weight:700;color:var(--navy)}
+.ev-note{color:#5b6c85}
+.ev-more{color:var(--mut);font-style:italic}
 /* จุดแข็ง */
 .goodgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 30px}
 .goodi{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#33455f;padding:6px 0;border-bottom:1px solid #f0f3f8}
