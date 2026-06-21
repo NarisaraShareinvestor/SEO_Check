@@ -457,6 +457,95 @@ async function tryRenderPages(urls, onProgress) {
   }
 }
 
+// ── Rendered crawl สำหรับเว็บ SPA — render ด้วย chromium เพื่อค้นลิงก์ JS + เก็บ raw shell ไว้ครบ ──
+// ใช้เมื่อ raw HTML เป็น shell (เนื้อหา/ลิงก์ถูก render ด้วย JS) ที่ raw crawl หาหน้าไม่ครบ
+// กลไก: ต่อ 1 ครั้ง/หน้า ได้ทั้ง raw (response.text() = สิ่งที่ Google รอบแรก/AI bot เห็น) และ rendered (page.content())
+//   → page data ใช้ "raw" (คง emptyRoot/spa-shell/render-diff) · ค้นลิงก์ใช้ "rendered" (เจอหน้า JS ครบ)
+// ต่อตรงเสมอ (Playwright ใช้ Cloudflare Worker relay ไม่ได้) — เว็บที่ block IP เซิร์ฟเวอร์จะ render ไม่ได้ แล้ว fallback ไป raw
+// NOTE (อนาคต/ถ้ามีงบ): ย้าย render ไป Cloudflare Browser Rendering ผ่าน worker relay → render เว็บที่ geo-block IP ได้ด้วย
+//   ดู getWorkerRelay()/playwrightProxy() — จุดที่จะสลับ engine คือ browser launch ด้านล่าง
+async function renderedCrawl(startUrl, seedUrls, { maxPages, onProgress }) {
+  let pw;
+  try { pw = await import('playwright'); } catch { return { available: false, reason: 'no-playwright', pages: [] }; }
+  let browser;
+  try { browser = await pw.chromium.launch({ headless: true, proxy: playwrightProxy() }); }
+  catch (e) { return { available: false, reason: 'launch-failed: ' + String(e.message || e), pages: [] }; }
+
+  const origin = new URL(startUrl).origin;
+  const FILE_EXT = /\.(pdf|docx?|xlsx?|pptx?|zip|rar|7z|gz|tar|jpe?g|png|gif|svg|webp|avif|ico|bmp|mp[34]|m4a|wav|mov|avi|mkv|webm|css|mjs|json|rss|csv|woff2?|ttf|eot|otf|dmg|exe|apk)(\?|#|$)/i;
+  const PARAM_CAP = 3, paramCount = new Map();
+  const queued = new Set(), frontier = [];
+  const depthOf = (u) => { try { return new URL(u).pathname.replace(/\/+$/, '').split('/').filter(Boolean).length; } catch { return 99; } };
+  const enqueue = (raw, base) => {
+    const n = normalizeUrl(raw, base);
+    if (!n || !sameSite(n, origin) || queued.has(n) || FILE_EXT.test(n)) return;
+    if (queued.size >= maxPages * 50) return;
+    try { const u = new URL(n); if (u.search) { const c = paramCount.get(u.pathname) || 0; if (c >= PARAM_CAP) return; paramCount.set(u.pathname, c + 1); } } catch {}
+    queued.add(n); frontier.push(n);
+  };
+  enqueue(startUrl);
+  for (const u of seedUrls) enqueue(u);
+
+  const RENDER_TIMEOUT = 25000, RENDER_CONCURRENCY = 3;
+  const pages = [], renderedDiff = {};
+  let claimed = 0, active = 0;
+  const ctx = await browser.newContext({ userAgent: UA, locale: 'th-TH' });
+
+  const renderOne = async (url, num) => {
+    onProgress(`กำลัง render หน้า (${num}/${maxPages}): ${url}`);
+    const page = await ctx.newPage();
+    try {
+      const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: RENDER_TIMEOUT });
+      await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+      if (!resp) { pages.push({ url, status: 0, error: 'no-response' }); return; }
+      const status = resp.status();
+      // Playwright รวม header ซ้ำด้วย \n (เช่น "Accept-Encoding\nAccept-Encoding") → new Headers() reject
+      // ต้อง sanitize ก่อน ไม่งั้น throw แล้ว render ทุกหน้าจะกลายเป็น error (ค้นลิงก์ไม่ได้เลย)
+      const headers = new Headers();
+      for (const [k, v] of Object.entries(resp.headers())) { try { headers.set(k, String(v).replace(/[\r\n]+/g, ', ')); } catch {} }
+      const ct = headers.get('content-type') || '';
+      const finalUrl = page.url();
+      if (!ct.includes('text/html')) { pages.push({ url, finalUrl, status, nonHtml: true, contentType: ct }); return; }
+      let rawHtml = ''; try { rawHtml = await resp.text(); } catch {}
+      const renderedHtml = await page.content();
+      // page data = raw (สิ่งที่ Google รอบแรก/AI bot เห็น) — ถ้าดึง raw ไม่ได้ใช้ rendered แทน
+      const data = extractPageData((rawHtml || renderedHtml).slice(0, 600_000), url, headers, status, 0, []);
+      data.finalUrl = finalUrl;
+      pages.push(data);
+      // เก็บข้อมูล rendered ไว้ให้ check render-diff (เทียบ raw vs rendered)
+      const rd = extractPageData(renderedHtml.slice(0, 600_000), url, headers, status, 0, []);
+      renderedDiff[finalUrl] = { title: rd.title, h1: (rd.headings || []).filter(h => h.tag === 'h1').map(h => h.text), textLength: rd.textLength };
+      // ค้นลิงก์จาก rendered (เจอลิงก์ JS ครบ)
+      for (const l of (rd.links || [])) enqueue(l.href, finalUrl);
+    } catch (e) {
+      pages.push({ url, status: 0, error: String(e.message || e) });
+    } finally { try { await page.close(); } catch {} }
+  };
+
+  try {
+    while (claimed < maxPages && frontier.length) {
+      let minDepth = Infinity;
+      for (const u of frontier) { const d = depthOf(u); if (d < minDepth) minDepth = d; }
+      const levelUrls = [], rest = [];
+      for (const u of frontier) (depthOf(u) === minDepth ? levelUrls : rest).push(u);
+      frontier.length = 0; frontier.push(...rest);
+      levelUrls.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+      for (const url of levelUrls) {
+        if (claimed >= maxPages) break;
+        claimed++; const num = claimed;
+        while (active >= RENDER_CONCURRENCY) await new Promise(r => setTimeout(r, 50));
+        active++;
+        renderOne(url, num).finally(() => { active--; });
+      }
+      while (active > 0) await new Promise(r => setTimeout(r, 50));
+      // early-abort: ชั้นแรกแล้วยังไม่ได้หน้าที่ render สำเร็จเลย → เว็บน่าจะ block IP เซิร์ฟเวอร์ (เลิก กัน timeout ยาว)
+      if (!pages.some(p => p.title !== undefined && p.status === 200)) break;
+    }
+  } finally { try { await browser.close(); } catch {} }
+
+  return { available: true, pages, renderedDiff };
+}
+
 export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {} } = {}) {
   const origin = new URL(startUrl).origin;
   const site = {
@@ -614,6 +703,27 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
     while (active > 0) await new Promise(r => setTimeout(r, 50));
   }
 
+  // 4.5 SPA rendered crawl — ถ้า raw HTML เป็น shell (เนื้อหา/ลิงก์ render ด้วย JS) raw crawl จะหาหน้าไม่ครบ
+  //      (เช่น Nuxt/Next/Vue SPA: sitemap มีไม่กี่หน้า + ลิงก์อยู่ใน JS) → render ด้วย chromium เพื่อค้นหน้าให้ครบ
+  const rawHtmlPages = site.pages.filter(p => p.title !== undefined && p.status === 200);
+  const isSpa = rawHtmlPages.length > 0 && rawHtmlPages.filter(p => p.emptyRoot).length >= rawHtmlPages.length * 0.5;
+  if (isSpa) {
+    onProgress('ตรวจพบ SPA (เนื้อหา/ลิงก์ render ด้วย JS) — กำลัง crawl ด้วย headless Chrome เพื่อหาหน้าให้ครบ...');
+    const rc = await renderedCrawl(startUrl, site.sitemapUrls, { maxPages, onProgress })
+      .catch(e => ({ available: false, reason: String(e?.message || e), pages: [] }));
+    const rcValid = (rc.pages || []).filter(p => p.title !== undefined && p.status === 200);
+    if (rc.available && rcValid.length > rawHtmlPages.length) {
+      // เจอหน้ามากกว่าเดิม → ใช้ชุด rendered (page data ยังเป็น raw shell คง spa-shell/render-diff)
+      site.pages = rc.pages;
+      site.renderedCrawl = true;
+      site.rendered = { available: true, pages: rc.renderedDiff || {} };
+      onProgress(`Rendered crawl เจอ ${rcValid.length} หน้า (เดิม ${rawHtmlPages.length})`);
+    } else {
+      site.renderedCrawl = false;
+      site.renderedCrawlReason = rc.reason || 'no-extra-pages'; // ต่อตรงไม่ได้ (geo-block?) → คง raw
+    }
+  }
+
   // 5. ตรวจ broken internal links (sample จากลิงก์ที่ยังไม่ crawl)
   onProgress('กำลังตรวจหา broken links...');
   const linkTargets = new Map();
@@ -662,17 +772,19 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
     try { res?.body?.cancel?.(); } catch {}
   } catch { site.notFoundHandling = null; }
 
-  // 7. Rendered crawl (ถ้ามี playwright) — render หน้าแรก + อีก 2 หน้าสำคัญ
-  // ข้ามเมื่อใช้ Worker relay: Playwright ลอด relay ไม่ได้ ต้องต่อตรงจาก IP เซิร์ฟเวอร์
-  // ซึ่งโดน geo-block → ค้างจน timeout ทุกหน้า (raw HTML ผ่าน relay เพียงพอต่อการวิเคราะห์แล้ว)
-  const htmlPages = site.pages.filter(p => p.title !== undefined && p.status === 200);
-  const renderTargets = htmlPages.slice(0, 3).map(p => p.finalUrl || p.url);
-  if (getWorkerRelay()) {
-    onProgress('ข้าม render ด้วย Chrome (ใช้ Worker relay — วิเคราะห์จาก raw HTML)');
-    site.rendered = { available: false, skipped: 'worker-relay', pages: {} };
-  } else if (renderTargets.length) {
-    onProgress('กำลังลอง render ด้วย headless Chrome (เทียบ raw vs rendered)...');
-    site.rendered = await tryRenderPages(renderTargets, onProgress);
+  // 7. Render-diff (ถ้ามี playwright) — render หน้าแรก + อีก 2 หน้าสำคัญ เทียบ raw vs rendered
+  //    ข้ามถ้า: (ก) ทำ SPA rendered crawl ใน 4.5 แล้ว (site.rendered ตั้งค่าครบแล้ว)
+  //            (ข) ใช้ Worker relay บนเว็บที่ไม่ใช่ SPA — Playwright ต่อตรงโดน geo-block → ค้าง timeout
+  if (!site.renderedCrawl) {
+    const htmlPages = site.pages.filter(p => p.title !== undefined && p.status === 200);
+    const renderTargets = htmlPages.slice(0, 3).map(p => p.finalUrl || p.url);
+    if (getWorkerRelay()) {
+      onProgress('ข้าม render-diff (ใช้ Worker relay — วิเคราะห์จาก raw HTML)');
+      site.rendered = { available: false, skipped: 'worker-relay', pages: {} };
+    } else if (renderTargets.length) {
+      onProgress('กำลังลอง render ด้วย headless Chrome (เทียบ raw vs rendered)...');
+      site.rendered = await tryRenderPages(renderTargets, onProgress);
+    }
   }
 
   return site;
