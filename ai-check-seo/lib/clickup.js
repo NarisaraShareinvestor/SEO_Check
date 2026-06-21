@@ -75,12 +75,12 @@ export function buildPlan(audit, opts = {}) {
     const pages = (c.pages || []).slice(0, 10);
     const morePages = (c.affectedCount || (c.pages || []).length) - pages.length;
     const desc = [
-      `**🔍 ตรวจเจอจริง:** ${esc(c.detail) || '—'}`,
-      c.recommendation ? `**💡 แนวทางแก้:** ${esc(c.recommendation)}` : '',
-      pages.length ? `**📄 หน้าที่กระทบ (${c.affectedCount || pages.length}):**\n${pages.map(p => `- ${p}`).join('\n')}${morePages > 0 ? `\n- …และอีก ${morePages} หน้า` : ''}` : '',
-      `**🏷 หมวด:** ${g.group}  ·  **Owner:** ${g.team}`,
-      `**🔗 รายงานเต็ม:** ${reportUrl}`,
-      `\n\`issue-key: ${audit.id}:${c.id}\``,
+      `**ปัญหาที่ตรวจพบ**\n${esc(c.detail) || '-'}`,
+      c.recommendation ? `**แนวทางแก้ไข**\n${esc(c.recommendation)}` : '',
+      pages.length ? `**หน้าที่ได้รับผลกระทบ (${c.affectedCount || pages.length} หน้า)**\n${pages.map(p => `- ${p}`).join('\n')}${morePages > 0 ? `\n- และอีก ${morePages} หน้า` : ''}` : '',
+      `**หมวดหมู่:** ${g.group}    **ทีมรับผิดชอบ:** ${g.team}    **ความสำคัญ:** ${pr.label.replace('↑', '')}${isTop ? ' (ปัญหาสำคัญอันดับต้น)' : ''}`,
+      `**รายงานฉบับเต็ม:** ${reportUrl}`,
+      `---\nissue-key: ${audit.id}:${c.id}`,
     ].filter(Boolean).join('\n\n');
 
     return {
@@ -100,11 +100,11 @@ export function buildPlan(audit, opts = {}) {
   const counts = s.counts || {};
   const parentDesc = [
     `**เว็บไซต์:** ${audit.url}`,
-    `**คะแนน SEO:** ${s.overall ?? '–'}/100 (เกรด ${s.grade ?? '–'})  ·  **GEO:** ${s.categoryScores?.geo ?? '–'}/100`,
-    `**สรุป:** ปัญหาที่ต้องแก้ ${counts.fail ?? 0} · ควรปรับปรุง ${counts.warn ?? 0} · ตรวจ ${audit.pagesAnalyzed ?? '?'} หน้า`,
-    a.executiveSummary ? `\n${esc(a.executiveSummary)}` : '',
-    `\n**🔗 รายงานเต็ม:** ${reportUrl}`,
-    `\n_สร้างอัตโนมัติจาก AI SEO Audit Pro · ${new Date(audit.createdAt).toLocaleString('th-TH')}_`,
+    `**คะแนนรวม:** ${s.overall ?? '-'}/100 (เกรด ${s.grade ?? '-'})    **GEO:** ${s.categoryScores?.geo ?? '-'}/100`,
+    `**สรุปปัญหา:** ต้องแก้ ${counts.fail ?? 0} รายการ · ควรปรับปรุง ${counts.warn ?? 0} รายการ · ตรวจ ${audit.pagesAnalyzed ?? '?'} หน้า`,
+    a.executiveSummary ? esc(a.executiveSummary) : '',
+    `**รายงานฉบับเต็ม:** ${reportUrl}`,
+    `จัดทำอัตโนมัติโดย AI SEO Audit Pro · ${new Date(audit.createdAt).toLocaleString('th-TH')}`,
   ].filter(Boolean).join('\n\n');
 
   return {
@@ -128,22 +128,23 @@ async function cuFetch(path, token, init = {}) {
   return body;
 }
 
-export async function pushToClickUp(audit, { token, listId, assignee } = {}) {
+export async function pushToClickUp(audit, { token, listId, assignee, limit, namePrefix } = {}) {
   if (!token) throw new Error('ยังไม่ได้ตั้ง CLICKUP_API_TOKEN ใน .env');
   if (!listId) throw new Error('ยังไม่ได้ระบุ ClickUp List ปลายทาง (ตั้ง CLICKUP_DEFAULT_LIST หรือ routing)');
   const plan = buildPlan(audit);
+  const subtaskList = limit ? plan.subtasks.slice(0, limit) : plan.subtasks; // limit = โหมดทดสอบ
   const now = Date.now();
   const assignees = assignee ? [Number(assignee)].filter(Boolean) : undefined;
 
   // 1) parent task = เว็บไซต์
   const parent = await cuFetch(`/list/${listId}/task`, token, {
     method: 'POST',
-    body: JSON.stringify({ name: plan.parent.name, markdown_description: plan.parent.markdown_description, ...(assignees ? { assignees } : {}) }),
+    body: JSON.stringify({ name: (namePrefix || '') + plan.parent.name, markdown_description: plan.parent.markdown_description, ...(assignees ? { assignees } : {}) }),
   });
 
   // 2) subtasks = แต่ละปัญหา
   const created = [], errors = [];
-  for (const st of plan.subtasks) {
+  for (const st of subtaskList) {
     try {
       const t = await cuFetch(`/list/${listId}/task`, token, {
         method: 'POST',
@@ -166,5 +167,5 @@ export async function pushToClickUp(audit, { token, listId, assignee } = {}) {
       } catch (e2) { errors.push({ name: st.name, error: String(e2.message || e2) }); }
     }
   }
-  return { ok: true, parentId: parent.id, parentUrl: parent.url, created: created.length, total: plan.subtasks.length, errors, meta: plan.meta };
+  return { ok: true, parentId: parent.id, parentUrl: parent.url, created: created.length, total: subtaskList.length, errors, meta: plan.meta };
 }
