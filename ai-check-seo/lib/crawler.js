@@ -523,10 +523,23 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
   const queued = new Set();          // URL ที่เคยถูกเพิ่มเข้า frontier (กันซ้ำ — แต่ละ URL crawl ครั้งเดียว)
   const frontier = [];               // คิวหน้า (จัดเรียง deterministic ก่อน shift ทุกครั้ง)
   const depthOf = (u) => { try { return new URL(u).pathname.replace(/\/+$/, '').split('/').filter(Boolean).length; } catch { return 99; } };
+  // จำกัด URL ที่มี query string ต่อ "path เดียวกัน" — เก็บ path เปล่าเสมอ + query ได้ไม่เกิน PARAM_CAP
+  // กันหน้า filter/pagination (เช่น /calendar?page=&year=&category_id=) บาน crawl budget
+  // และทำให้ตัวเลข duplicate-title / canonical-missing / desc ไม่พองหลอกตาจาก URL param ของหน้าเดียว
+  const PARAM_CAP = 3;
+  const paramCount = new Map(); // pathname -> จำนวน URL ที่มี query ที่ queue แล้ว
   const enqueue = (raw, base) => {
     const n = normalizeUrl(raw, base);
     if (!n || !sameSite(n, origin) || queued.has(n) || FILE_EXT.test(n)) return;
     if (queued.size >= maxPages * 50) return; // กันบวมบนเว็บใหญ่มาก
+    try {
+      const u = new URL(n);
+      if (u.search) {
+        const c = paramCount.get(u.pathname) || 0;
+        if (c >= PARAM_CAP) return; // เกินโควต้า param ของ path นี้แล้ว
+        paramCount.set(u.pathname, c + 1);
+      }
+    } catch {}
     queued.add(n);
     frontier.push(n);
   };

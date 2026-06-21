@@ -93,7 +93,7 @@ export function runChecks(site) {
     checks.push(dupT.length
       ? mk('title-duplicate', 'onpage', 'high', 'fail', 'title ซ้ำกันหลายหน้า',
         `${dupT.length} ชุด title ที่ซ้ำ เช่น "${trunc(dupT[0][0])}" ใช้ใน ${dupT[0][1].length} หน้า — Google สับสนว่าจะจัดอันดับหน้าไหน`,
-        'เขียน title เฉพาะของแต่ละหน้า สื่อเนื้อหาหน้านั้นจริงๆ', dupT.flatMap(([, v]) => v), true)
+        'หน้าที่เป็นคนละเรื่อง: เขียน title เฉพาะของแต่ละหน้า · หน้าที่ต่างกันแค่ query param (เช่น ?page=, ?year=): ใส่ canonical ชี้หน้าหลัก หรือ noindex แทนการเขียน title ใหม่', dupT.flatMap(([, v]) => v), true)
       : mk('title-duplicate', 'onpage', 'high', 'pass', 'ไม่มี title ซ้ำ', 'แต่ละหน้ามี title ไม่ซ้ำกัน'));
 
     const noDesc = okPages.filter(p => !p.metas['description']);
