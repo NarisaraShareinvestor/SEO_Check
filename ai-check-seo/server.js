@@ -34,7 +34,7 @@ if (existsSync(envPath)) {
 
 const PORT = +(process.env.PORT || 3000);
 const MAX_PAGES_DEFAULT = +(process.env.MAX_PAGES_DEFAULT || 30);
-const MAX_PAGES_LIMIT = +(process.env.MAX_PAGES_LIMIT || 100);
+const MAX_PAGES_LIMIT = +(process.env.MAX_PAGES_LIMIT || 500); // full-site audit สูงสุด 500 หน้า
 const DATA_DIR = join(__dirname, 'data', 'audits');
 mkdirSync(DATA_DIR, { recursive: true });
 
