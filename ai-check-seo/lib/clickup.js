@@ -87,42 +87,66 @@ function metaBlockMap(audit) {
   return map;
 }
 
-// ประกอบกล่องโค้ดมาตรฐาน (wrap fence, ตัดความยาว, ใส่หมายเหตุ)
-const PAGE_CAP = 10;
-function codeBox(label, howTo, language, content, morePages = 0) {
-  let truncated = false;
-  if (content.length > 3500) { content = content.slice(0, 3500).replace(/\n[^\n]*$/, ''); truncated = true; }
-  const header = `**โค้ด/ไฟล์สำหรับแก้ (พร้อมใช้ — ${label})**`;
-  const body = content.includes('```') ? content : '```' + (language === 'text' ? '' : language) + '\n' + content + '\n```'; // เลี่ยง fence ซ้อน
-  const notes = [];
-  if (morePages > 0) notes.push(`_(แสดง ${PAGE_CAP} หน้าแรก — อีก ${morePages} หน้าใช้รูปแบบเดียวกัน)_`);
-  if (truncated) notes.push('_(แสดงบางส่วน — ดูฉบับเต็มในรายงาน เมนู Auto-Fix)_');
-  return [header, esc(howTo), body, ...notes].filter(Boolean).join('\n');
+// recompute "หน้าที่กระทบครบทุกหน้า" จาก audit.pages (audit เก่าก็ครบ — ไม่ติด cap 50 ของ checks.js)
+// คืน null เมื่อไม่ recompute → fixBlock จะ fallback ไปใช้ c.pages เดิม
+function affectedPages(audit, c) {
+  const ok = (audit.pages || []).filter(p => p.title !== undefined && p.status === 200);
+  const U = p => p.finalUrl || p.url;
+  const groupDup = (key) => {
+    const by = new Map();
+    ok.forEach(p => { const k = (key(p) || '').trim(); if (k) { if (!by.has(k)) by.set(k, []); by.get(k).push(U(p)); } });
+    return [...by.values()].filter(v => v.length > 1).flat();
+  };
+  switch (c.id) {
+    case 'canonical-missing': return ok.filter(p => !p.canonical).map(U);
+    case 'title-missing':     return ok.filter(p => !p.title).map(U);
+    case 'desc-missing':      return ok.filter(p => !p.description).map(U);
+    case 'title-duplicate':   return groupDup(p => p.title);
+    case 'desc-duplicate':    return groupDup(p => p.description);
+    default: return null;
+  }
 }
 
-// ── "โค้ด/ไฟล์สำหรับแก้ (พร้อมใช้)" — ครอบคลุมทุกหน้าที่กระทบ ──
-function fixBlock(audit, c) {
-  const all = c.pages || [];
-  const pages = all.slice(0, PAGE_CAP);
-  const morePages = all.length - pages.length;
+// ประกอบกล่องโค้ดมาตรฐาน (wrap fence, ตัดความยาว, ใส่หมายเหตุ)
+function codeBox(label, howTo, language, content, maxLen = 3500) {
+  let truncated = false;
+  if (content.length > maxLen) { content = content.slice(0, maxLen).replace(/\n[^\n]*$/, ''); truncated = true; }
+  const header = `**โค้ด/ไฟล์สำหรับแก้ (พร้อมใช้ — ${label})**`;
+  const body = content.includes('```') ? content : '```' + (language === 'text' ? '' : language) + '\n' + content + '\n```'; // เลี่ยง fence ซ้อน
+  const note = truncated ? '\n_(เนื้อหายาวมาก แสดงบางส่วน — ดูฉบับเต็มในรายงาน เมนู Auto-Fix)_' : '';
+  return [header, esc(howTo), body].filter(Boolean).join('\n') + note;
+}
 
-  // A) โค้ดรายหน้า — แต่ละหน้าต้องไม่เหมือนกัน (canonical / title / description)
-  if (c.id === 'canonical-missing' && pages.length) {
-    const code = pages.map(u => `<!-- ${u} -->\n<link rel="canonical" href="${esc(u).replace(/\?.*$/, '')}">`).join('\n\n');
-    return codeBox('canonical-tags.html', 'วางแต่ละบรรทัดใน <head> ของหน้านั้นๆ (แต่ละหน้าชี้ canonical ของตัวเอง)', 'html', code, morePages);
+// ── "โค้ด/ไฟล์สำหรับแก้ (พร้อมใช้)" — โค้ดครบทุกหน้าที่กระทบ ──
+const PER_PAGE_MAX = 60000; // โค้ดรายหน้ายาวได้ (ให้ครบทุกหน้า)
+function fixBlock(audit, c) {
+  // รายการหน้าครบทุกหน้า: recompute จาก audit.pages ก่อน (ไม่ติด cap 50) ไม่ได้ค่อยใช้ c.pages
+  const full = affectedPages(audit, c);
+  const all = (full && full.length) ? full : (c.pages || []);
+
+  // A) โค้ดรายหน้า — แต่ละหน้าต้องไม่เหมือนกัน (canonical / title / description) → สร้างครบทุกหน้า
+  if (c.id === 'canonical-missing' && all.length) {
+    const code = all.map(u => `<!-- ${u} -->\n<link rel="canonical" href="${esc(u).replace(/\?.*$/, '')}">`).join('\n\n');
+    return codeBox('canonical-tags.html', `วางใน <head> ของแต่ละหน้า — ครบ ${all.length} หน้า (แต่ละหน้าชี้ canonical ของตัวเอง)`, 'html', code, PER_PAGE_MAX);
   }
-  if (['title-missing', 'desc-missing', 'title-length', 'title-duplicate'].includes(c.id) && pages.length) {
+  if (['title-missing', 'desc-missing', 'title-length', 'title-duplicate', 'desc-duplicate'].includes(c.id) && all.length) {
     const bm = metaBlockMap(audit);
-    const code = pages.map(u => bm.get(normUrl(u))
+    const nAI = all.filter(u => bm.has(normUrl(u))).length;
+    const nTodo = all.length - nAI;
+    const code = all.map(u => bm.get(normUrl(u))
       || `<!-- ${u} -->\n<title>TODO: เขียน title เฉพาะหน้านี้ 30-60 ตัวอักษร (ห้ามซ้ำหน้าอื่น)</title>\n<meta name="description" content="TODO: คำโปรย 80-160 ตัวอักษร">`
     ).join('\n\n');
-    return codeBox('meta-tags.html', 'วางแทน title/description เดิมในแต่ละหน้า — แต่ละหน้าต้องไม่ซ้ำกัน หน้าที่ขึ้น TODO ให้เขียนเพิ่ม', 'html', code, morePages);
+    const parts = [`ครบ ${all.length} หน้า`];
+    if (nAI) parts.push(`AI เขียนให้แล้ว ${nAI} หน้า`);
+    if (nTodo) parts.push(`อีก ${nTodo} หน้าขึ้น TODO ให้เขียนเอง`);
+    const how = `วางแทน title/description เดิมในแต่ละหน้า — ${parts.join(' · ')} · แต่ละหน้าต้องไม่ซ้ำกัน`;
+    return codeBox('meta-tags.html', how, 'html', code, PER_PAGE_MAX);
   }
 
   // B) snippet เหมือนกันทุกหน้า — ใส่โค้ดเดียวกันในทุกหน้าที่ระบุ (เช่น viewport)
   if (SNIPPET[c.id]) {
     const s = SNIPPET[c.id];
-    const how = pages.length > 1 ? `${s.howTo} — โค้ดเดียวกันนี้ใส่ในทุกหน้าที่ระบุด้านล่าง` : s.howTo;
+    const how = all.length > 1 ? `${s.howTo} — โค้ดเดียวกันนี้ใส่ในทุกหน้าที่ระบุ (${all.length} หน้า)` : s.howTo;
     return codeBox(s.label, how, s.language, s.code);
   }
 
