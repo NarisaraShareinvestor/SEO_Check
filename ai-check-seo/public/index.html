@@ -245,6 +245,11 @@ main{flex:1;padding:34px 44px 80px;max-width:1240px}
       ประวัติการตรวจ
       <span class="badge" id="histCount"></span>
     </button>
+    <button class="nitem" data-view="quality" onclick="showView(this)">
+      <svg fill="none" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      คุณภาพการตรวจ
+      <span class="badge" id="qualBadge"></span>
+    </button>
     <button class="nitem" data-view="dashboard" onclick="showView(this)">
       <svg fill="none" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 17.5h7M17.5 14v7" stroke-linecap="round"/></svg>
       Dashboard & ค่าใช้จ่าย
@@ -373,6 +378,14 @@ main{flex:1;padding:34px 44px 80px;max-width:1240px}
   </div>
 
   <!-- ═══ VIEW: DASHBOARD ═══ -->
+  <div class="view" id="view-quality">
+    <div class="pagehead">
+      <h1>คุณภาพการตรวจ (Audit Quality)</h1>
+      <div class="sub">วัดความแม่นเทียบ Google Lighthouse + เว็บที่ควรรีวิวก่อนส่งลูกค้า — ห้ามใช้ engine ตัดสิน engine</div>
+    </div>
+    <div id="db-quality"></div>
+  </div>
+
   <div class="view" id="view-dashboard">
     <div class="pagehead">
       <h1>Dashboard & ค่าใช้จ่าย AI</h1>
@@ -381,9 +394,6 @@ main{flex:1;padding:34px 44px 80px;max-width:1240px}
 
     <!-- KPI cards -->
     <div id="db-kpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px"></div>
-
-    <!-- Audit Quality (ความแม่นเทียบ Google Lighthouse) -->
-    <div id="db-quality" style="margin-bottom:24px"></div>
 
     <!-- Cost table -->
     <div class="card" style="padding:0;overflow:hidden">

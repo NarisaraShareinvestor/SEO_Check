@@ -19,6 +19,7 @@ function showView(btn) {
   $('#view-' + btn.dataset.view).classList.add('active');
   if (btn.dataset.view === 'history') loadHistory();
   if (btn.dataset.view === 'dashboard') loadDashboard();
+  if (btn.dataset.view === 'quality') loadQuality();
 }
 
 // ── เริ่ม audit ──
@@ -664,6 +665,7 @@ async function loadQuality() {
   const box = $('#db-quality'); if (!box) return;
   try {
     const q = await (await fetch('/api/quality')).json();
+    const badge = $('#qualBadge'); if (badge) badge.textContent = q.flaggedCount || '';
     if (!q.withVerify) { box.innerHTML = '<div style="font-size:13px;color:var(--mut)">ยังไม่มีข้อมูล cross-check (audit ใหม่จะเริ่มเก็บอัตโนมัติ)</div>'; return; }
     const o = q.accuracy?.overall || {};
     const pct = (v) => v == null ? '—' : v + '%';
@@ -675,8 +677,7 @@ async function loadQuality() {
       <span>${esc(f.url.replace(/^https?:\/\//, ''))}</span><span style="color:#c0392b">${(f.mismatches || []).map(esc).join(', ')}</span></div>`).join('') || '<div style="color:var(--mut);font-size:13px;padding:6px 0">— ไม่มีเว็บที่ต้องรีวิว ✓</div>';
     const needsRows = (q.topNeeds || []).map(n => `<span style="display:inline-block;background:#fde2e2;color:#c0392b;border-radius:6px;padding:2px 8px;margin:2px;font-size:12px">${esc(n.id)} ×${n.n}</span>`).join('') || '<span style="color:var(--mut);font-size:13px">— ไม่มี</span>';
     box.innerHTML = `
-      <div style="font-weight:700;font-size:16px;margin-bottom:2px">คุณภาพการตรวจ (Audit Quality) — เทียบ Google Lighthouse</div>
-      <div style="font-size:12px;color:var(--mut);margin-bottom:12px">วัดจาก ${q.withVerify}/${q.total} audit ที่ cross-check แล้ว · Google = ground truth (เฉพาะ FACT dims) · ห้ามใช้ engine ตัดสิน engine</div>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:12px">วัดจาก ${q.withVerify}/${q.total} audit ที่ cross-check แล้ว · Google = ground truth (เฉพาะ FACT dims)</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
         ${card('Precision', pct(o.precision), '#10b981', 'แจ้งแล้วถูกจริง · เป้า >95%')}
         ${card('Recall', pct(o.recall), '#3b82f6', 'ปัญหาจริงจับได้ · เป้า >90%')}
@@ -721,7 +722,6 @@ async function loadDashboard() {
       </div>`).join('');
 
     $('#db-updated').textContent = 'อัพเดต ' + new Date().toLocaleTimeString('th-TH');
-    loadQuality();
 
     const gradeColor = g => ({'A':'#16a34a','B':'#2563eb','C':'#b45309','D':'#dc2626','F':'#7f1d1d'}[g] || '#6b7280');
 
