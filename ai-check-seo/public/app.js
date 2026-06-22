@@ -659,6 +659,40 @@ function fmtUsd(v) { return v == null ? '—' : '$' + v.toFixed(4); }
 function fmtThb(v) { return v == null ? '—' : '฿' + (v * THB_RATE).toFixed(2); }
 function fmtNum(v) { return v == null ? '—' : v.toLocaleString(); }
 
+// Audit Quality dashboard — precision/recall/FP/FN + เว็บที่ต้องรีวิว (อิง audit.verify ทุกตัว)
+async function loadQuality() {
+  const box = $('#db-quality'); if (!box) return;
+  try {
+    const q = await (await fetch('/api/quality')).json();
+    if (!q.withVerify) { box.innerHTML = '<div style="font-size:13px;color:var(--mut)">ยังไม่มีข้อมูล cross-check (audit ใหม่จะเริ่มเก็บอัตโนมัติ)</div>'; return; }
+    const o = q.accuracy?.overall || {};
+    const pct = (v) => v == null ? '—' : v + '%';
+    const fpOk = o.fpr != null && o.fpr <= 3;
+    const card = (label, val, color, hint) => `<div style="border:1px solid var(--border);border-radius:14px;padding:16px 18px;background:var(--panel)">
+      <div style="font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">${label}</div>
+      <div style="font-size:22px;font-weight:700;color:${color}">${val}</div>${hint ? `<div style="font-size:11px;color:var(--mut);margin-top:3px">${hint}</div>` : ''}</div>`;
+    const flaggedRows = (q.flagged || []).slice(0, 12).map(f => `<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--border);font-size:13px">
+      <span>${esc(f.url.replace(/^https?:\/\//, ''))}</span><span style="color:#c0392b">${(f.mismatches || []).map(esc).join(', ')}</span></div>`).join('') || '<div style="color:var(--mut);font-size:13px;padding:6px 0">— ไม่มีเว็บที่ต้องรีวิว ✓</div>';
+    const needsRows = (q.topNeeds || []).map(n => `<span style="display:inline-block;background:#fde2e2;color:#c0392b;border-radius:6px;padding:2px 8px;margin:2px;font-size:12px">${esc(n.id)} ×${n.n}</span>`).join('') || '<span style="color:var(--mut);font-size:13px">— ไม่มี</span>';
+    box.innerHTML = `
+      <div style="font-weight:700;font-size:16px;margin-bottom:2px">คุณภาพการตรวจ (Audit Quality) — เทียบ Google Lighthouse</div>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:12px">วัดจาก ${q.withVerify}/${q.total} audit ที่ cross-check แล้ว · Google = ground truth (เฉพาะ FACT dims) · ห้ามใช้ engine ตัดสิน engine</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
+        ${card('Precision', pct(o.precision), '#10b981', 'แจ้งแล้วถูกจริง · เป้า >95%')}
+        ${card('Recall', pct(o.recall), '#3b82f6', 'ปัญหาจริงจับได้ · เป้า >90%')}
+        ${card('False Positive', pct(o.fpr), fpOk ? '#10b981' : '#ef4444', 'แจ้งผิด · เป้า <3%')}
+        ${card('False Negative', pct(o.fnr), '#8b5cf6', 'พลาด')}
+        ${card('ต้องรีวิว', q.flaggedCount + ' เว็บ', '#f59e0b', 'ผลต่างจาก Google')}
+      </div>
+      <div class="card" style="padding:16px 20px">
+        <div style="font-weight:600;margin-bottom:4px">⚠️ เว็บที่ควรรีวิวก่อนส่งลูกค้า (ผลต่างจาก Google)</div>
+        ${flaggedRows}
+        <div style="font-weight:600;margin:14px 0 6px">check ที่ต่างจาก Google บ่อยสุด (Most Incorrect)</div>
+        <div>${needsRows}</div>
+      </div>`;
+  } catch (e) { box.innerHTML = ''; }
+}
+
 async function loadDashboard() {
   try {
     const list = await (await fetch('/api/audits')).json();
@@ -687,6 +721,7 @@ async function loadDashboard() {
       </div>`).join('');
 
     $('#db-updated').textContent = 'อัพเดต ' + new Date().toLocaleTimeString('th-TH');
+    loadQuality();
 
     const gradeColor = g => ({'A':'#16a34a','B':'#2563eb','C':'#b45309','D':'#dc2626','F':'#7f1d1d'}[g] || '#6b7280');
 

@@ -8,7 +8,7 @@ import { crawlSite, normalizeUrl } from './lib/crawler.js';
 import { runChecks } from './lib/checks.js';
 import { runGeoChecks } from './lib/geo.js';
 import { fetchCWV, buildPsiChecks } from './lib/psi.js';
-import { fetchLighthouse, crossCheck, annotateChecks } from './lib/verify.js';
+import { fetchLighthouse, crossCheck, annotateChecks, accuracyFromCrossChecks } from './lib/verify.js';
 import { discoverCompetitors } from './lib/discover.js';
 import { fixLivePage, fixPagesBatch } from './lib/pagefix.js';
 import { execFile } from 'node:child_process';
@@ -371,6 +371,27 @@ app.get('/api/audit/:id', (req, res) => {
   const saved = loadAudit(req.params.id);
   if (saved) return res.json({ id: saved.id, status: 'done', progress: [], result: saved });
   res.status(404).json({ error: 'ไม่พบ audit นี้' });
+});
+
+// Audit Quality — รวม verify จากทุก audit → precision/recall/FP/FN + เว็บที่ต้องรีวิว + check ที่พลาดบ่อย
+app.get('/api/quality', (_req, res) => {
+  const ccs = [], flagged = []; const needsCount = {};
+  let total = 0, withVerify = 0;
+  for (const f of readdirSync(DATA_DIR).filter(f => f.endsWith('.json'))) {
+    try {
+      const a = JSON.parse(readFileSync(join(DATA_DIR, f), 'utf8'));
+      total++;
+      if (a.verify?.rows) {
+        withVerify++;
+        ccs.push({ rows: a.verify.rows });
+        if (a.verify.flag) flagged.push({ id: a.id, url: a.url, createdAt: a.createdAt, mismatches: a.verify.factMismatches || [] });
+      }
+      for (const c of (a.checks || [])) if (c._needsVerify) needsCount[c.id] = (needsCount[c.id] || 0) + 1;
+    } catch {}
+  }
+  flagged.sort((x, y) => (y.createdAt || '').localeCompare(x.createdAt || ''));
+  const topNeeds = Object.entries(needsCount).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([id, n]) => ({ id, n }));
+  res.json({ total, withVerify, flaggedCount: flagged.length, accuracy: accuracyFromCrossChecks(ccs), flagged: flagged.slice(0, 25), topNeeds });
 });
 
 app.get('/api/audits', (_req, res) => {
