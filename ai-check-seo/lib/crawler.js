@@ -30,6 +30,22 @@ const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (
 const FETCH_TIMEOUT = 12000; // หน้าจริงตอบใน 1-2 วิ; ที่นานกว่านี้คือ origin ค้าง (เช่น IRPlus flap) — ตัดไว ๆ
 const CONCURRENCY = 5;
 
+// img-alt 3-state ต้องรู้ว่ารูป "โชว์ให้คนเห็นจริงไหม" ซึ่ง static HTML บอกไม่ได้ (CSS ซ่อนรูป/รูป 0px)
+// ฟังก์ชันนี้รันใน browser context (page.evaluate) — เก็บ alt/labeled/visible ของทุก <img> จาก rendered DOM
+// visible = ไม่ได้ถูกซ่อนด้วย CSS และมีขนาดจริง > 1px · ariaHidden = อยู่ใน subtree ที่ aria-hidden
+const IMG_VIS_FN = () => [...document.querySelectorAll('img')].map(img => {
+  const s = getComputedStyle(img), r = img.getBoundingClientRect();
+  return {
+    src: (img.currentSrc || img.getAttribute('src') || '').slice(0, 300),
+    alt: img.getAttribute('alt'),                 // null = ไม่มี attribute, '' = มีแต่ว่าง
+    labeled: !!(img.getAttribute('aria-label') || img.getAttribute('aria-labelledby') ||
+      ['presentation', 'none'].includes((img.getAttribute('role') || '').toLowerCase())),
+    visible: s.display !== 'none' && s.visibility !== 'hidden' &&
+      parseFloat(s.opacity || '1') > 0 && r.width > 1 && r.height > 1,
+    ariaHidden: !!img.closest('[aria-hidden="true"]'),
+  };
+});
+
 // Dispatcher ผ่อน TLS verify — ใช้เฉพาะ fallback ตอน origin ส่ง cert chain ไม่ครบ (ขาด intermediate)
 // โหลดครั้งเดียวตอน import; ถ้า undici ไม่มีก็ปล่อย null (จะ fallback ไม่ได้แต่ไม่ crash)
 // scope แคบ: ใช้กับ fetch ที่ขอ insecure เท่านั้น ไม่แตะ TLS ของ request อื่น (ต่างจาก NODE_TLS_REJECT_UNAUTHORIZED ที่ global)
@@ -497,6 +513,25 @@ async function tryRenderPages(urls, onProgress) {
   }
 }
 
+// ── ตรวจ "รูปที่มองเห็นจริง" ของหน้าเดียว (สำหรับ img-alt 3-state บนเว็บ non-SPA) ──
+// เปิดหน้าด้วย chromium แล้วอ่าน alt/visible ของทุก <img> จาก rendered DOM
+// ต่อตรงเสมอ (เหมือน renderedCrawl) + timeout สั้น → เว็บที่ geo-block IP เซิร์ฟเวอร์จะ fail ไว แล้ว return null (fallback ไป raw)
+async function auditImageVisibility(url, onProgress) {
+  let pw;
+  try { pw = await import('playwright'); } catch { return null; }
+  let browser;
+  try {
+    browser = await pw.chromium.launch({ headless: true, proxy: playwrightProxy() });
+    const ctx = await browser.newContext({ userAgent: UA, locale: 'th-TH' });
+    const page = await ctx.newPage();
+    onProgress?.('กำลังเปิดหน้าเว็บจริงเพื่อตรวจว่ารูปไหน "มองเห็นจริง" (image visibility)...');
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
+    return await page.evaluate(IMG_VIS_FN);
+  } catch { return null; }
+  finally { try { await browser?.close(); } catch {} }
+}
+
 // ── Rendered crawl สำหรับเว็บ SPA — render ด้วย chromium เพื่อค้นลิงก์ JS + เก็บ raw shell ไว้ครบ ──
 // ใช้เมื่อ raw HTML เป็น shell (เนื้อหา/ลิงก์ถูก render ด้วย JS) ที่ raw crawl หาหน้าไม่ครบ
 // กลไก: ต่อ 1 ครั้ง/หน้า ได้ทั้ง raw (response.text() = สิ่งที่ Google รอบแรก/AI bot เห็น) และ rendered (page.content())
@@ -563,6 +598,8 @@ async function renderedCrawl(startUrl, seedUrls, { maxPages, onProgress }) {
       if (rd.socials?.length) data.socials = rd.socials;
       if (rd.logo) data.logo = rd.logo;
       if (rd.author) data.author = rd.author;
+      // รูปที่ "มองเห็นจริง" จาก rendered DOM → ให้ img-alt check ตัดสิน 3-state ได้ (ข้ามรูปซ่อน/รูปประดับ)
+      try { data.imageVis = await page.evaluate(IMG_VIS_FN); } catch {}
       pages.push(data);
       // render-diff (เทียบ raw vs rendered)
       renderedDiff[finalUrl] = { title: rd.title, h1: renH1, textLength: rd.textLength };
@@ -835,6 +872,19 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
     } else if (renderTargets.length) {
       onProgress('กำลังลอง render ด้วย headless Chrome (เทียบ raw vs rendered)...');
       site.rendered = await tryRenderPages(renderTargets, onProgress);
+    }
+  }
+
+  // 7.5 img-alt 3-state — เว็บ non-SPA ที่ไม่ได้ render มาก่อน: เปิดหน้าแรกเช็ค "รูปที่มองเห็นจริง"
+  //     ทำเฉพาะตอน raw บ่งชี้ว่ามีรูปอาจขาด alt (ไม่งั้นไม่ต้องเสียเวลา render เว็บที่รูปครบอยู่แล้ว)
+  //     SPA ทำใน renderedCrawl ไปแล้ว (แต่ละหน้ามี imageVis) — ข้าม
+  if (!site.renderedCrawl) {
+    const home = site.pages.find(p => { try { return new URL(p.finalUrl || p.url).pathname === '/' && p.status === 200; } catch { return false; } })
+      || site.pages.find(p => p.title !== undefined && p.status === 200);
+    const rawSuspect = home?.images?.some(i => i.src && (i.labeled != null ? !i.labeled : i.alt == null));
+    if (home && rawSuspect) {
+      const vis = await auditImageVisibility(home.finalUrl || home.url, onProgress);
+      if (Array.isArray(vis) && vis.length) home.imageVis = vis;
     }
   }
 

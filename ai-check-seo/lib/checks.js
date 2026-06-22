@@ -365,30 +365,54 @@ export function runChecks(site) {
 
   // ════════ 5. IMAGES ════════
   {
-    let totalImg = 0, noAlt = 0;
-    const noAltPages = [];
+    // img-alt 3-state (มาตรฐาน enterprise/a11y) — ลด false positive จากรูปที่คนมองไม่เห็น:
+    //   FAIL    = รูปที่ "มองเห็นจริง" แต่ไม่มี alt attribute เลย → เสีย SEO + accessibility แน่นอน
+    //   WARNING = รูปที่มองเห็นจริงแต่ alt="" → อ้างเป็นรูปประดับ ต้องเปิดดูยืนยันว่าใช่จริง (ไม่ใช่รูปเนื้อหา)
+    //   PASS    = alt มีความหมาย / มี aria-label / role=presentation / รูปที่ถูกซ่อน (ไม่ต้องมี alt)
+    //   ข้าม    = รูปที่ไม่โชว์ (display:none / visibility:hidden / 0px / aria-hidden) — Google/AI ไม่สนใจ
+    // ใช้ "รูปที่มองเห็นจริง" จาก rendered DOM (p.imageVis) เมื่อมี · ถ้าไม่มี → heuristic จาก raw HTML (เดิม)
+    let totalImg = 0, missingAlt = 0, emptyAlt = 0, usedRender = false;
+    const missingPages = [], emptyPages = [];
     okPages.forEach(p => {
-      const imgs = p.images.filter(i => i.src);
-      totalImg += imgs.length;
-      // นับ "ขาด alt" เฉพาะรูปที่ไม่ labeled เลย (ไม่มี alt + ไม่มี aria-label/role=presentation) — ตรงกับ Lighthouse/a11y
-      // (alt="" = decorative valid, aria-label = เข้าถึงได้ → ไม่นับ · เดิมนับเกิน → false positive)
-      const missing = imgs.filter(i => i.labeled != null ? !i.labeled : i.alt == null).length;
-      noAlt += missing;
-      if (missing) noAltPages.push(`${p.url} (${missing}/${imgs.length} รูป)`);
+      if (Array.isArray(p.imageVis) && p.imageVis.length) {
+        usedRender = true;
+        const shown = p.imageVis.filter(i => i.visible && !i.ariaHidden);
+        totalImg += shown.length;
+        const cand = shown.filter(i => !i.labeled);        // มี aria-label/role=presentation = ผ่าน
+        const miss = cand.filter(i => i.alt == null).length;   // โชว์จริง + ไม่มี alt attribute → FAIL
+        const empt = cand.filter(i => i.alt === '').length;    // โชว์จริง + alt="" → WARNING
+        missingAlt += miss; emptyAlt += empt;
+        if (miss) missingPages.push(`${p.url} (${miss} รูป)`);
+        if (empt) emptyPages.push(`${p.url} (${empt} รูป)`);
+      } else {
+        const imgs = p.images.filter(i => i.src);
+        totalImg += imgs.length;
+        const miss = imgs.filter(i => i.labeled != null ? !i.labeled : i.alt == null).length;
+        missingAlt += miss;
+        if (miss) missingPages.push(`${p.url} (${miss}/${imgs.length} รูป)`);
+      }
     });
     if (totalImg > 0) {
-      const pct = Math.round(noAlt / totalImg * 100);
-      checks.push(noAlt
-        ? mk('img-alt', 'images', 'med', pct > 50 ? 'fail' : 'warn', 'รูปที่ไม่มี alt text', `${noAlt}/${totalImg} รูป (${pct}%) — เสียโอกาส Google Images และ accessibility`, 'ใส่ alt บรรยายรูปสั้นๆ มีคีย์เวิร์ดเมื่อเกี่ยวข้อง', noAltPages, true)
-        : mk('img-alt', 'images', 'med', 'pass', 'รูปมี alt text ครบ', `${totalImg} รูปมี alt ครบ`));
+      const srcNote = usedRender ? ' (ตรวจจากรูปที่แสดงจริงบนหน้าเว็บ)' : '';
+      if (missingAlt > 0) {
+        const pct = Math.round(missingAlt / totalImg * 100);
+        const extra = emptyAlt ? ` · อีก ${emptyAlt} รูปใช้ alt="" (รูปประดับ — ควรเปิดดูยืนยัน)` : '';
+        checks.push(mk('img-alt', 'images', 'med', pct > 50 ? 'fail' : 'warn', 'รูปที่ไม่มี alt text', `${missingAlt}/${totalImg} รูป (${pct}%) ไม่มี alt — เสียโอกาส Google Images และ accessibility${extra}${srcNote}`, 'ใส่ alt บรรยายรูปสั้นๆ มีคีย์เวิร์ดเมื่อเกี่ยวข้อง', missingPages, true));
+      } else if (emptyAlt > 0) {
+        checks.push(mk('img-alt', 'images', 'low', 'warn', 'รูปที่ใช้ alt="" (ควรยืนยันว่าเป็นรูปประดับ)', `${emptyAlt}/${totalImg} รูปที่แสดงจริงใช้ alt="" — ถ้าเป็นรูปประดับ (ไอคอน/เส้นคั่น) ถูกแล้ว แต่ถ้าเป็นรูปเนื้อหา (โลโก้/สินค้า/ภาพข่าว) ควรใส่คำอธิบาย${srcNote}`, 'เปิดหน้าเว็บดู: รูปที่สื่อความหมายต้องมี alt บรรยาย · รูปประดับล้วนๆ ใช้ alt="" ได้', emptyPages, true));
+      } else {
+        checks.push(mk('img-alt', 'images', 'med', 'pass', 'รูปมี alt text ครบ', `${totalImg} รูปที่แสดงจริงมี alt ครบ${srcNote}`));
+      }
+      let rawTotalImg = 0;
+      okPages.forEach(p => { rawTotalImg += p.images.filter(i => i.src).length; });
       let noLazy = 0;
       okPages.forEach(p => { noLazy += p.images.filter(i => i.src && !i.loading).length; });
-      if (noLazy > totalImg * 0.7 && totalImg > 5)
-        checks.push(mk('img-lazy', 'images', 'low', 'warn', 'รูปส่วนใหญ่ไม่มี lazy loading', `${noLazy}/${totalImg} รูปไม่มี loading="lazy" — โหลดหนักตอนเปิดหน้า`, 'ใส่ loading="lazy" กับรูปใต้ fold', [], true));
+      if (noLazy > rawTotalImg * 0.7 && rawTotalImg > 5)
+        checks.push(mk('img-lazy', 'images', 'low', 'warn', 'รูปส่วนใหญ่ไม่มี lazy loading', `${noLazy}/${rawTotalImg} รูปไม่มี loading="lazy" — โหลดหนักตอนเปิดหน้า`, 'ใส่ loading="lazy" กับรูปใต้ fold', [], true));
       let noDim = 0;
       okPages.forEach(p => { noDim += p.images.filter(i => i.src && (!i.width || !i.height)).length; });
-      if (noDim > totalImg * 0.5 && totalImg > 5)
-        checks.push(mk('img-dimensions', 'images', 'low', 'warn', 'รูปไม่ระบุ width/height', `${noDim}/${totalImg} รูป — ทำให้เกิด layout shift (CLS แย่)`, 'ระบุ width/height ทุกรูป', []));
+      if (noDim > rawTotalImg * 0.5 && rawTotalImg > 5)
+        checks.push(mk('img-dimensions', 'images', 'low', 'warn', 'รูปไม่ระบุ width/height', `${noDim}/${rawTotalImg} รูป — ทำให้เกิด layout shift (CLS แย่)`, 'ระบุ width/height ทุกรูป', []));
     }
   }
 

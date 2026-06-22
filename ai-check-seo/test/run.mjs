@@ -117,6 +117,36 @@ const FIXTURES = [
     expect: { 'img-alt': 'warn' },
     absent: ['h1-multiple', 'h1-hidden'],
   },
+  // ── img-alt 3-state จาก rendered DOM (p.imageVis) — ลด false positive จากรูปที่คนมองไม่เห็น ──
+  {
+    name: '3-state: รูปซ่อน (CSS hidden) ไม่มี alt → ต้องข้าม ไม่ใช่ FAIL (เคส vgi)',
+    file: 'decorative-alt.html', url: 'https://example.com/hidden-img',
+    pageOverrides: { imageVis: [
+      { src: 'a.png', alt: null, labeled: false, visible: false, ariaHidden: false }, // ซ่อน → ข้าม
+      { src: 'b.png', alt: 'โลโก้บริษัท', labeled: false, visible: true, ariaHidden: false }, // โชว์ + มี alt → ผ่าน
+    ] },
+    expect: { 'img-alt': 'pass' },
+    absent: ['h1-multiple', 'h1-hidden'],
+  },
+  {
+    name: '3-state: รูปที่มองเห็นจริงไม่มี alt → FAIL',
+    file: 'decorative-alt.html', url: 'https://example.com/visible-noalt',
+    pageOverrides: { imageVis: [
+      { src: 'a.png', alt: null, labeled: false, visible: true, ariaHidden: false }, // โชว์ + ไม่มี alt → FAIL
+    ] },
+    expect: { 'img-alt': 'fail' },
+    absent: ['h1-multiple', 'h1-hidden'],
+  },
+  {
+    name: '3-state: รูปที่มองเห็นจริง alt="" → WARNING (ควรยืนยันว่าเป็นรูปประดับ)',
+    file: 'decorative-alt.html', url: 'https://example.com/visible-empty',
+    pageOverrides: { imageVis: [
+      { src: 'a.png', alt: '', labeled: false, visible: true, ariaHidden: false },     // โชว์ + alt="" → WARNING
+      { src: 'b.png', alt: 'มีคำอธิบายชัดเจน', labeled: false, visible: true, ariaHidden: false },
+    ] },
+    expect: { 'img-alt': 'warn' },
+    absent: ['h1-multiple', 'h1-hidden'],
+  },
 ];
 
 // ── Runner ─────────────────────────────────────────────────────────────
