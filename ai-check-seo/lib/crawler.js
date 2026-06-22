@@ -361,12 +361,26 @@ export function extractPageData(html, url, headers, status, elapsed, chain) {
 
   // ── ดึงข้อมูลจริงสำหรับ schema/E-E-A-T: social profiles (sameAs), logo, author ──
   const abs = (h) => { try { return new URL(h, url).toString(); } catch { return ''; } };
-  // match จาก "host" จริง (ไม่ใช่ substring — กัน poscothaino x.com ไป match x.com)
-  const SOCIAL_HOSTS = ['facebook.com', 'instagram.com', 'linkedin.com', 'youtube.com', 'youtu.be', 'twitter.com', 'x.com', 'tiktok.com', 'pinterest.com', 'threads.net', 'line.me', 'lin.ee'];
-  const isSocial = (h) => { try { const host = new URL(h, url).hostname.replace(/^www\./, '').toLowerCase(); return SOCIAL_HOSTS.some(d => host === d || host.endsWith('.' + d)); } catch { return false; } };
-  const socials = [...new Set($('a[href]').map((_, el) => $(el).attr('href') || '').get()
-    .filter(isSocial).map(abs).filter(u => /^https?:\/\//.test(u))
-    .map(u => u.replace(/[?#].*$/, '').replace(/\/$/, '')))].slice(0, 12);
+  // sameAs = "โปรไฟล์ทางการ" เท่านั้น (ไม่เอาลิงก์วิดีโอ/โพสต์/แชร์รายตัว) + 1 ต่อแพลตฟอร์ม
+  const SOCIAL_HOSTS = ['facebook.com', 'instagram.com', 'linkedin.com', 'youtube.com', 'twitter.com', 'x.com', 'tiktok.com', 'pinterest.com', 'threads.net'];
+  const socialProfile = (h) => {
+    let u; try { u = new URL(h, url); } catch { return ''; }
+    const host = u.hostname.replace(/^www\./, '').toLowerCase();
+    if (!SOCIAL_HOSTS.some(d => host === d || host.endsWith('.' + d))) return ''; // youtu.be (วิดีโอ) ตกไปเอง
+    const path = u.pathname.replace(/\/+$/, '');
+    if (!path) return '';                                                   // ต้องมี path (โปรไฟล์) ไม่ใช่หน้าแรกเฉยๆ
+    // ตัดลิงก์แชร์/คอนเทนต์รายตัว — match เป็น "segment เต็ม" (กันชนชื่อเพจ เช่น /ShareInvestorTH ไม่ใช่ /share)
+    if (/^\/(sharer|share|dialog|intent|login|watch|shorts|embed|playlist|posts?|status|reel|p)(\/|$|\?)/i.test(path)) return '';
+    if (/youtube\.com$/.test(host) && !/^\/(channel\/|@|c\/|user\/)/i.test(path)) return ''; // YouTube เอาเฉพาะ channel
+    return u.origin.replace('//www.', '//') + path;
+  };
+  const seenHost = new Set(); const socials = [];
+  for (const h of $('a[href]').map((_, el) => $(el).attr('href') || '').get()) {
+    const sp = socialProfile(h); if (!sp) continue;
+    const host = new URL(sp).hostname.replace(/^www\./, '');
+    if (seenHost.has(host)) continue; seenHost.add(host); socials.push(sp);  // 1 โปรไฟล์ต่อแพลตฟอร์ม
+    if (socials.length >= 8) break;
+  }
   // logo ต้องเป็น "ไฟล์รูปจริง" (มีนามสกุลรูป) — ไม่งั้น src ว่าง/"/" จะถูกเก็บผิด
   const isImg = (u) => /\.(png|jpe?g|svg|webp|gif|avif|ico)(\?|#|$)/i.test(u || '');
   let logo = '';
