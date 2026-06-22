@@ -673,9 +673,21 @@ async function loadQuality() {
     const card = (label, val, color, hint) => `<div style="border:1px solid var(--border);border-radius:14px;padding:16px 18px;background:var(--panel)">
       <div style="font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">${label}</div>
       <div style="font-size:22px;font-weight:700;color:${color}">${val}</div>${hint ? `<div style="font-size:11px;color:var(--mut);margin-top:3px">${hint}</div>` : ''}</div>`;
-    const flaggedRows = (q.flagged || []).slice(0, 12).map(f => `<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--border);font-size:13px;align-items:center">
-      <a href="#" onclick="openAudit('${f.id}');return false" style="color:#3b82f6;text-decoration:none;font-weight:500">${esc(f.url.replace(/^https?:\/\//, ''))} <span style="font-size:11px">↗ เปิดผลตรวจ</span></a>
-      <span style="color:#c0392b">${(f.mismatches || []).map(esc).join(', ')}</span></div>`).join('') || '<div style="color:var(--mut);font-size:13px;padding:6px 0">— ไม่มีเว็บที่ต้องรีวิว ✓</div>';
+    const trustColor = (t) => /เราแม่น|เราเข้ม|เราถูก/.test(t) ? '#15803d' : /bug|รีวิว/.test(t) ? '#c0392b' : '#b45309';
+    const flaggedRows = (q.flagged || []).slice(0, 12).map(f => {
+      const expl = (f.explained || []).map(e => e.raw ? `<div style="font-size:12px;color:var(--mut)">${esc(e.raw)}</div>` : `
+        <div style="margin-top:8px;padding:10px 12px;background:var(--hover);border-radius:8px;font-size:12.5px;line-height:1.55">
+          <div><b>${esc(e.dim)}</b> — เรา: <span style="color:#c0392b">${esc(e.ours)}</span> · Google: <span style="color:#15803d">${esc(e.google)}</span></div>
+          <div style="margin-top:4px"><span style="color:var(--mut)">ต่างกันยังไง:</span> ${esc(e.diff)}</div>
+          <div style="margin-top:4px">👉 <span style="color:var(--mut)">ควรเชื่อ:</span> <b style="color:${trustColor(e.trust)}">${esc(e.trust)}</b></div>
+          ${e.detail ? `<div style="margin-top:3px;color:var(--mut)">${esc(e.detail)}</div>` : ''}
+        </div>`).join('');
+      return `<details style="padding:9px 0;border-top:1px solid var(--border)">
+        <summary style="display:flex;justify-content:space-between;gap:10px;font-size:13px;cursor:pointer">
+          <a href="#" onclick="event.stopPropagation();openAudit('${f.id}');return false" style="color:#3b82f6;text-decoration:none;font-weight:500">${esc(f.url.replace(/^https?:\/\//, ''))} ↗</a>
+          <span style="color:#c0392b">${(f.mismatches || []).map(esc).join(', ')} ▾</span>
+        </summary>${expl}</details>`;
+    }).join('') || '<div style="color:var(--mut);font-size:13px;padding:6px 0">— ไม่มีเว็บที่ต้องรีวิว ✓</div>';
     const needsRows = (q.topNeeds || []).map(n => `<span style="display:inline-block;background:#fde2e2;color:#c0392b;border-radius:6px;padding:2px 8px;margin:2px;font-size:12px">${esc(n.id)} ×${n.n}</span>`).join('') || '<span style="color:var(--mut);font-size:13px">— ไม่มี</span>';
     box.innerHTML = `
       <div style="font-size:12px;color:var(--mut);margin-bottom:12px">วัดจาก ${q.withVerify}/${q.sites ?? q.withVerify} เว็บ (ใช้ผลล่าสุดต่อเว็บ ไม่นับซ้ำ) · Google = ground truth (เฉพาะ FACT dims)</div>
@@ -686,6 +698,17 @@ async function loadQuality() {
         ${card('False Negative', pct(o.fnr), '#8b5cf6', 'พลาด')}
         ${card('ต้องรีวิว', q.flaggedCount + ' เว็บ', '#f59e0b', 'ผลต่างจาก Google')}
       </div>
+      <details style="margin-bottom:14px">
+        <summary style="cursor:pointer;font-size:13px;color:var(--mut);font-weight:500">▸ ระบบเรา vs Google Lighthouse ต่างกันอย่างไร? (เวลาผลไม่ตรง ควรเชื่ออันไหน)</summary>
+        <div style="font-size:12.5px;color:var(--mut);padding:10px 2px 0;line-height:1.7">
+          <b style="color:var(--fg,#222)">ระบบเรา</b> — ตรวจ HTML "ดิบ" (สิ่งที่ Googlebot รอบแรก + AI bot ทุกตัว GPTBot/Claude/Perplexity เห็น) · 200+ จุด รวม GEO/AI readiness · เข้มกว่าเรื่อง raw HTML + จับ robots/hreflang/SPA ครบ<br>
+          <b style="color:var(--fg,#222)">Google Lighthouse</b> — render JS ก่อน แล้วเช็ค ~12 ข้อ SEO ผ่าน accessibility tree · เห็นเนื้อหาหลัง JS · ข้ามรูปที่ซ่อน<br><br>
+          <b style="color:var(--fg,#222)">เวลาผลต่างกัน ส่วนใหญ่เป็น 3 แบบ:</b><br>
+          (ก) <b>เราเข้ม/เช็คมากกว่า</b> (เช่น robots บล็อกเว็บ, hreflang ไม่ครบ) → <b style="color:#15803d">เราถูก</b> Lighthouse แค่ไม่เช็คข้อนั้น<br>
+          (ข) <b>raw vs rendered บน SPA</b> (เช่น lang/viewport ใส่ด้วย JS) → <b style="color:#15803d">เราถูกในแง่ AI/GEO</b> (AI bot ไม่รัน JS เลยไม่เห็น)<br>
+          (ค) <b>ต้องเปิดหน้าจริงดู</b> (เช่น รูปซ่อนด้วย CSS ที่ static HTML ตัดสินไม่ได้) → กดดูแต่ละเว็บด้านล่าง
+        </div>
+      </details>
       <div class="card" style="padding:16px 20px">
         <div style="font-weight:600;margin-bottom:4px">⚠️ เว็บที่ควรรีวิวก่อนส่งลูกค้า (ผลต่างจาก Google)</div>
         ${flaggedRows}

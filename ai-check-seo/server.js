@@ -8,7 +8,7 @@ import { crawlSite, normalizeUrl } from './lib/crawler.js';
 import { runChecks } from './lib/checks.js';
 import { runGeoChecks } from './lib/geo.js';
 import { fetchCWV, buildPsiChecks } from './lib/psi.js';
-import { fetchLighthouse, crossCheck, annotateChecks, accuracyFromCrossChecks } from './lib/verify.js';
+import { fetchLighthouse, crossCheck, annotateChecks, accuracyFromCrossChecks, explainMismatch } from './lib/verify.js';
 import { discoverCompetitors } from './lib/discover.js';
 import { fixLivePage, fixPagesBatch } from './lib/pagefix.js';
 import { execFile } from 'node:child_process';
@@ -391,7 +391,7 @@ app.get('/api/quality', (_req, res) => {
     if (a.verify?.rows) {
       withVerify++;
       ccs.push({ rows: a.verify.rows });
-      if (a.verify.flag) flagged.push({ id: a.id, url: a.url, createdAt: a.createdAt, mismatches: a.verify.factMismatches || [] });
+      if (a.verify.flag) flagged.push({ id: a.id, url: a.url, createdAt: a.createdAt, mismatches: a.verify.factMismatches || [], explained: (a.verify.factMismatches || []).map(explainMismatch) });
     }
     for (const c of (a.checks || [])) if (c._needsVerify) needsCount[c.id] = (needsCount[c.id] || 0) + 1;
   }
