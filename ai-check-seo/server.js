@@ -378,14 +378,18 @@ app.get('/api/audit/:id', (req, res) => {
 
 // Audit Quality — รวม verify จากทุก audit → precision/recall/FP/FN + เว็บที่ต้องรีวิว + check ที่พลาดบ่อย
 app.get('/api/quality', (_req, res) => {
-  // เอา audit "ล่าสุดต่อ 1 URL" เท่านั้น — กันเว็บเดียวที่ scan ซ้ำหลายครั้งโผล่/ถูกนับซ้ำ
+  // เอา audit "ล่าสุดต่อ 1 เว็บ" เท่านั้น — กันเว็บเดียวที่ scan ซ้ำหลายครั้งโผล่/ถูกนับซ้ำ
+  // normalize URL: ตัด trailing slash + www + lowercase host → "x.com" กับ "x.com/" กับ "www.x.com" = เว็บเดียวกัน
+  // (ถ้าไม่ทำ: re-scan เว็บเดิมด้วย URL ต่างนิดเดียว → audit เก่าที่ flag ค้างอยู่ไม่ถูกแทน)
+  const siteKey = (u) => { try { const x = new URL(u); return x.hostname.replace(/^www\./, '').toLowerCase() + x.pathname.replace(/\/+$/, '') + (x.search || ''); } catch { return u; } };
   const latest = new Map(); let total = 0;
   for (const f of readdirSync(DATA_DIR).filter(f => f.endsWith('.json'))) {
     try {
       const a = JSON.parse(readFileSync(join(DATA_DIR, f), 'utf8'));
       total++;
-      const prev = latest.get(a.url);
-      if (!prev || (a.createdAt || '') > (prev.createdAt || '')) latest.set(a.url, a);
+      const k = siteKey(a.url);
+      const prev = latest.get(k);
+      if (!prev || (a.createdAt || '') > (prev.createdAt || '')) latest.set(k, a);
     } catch {}
   }
   const ccs = [], flagged = [], needsCount = {}, perSite = [];
