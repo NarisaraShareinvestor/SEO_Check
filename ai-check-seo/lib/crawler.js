@@ -510,11 +510,17 @@ async function renderedCrawl(startUrl, seedUrls, { maxPages, onProgress }) {
       const renderedHtml = await page.content();
       // page data = raw (สิ่งที่ Google รอบแรก/AI bot เห็น) — ถ้าดึง raw ไม่ได้ใช้ rendered แทน
       const data = extractPageData((rawHtml || renderedHtml).slice(0, 600_000), url, headers, status, 0, []);
-      data.finalUrl = finalUrl;
-      pages.push(data);
-      // เก็บข้อมูล rendered ไว้ให้ check render-diff (เทียบ raw vs rendered)
       const rd = extractPageData(renderedHtml.slice(0, 600_000), url, headers, status, 0, []);
-      renderedDiff[finalUrl] = { title: rd.title, h1: (rd.headings || []).filter(h => h.tag === 'h1').map(h => h.text), textLength: rd.textLength };
+      data.finalUrl = finalUrl;
+      // เก็บเนื้อหา "ฉบับ render แล้ว" ไว้กับ page (persist ใน audit) — ใช้เสนอ H1/Title จริงที่มีอยู่ใน DOM
+      // (SPA: H1/title เขียนไว้แล้วใน JS แค่ไม่อยู่ raw HTML → รายงานเสนอค่าจริงได้เลย ไม่ต้องเดา)
+      data.renderedTitle = rd.title || '';
+      data.renderedH1 = rd.h1 || [];
+      data.renderedDescription = rd.description || '';
+      data.renderedTextLength = rd.textLength || 0;
+      pages.push(data);
+      // render-diff (เทียบ raw vs rendered)
+      renderedDiff[finalUrl] = { title: rd.title, h1: rd.h1 || [], textLength: rd.textLength };
       // ค้นลิงก์จาก rendered (เจอลิงก์ JS ครบ)
       for (const l of (rd.links || [])) enqueue(l.href, finalUrl);
     } catch (e) {
