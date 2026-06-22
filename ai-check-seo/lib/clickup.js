@@ -285,6 +285,19 @@ function faqFix(audit) {
   }, null, 2) + '\n</script>\n```\n_เหตุผล:_ FAQPage = อาวุธ GEO — AI Overview/ChatGPT/Perplexity ดึงไปตอบตรงๆ · โครงสร้างพร้อมแล้ว เหลือใส่ Q&A จริง (ต้องตรงกับที่โชว์บนหน้า)';
 }
 
+// ── llms.txt — สร้างจากข้อมูลจริง (แบรนด์ + description + หน้าสำคัญที่ crawl เจอ) ไม่มี TODO ──
+function llmsFix(audit) {
+  const brand = brandOf(audit), origin = originOf(audit);
+  const ok = (audit.pages || []).filter(p => p.status === 200);
+  const home = ok.find(p => { try { return new URL(p.finalUrl || p.url).pathname === '/'; } catch { return false; } }) || ok[0];
+  const desc = (home?.renderedDescription || '').trim() || `${brand} — ดูบริการและข้อมูลบนเว็บไซต์`;
+  const important = ok.filter(p => ['home', 'about', 'service', 'contact', 'bloglist'].includes(pageType(p.finalUrl || p.url)));
+  const pick = (important.length ? important : ok).slice(0, 14);
+  const lines = pick.map(p => { const u = p.finalUrl || p.url; const t = (p.renderedTitle || '').split(/[|–—]/)[0].trim() || wordsFromPath(u); return `- [${t}](${u})`; }).join('\n');
+  const content = `# ${brand}\n\n> ${desc}\n\n## หน้าสำคัญ\n${lines}\n\n## ติดต่อ\n- เว็บไซต์: ${origin}/`;
+  return `**โค้ด/ไฟล์สำหรับแก้ (พร้อมใช้ — llms.txt)**\nวางที่ root: ${origin}/llms.txt — มาตรฐานใหม่บอก AI ว่าเว็บคือใคร หน้าไหนสำคัญ (เว็บไทยแทบไม่มีใครทำ = นำหน้าคู่แข่ง) · สร้างจากเนื้อหาจริงของเว็บแล้ว\n` + '```markdown\n' + content + '\n```';
+}
+
 // ── "โค้ด/ไฟล์สำหรับแก้ (พร้อมใช้)" — โค้ดครบทุกหน้าที่กระทบ ใช้เนื้อหาจริง (ไม่มี placeholder/TODO) ──
 const PER_PAGE_MAX = 60000; // โค้ดรายหน้ายาวได้ (ให้ครบทุกหน้า)
 function fixBlock(audit, c) {
@@ -304,6 +317,9 @@ function fixBlock(audit, c) {
 
   // FAQ schema — structure พร้อม + แบรนด์จริง
   if (['geo-faq-schema', 'geo-qa-content'].includes(c.id)) return faqFix(audit);
+
+  // llms.txt — สร้างจากข้อมูลจริง
+  if (c.id === 'geo-llms-txt') return llmsFix(audit);
 
   // H1 รายหน้า — เสนอ H1 จริงครบทุกหน้า (ใช้ของที่ render แล้วก่อน)
   if (c.id === 'h1-missing' && all.length) {
