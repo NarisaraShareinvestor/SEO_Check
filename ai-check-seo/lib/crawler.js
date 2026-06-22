@@ -834,7 +834,10 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
   // 8. รวม social profiles + logo ระดับเว็บ (sameAs/logo จริงสำหรับ schema) — เอาจากหน้าแรกก่อน
   const homePage = site.pages.find(p => { try { return new URL(p.finalUrl || p.url).pathname === '/'; } catch { return false; } });
   const orderedPages = homePage ? [homePage, ...site.pages.filter(p => p !== homePage)] : site.pages;
-  site.socials = [...new Set(orderedPages.flatMap(p => p.socials || []))].slice(0, 12);
+  const seenSocialHost = new Set();
+  site.socials = orderedPages.flatMap(p => p.socials || []).filter(u => {
+    try { const h = new URL(u).hostname.replace(/^www\./, ''); if (seenSocialHost.has(h)) return false; seenSocialHost.add(h); return true; } catch { return false; }
+  }).slice(0, 10); // 1 โปรไฟล์ต่อแพลตฟอร์ม (หน้าแรกก่อน)
   site.logo = orderedPages.map(p => p.logo).find(Boolean) || '';
 
   return site;
