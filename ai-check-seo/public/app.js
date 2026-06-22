@@ -673,8 +673,9 @@ async function loadQuality() {
     const card = (label, val, color, hint) => `<div style="border:1px solid var(--border);border-radius:14px;padding:16px 18px;background:var(--panel)">
       <div style="font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">${label}</div>
       <div style="font-size:22px;font-weight:700;color:${color}">${val}</div>${hint ? `<div style="font-size:11px;color:var(--mut);margin-top:3px">${hint}</div>` : ''}</div>`;
-    const flaggedRows = (q.flagged || []).slice(0, 12).map(f => `<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--border);font-size:13px">
-      <span>${esc(f.url.replace(/^https?:\/\//, ''))}</span><span style="color:#c0392b">${(f.mismatches || []).map(esc).join(', ')}</span></div>`).join('') || '<div style="color:var(--mut);font-size:13px;padding:6px 0">— ไม่มีเว็บที่ต้องรีวิว ✓</div>';
+    const flaggedRows = (q.flagged || []).slice(0, 12).map(f => `<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--border);font-size:13px;align-items:center">
+      <a href="#" onclick="openAudit('${f.id}');return false" style="color:#3b82f6;text-decoration:none;font-weight:500">${esc(f.url.replace(/^https?:\/\//, ''))} <span style="font-size:11px">↗ เปิดผลตรวจ</span></a>
+      <span style="color:#c0392b">${(f.mismatches || []).map(esc).join(', ')}</span></div>`).join('') || '<div style="color:var(--mut);font-size:13px;padding:6px 0">— ไม่มีเว็บที่ต้องรีวิว ✓</div>';
     const needsRows = (q.topNeeds || []).map(n => `<span style="display:inline-block;background:#fde2e2;color:#c0392b;border-radius:6px;padding:2px 8px;margin:2px;font-size:12px">${esc(n.id)} ×${n.n}</span>`).join('') || '<span style="color:var(--mut);font-size:13px">— ไม่มี</span>';
     box.innerHTML = `
       <div style="font-size:12px;color:var(--mut);margin-bottom:12px">วัดจาก ${q.withVerify}/${q.sites ?? q.withVerify} เว็บ (ใช้ผลล่าสุดต่อเว็บ ไม่นับซ้ำ) · Google = ground truth (เฉพาะ FACT dims)</div>
