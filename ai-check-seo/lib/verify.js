@@ -80,3 +80,50 @@ export function crossCheck(audit, lh) {
     criteria: rows.filter(r => r.kind === 'criteria' && !r.agree).map(r => `${r.dim}(เรา:${r.ours}/Google:${r.lighthouse})`),
   };
 }
+
+// ── ประเภท check (ตาม roadmap): deterministic (parser) / rule (เกณฑ์) / ai (ประเมิน) ──
+const CHECK_TYPE = {
+  // deterministic — parser ตรวจ มี/ไม่มี (ความเชื่อมั่นสูงสุด)
+  'title-missing': 'deterministic', 'desc-missing': 'deterministic', 'h1-missing': 'deterministic',
+  'canonical-missing': 'deterministic', 'jsonld-missing': 'deterministic', 'schema-org': 'deterministic',
+  'schema-breadcrumb': 'deterministic', 'geo-faq-schema': 'deterministic', 'geo-entity': 'deterministic',
+  'robots-missing': 'deterministic', 'robots-blocks-all': 'deterministic', 'robots-blocks-section': 'deterministic',
+  'sitemap-exists': 'deterministic', 'sitemap-coverage': 'deterministic', 'sitemap-lastmod': 'deterministic',
+  'viewport-missing': 'deterministic', 'viewport-noscale': 'deterministic', 'lang-missing': 'deterministic',
+  'favicon-missing': 'deterministic', 'hreflang': 'deterministic', 'og-tags': 'deterministic', 'twitter-card': 'deterministic',
+  'geo-llms-txt': 'deterministic', 'geo-bot-access': 'deterministic', 'security-headers': 'deterministic',
+  'charset-not-utf8': 'deterministic', 'spa-shell': 'deterministic', 'soft-404': 'deterministic', 'noscript-fallback': 'deterministic',
+  'jsonld-invalid': 'deterministic', 'schema-incomplete': 'deterministic', 'robots-meta-invalid': 'deterministic', 'canonical-self': 'deterministic',
+  // rule — เกณฑ์/threshold
+  'title-length': 'rule', 'title-duplicate': 'rule', 'desc-length': 'rule', 'desc-duplicate': 'rule',
+  'content-thin': 'rule', 'near-duplicate': 'rule', 'text-ratio': 'rule', 'h1-multiple': 'rule', 'h1-hidden': 'rule',
+  'heading-order': 'rule', 'img-alt': 'rule', 'broken-links': 'rule', 'internal-links-few': 'rule',
+  'orphan-pages': 'rule', 'cwv-score': 'rule', 'render-diff': 'rule', 'copyright-stale': 'rule',
+  // ai assessment — ดุลพินิจ (แสดงเป็น Assessment/Opportunity ไม่ใช่ Error)
+  'geo-eeat': 'ai', 'geo-citable': 'ai', 'geo-qa-content': 'ai', 'geo-trust-pages': 'ai', 'geo-spa-risk': 'ai',
+};
+const typeOf = (c) => CHECK_TYPE[c.id] || ({ schema: 'deterministic', index: 'deterministic', security: 'deterministic', geo: 'ai', performance: 'rule', images: 'rule', links: 'rule' }[c.category]) || 'rule';
+const BASE_CONF = { deterministic: 0.97, rule: 0.88, ai: 0.65 };
+// check ↔ มิติของ Lighthouse (ไว้ boost/ลด confidence เมื่อ Google ยืนยัน/ขัดแย้ง)
+const CHECK_TO_DIM = { 'title-missing': 'title', 'title-length': 'title', 'title-duplicate': 'title', 'desc-missing': 'description', 'desc-length': 'description', 'desc-duplicate': 'description', 'canonical-missing': 'canonical', 'img-alt': 'imageAlt' };
+
+// ใส่ _type / _confidence / _needsVerify ให้ทุก check (อิงผล cross-check Google)
+export function annotateChecks(audit) {
+  const v = audit.verify;
+  const dimAgree = {}; // dim -> true/false จากผล Lighthouse
+  if (v?.rows) for (const r of v.rows) dimAgree[r.dim] = r.agree;
+  let needs = 0; const byType = { deterministic: 0, rule: 0, ai: 0 };
+  for (const c of audit.checks || []) {
+    const t = typeOf(c); byType[t] = (byType[t] || 0) + 1;
+    let conf = BASE_CONF[t] ?? 0.85, needsVerify = false;
+    const dim = CHECK_TO_DIM[c.id];
+    if (dim && dim in dimAgree) {
+      if (dimAgree[dim]) conf = Math.max(conf, 0.99);       // Google ยืนยันตรงกับเรา
+      else { conf = 0.5; needsVerify = true; }              // Google ขัดแย้ง → ต้องรีวิว
+    }
+    // SPA: check ที่อิง raw HTML แต่เว็บ render ด้วย JS → ความเชื่อมั่นลดลงเล็กน้อย (raw อาจไม่ใช่ภาพจริง)
+    c._type = t; c._confidence = Math.round(conf * 100); c._needsVerify = needsVerify;
+    if (needsVerify) needs++;
+  }
+  return { byType, needsVerify: needs };
+}

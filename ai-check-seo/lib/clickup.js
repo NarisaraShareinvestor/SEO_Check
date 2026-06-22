@@ -531,6 +531,12 @@ export function buildPlan(audit, opts = {}) {
     const devMd = /\s\d\)\s/.test(' ' + pb.devAction)
       ? pb.devAction.split(/\s+(?=\d\)\s)/).map((s, i) => `${i + 1}. ${s.replace(/^\d\)\s*/, '')}`).join('\n')
       : pb.devAction;
+    // Evidence/Confidence — บอกว่าตรวจด้วยวิธีไหน + เชื่อมั่นแค่ไหน + ต้องรีวิวไหม (อิงผล cross-check Google)
+    const typeLabel = { deterministic: 'ตรวจด้วย parser (มี/ไม่มี — แม่นสูง)', rule: 'ตามเกณฑ์มาตรฐาน', ai: 'AI ประเมิน (เป็นคำแนะนำ ไม่ใช่ error เด็ดขาด)' }[c._type] || 'ตามเกณฑ์';
+    const verifiedByGoogle = c._confidence >= 99;
+    const evidenceLine = c._confidence != null
+      ? `**ความเชื่อมั่น:** ${c._confidence}% (${typeLabel})  ·  **แหล่งตรวจ:** AI SEO Audit Pro${verifiedByGoogle ? ' + ยืนยันด้วย Google Lighthouse' : ''}${c._needsVerify ? '\n\n⚠️ **ต้องรีวิวก่อนส่งลูกค้า** — ผลข้อนี้ต่างจาก Google Lighthouse อาจเป็น false positive' : ''}`
+      : '';
     // โครงสร้างระดับ consultant report — ส่งให้ dev ทำต่อใน ClickUp ได้ทันที ไม่ต้องตีความเพิ่ม
     const desc = [
       `**1) Problem Summary — สรุปปัญหา**\n${esc(c.detail) || '-'}${ex.what ? `\n\n${esc(ex.what)}` : ''}`,
@@ -541,6 +547,7 @@ export function buildPlan(audit, opts = {}) {
       `**6) Developer Action Item**\n${devMd}`,
       `**7) Priority:** ${pr.label.replace('↑', '')}${isTop ? ' (อันดับต้นของเว็บนี้)' : ''}    |    **8) Estimated Effort:** ${pb.effort}`,
       pages.length ? `**หน้าที่ได้รับผลกระทบ (${affected} หน้า)**\n${pageLines}${morePages > 0 ? `\n- และอีก ${morePages} หน้า (โค้ดแก้ครบทุกหน้าอยู่ในข้อ 5)` : ''}` : '',
+      evidenceLine,
       `**ทีมรับผิดชอบ:** ${g.team}  ·  **หมวด:** ${g.group}  ·  **รายงานฉบับเต็ม:** ${reportUrl}`,
     ].filter(Boolean).join('\n\n');
 

@@ -8,7 +8,7 @@ import { crawlSite, normalizeUrl } from './lib/crawler.js';
 import { runChecks } from './lib/checks.js';
 import { runGeoChecks } from './lib/geo.js';
 import { fetchCWV, buildPsiChecks } from './lib/psi.js';
-import { fetchLighthouse, crossCheck } from './lib/verify.js';
+import { fetchLighthouse, crossCheck, annotateChecks } from './lib/verify.js';
 import { discoverCompetitors } from './lib/discover.js';
 import { fixLivePage, fixPagesBatch } from './lib/pagefix.js';
 import { execFile } from 'node:child_process';
@@ -321,6 +321,8 @@ async function runAudit(job, url, maxPages, competitorUrl) {
         else push(`verify: ตรงกับ Google Lighthouse ${audit.verify.factAgree}/${audit.verify.factComparable} จุดหลัก ✓`);
       }
     } catch {}
+    // ติดป้าย type/confidence/needsVerify ให้ทุก check (อิงผล cross-check) — รากฐานของ Quality Center
+    try { audit.verifyMeta = annotateChecks(audit); if (audit.verifyMeta.needsVerify) push(`ต้องรีวิว ${audit.verifyMeta.needsVerify} check ก่อนส่งลูกค้า`); } catch {}
 
     // เทียบกับการตรวจครั้งก่อนของ URL เดียวกัน (ก่อน/หลังแก้)
     const prevAudit = findPreviousAudit(url, audit.createdAt);
