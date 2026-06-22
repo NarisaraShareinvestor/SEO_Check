@@ -219,13 +219,25 @@ function renderVerify(audit) {
 }
 const confBadge = (ch) => ch._confidence == null ? '' : `<span title="ความเชื่อมั่น ${ch._confidence}% · ${ch._type}${ch._needsVerify ? ' — ต่างจาก Google ควรรีวิว' : ''}" style="font-size:11px;margin-left:6px;padding:1px 6px;border-radius:6px;background:${ch._needsVerify ? '#fde2e2;color:#c0392b' : ch._confidence >= 95 ? '#e6f4ea;color:#15803d' : '#f0f0f0;color:#888'}">${ch._needsVerify ? '⚠️ รีวิว ' : ''}${ch._confidence}%</span>`;
 
-// ── เทียบก่อน/หลังแก้ (delta) ──
+// ── เทียบก่อน/หลังแก้ (delta) — แยก "แก้/แย่จริง" ออกจาก "เปลี่ยนเพราะตรวจไม่เท่ากัน/อัปเกรด/ค่าผันผวน" ──
 function renderDelta(audit) {
   const d = audit.delta;
   const box = $('#deltaBox');
   if (!d) { box.innerHTML = ''; return; }
   const col = d.scoreDelta > 0 ? 'var(--green)' : d.scoreDelta < 0 ? 'var(--red)' : '#a1a1aa';
-  const badCount = d.regressed.length + d.newIssues.length;
+  const stTH = (s) => ({ '—': 'ไม่มี', 'pass': 'ผ่าน', 'ok': 'ผ่าน', 'warn': 'เตือน', 'fail': 'ตก', 'info': 'ข้อมูล' }[s] || s);
+  const arrow = (f, t) => `<span style="color:var(--mut)">${stTH(f)}</span> → <b>${stTH(t)}</b>`;
+  const real = [...(d.fixed || []), ...(d.regressed || []), ...(d.newIssues || [])];
+  const badReal = (d.regressed || []).length + (d.newIssues || []).length;
+  const exp = d.explained || [];
+  // เหตุผลของ explained → ข้อความภาษาคน
+  const reasonTH = (e) => {
+    if (e.reason === 'scope') return `เพิ่งตรวจถึง (ตรวจ ${d.scope?.prevPages}→${d.scope?.currPages} หน้า)`;
+    if (e.reason === 'unstable') return e.id === 'cwv-score' ? 'ค่าความเร็วผันผวนจาก Google' : 'ผลตรวจไม่เสถียร (เน็ต/ค่าวัด) — ควรยืนยันเอง';
+    if (e.reason === 'engine') return 'ระบบอัปเกรดวิธีตรวจ';
+    return 'เปลี่ยนจากการตรวจที่ต่างกัน';
+  };
+  const line = (e, c) => `<div style="font-size:12.5px;color:${c};margin-top:4px">• ${esc(stripEmoji(e.title))} <span style="color:var(--mut)">(${arrow(e.from, e.to ?? e.status)})</span></div>`;
   box.innerHTML = `
     <div class="card" style="border-left:4px solid ${col}">
       <div class="chead">
@@ -233,11 +245,21 @@ function renderDelta(audit) {
         <span class="meta">คะแนน ${d.prevScore} &rarr; <b style="color:${col};font-size:16px">${d.currScore}</b> (${d.scoreDelta >= 0 ? '+' : ''}${d.scoreDelta})</span>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-        ${chip('pass', 'แก้สำเร็จ ' + d.fixed.length + ' ข้อ')}
-        ${badCount ? chip('fail', 'แย่ลง/ปัญหาใหม่ ' + badCount + ' ข้อ') : chip('gray', 'ไม่มีปัญหาใหม่')}
+        ${chip('pass', 'แก้สำเร็จจริง ' + (d.fixed || []).length + ' ข้อ')}
+        ${badReal ? chip('fail', 'แย่ลงจริง ' + badReal + ' ข้อ') : chip('gray', 'ไม่มีปัญหาใหม่จริง')}
       </div>
-      ${d.fixed.length ? `<div style="font-size:12.5px;color:#16a34a;margin-top:10px">แก้สำเร็จ: ${d.fixed.map(f => esc(stripEmoji(f.title))).join(' · ')}</div>` : ''}
-      ${badCount ? `<div style="font-size:12.5px;color:var(--red);margin-top:6px">ต้องตรวจสอบ: ${[...d.regressed, ...d.newIssues].map(f => esc(stripEmoji(f.title))).join(' · ')}</div>` : ''}
+      ${(d.fixed || []).length ? `<div style="margin-top:8px"><div style="font-size:12px;font-weight:600;color:#16a34a">✓ แก้สำเร็จจริง</div>${d.fixed.map(e => line(e, '#16a34a')).join('')}</div>` : ''}
+      ${badReal ? `<div style="margin-top:8px"><div style="font-size:12px;font-weight:600;color:var(--red)">✗ แย่ลง/ปัญหาใหม่จริง</div>${[...d.regressed, ...d.newIssues].map(e => line(e, 'var(--red)')).join('')}</div>` : ''}
+      ${!real.length && !exp.length ? `<div style="font-size:12.5px;color:var(--mut);margin-top:8px">ไม่มีอะไรเปลี่ยนแปลง</div>` : ''}
+      ${exp.length ? `
+        <details style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+          <summary style="cursor:pointer;font-size:12.5px;color:var(--mut);font-weight:500">ℹ️ ทำไม ${exp.length} อย่างเปลี่ยน ทั้งที่อาจไม่ได้แก้เว็บ ▾</summary>
+          <div style="margin-top:6px">
+            ${(d.scope?.grew || d.scope?.shrank) ? `<div style="font-size:11.5px;color:var(--mut);margin-bottom:4px">การตรวจ 2 ครั้งครอบคลุมหน้าไม่เท่ากัน (${d.scope.prevPages} → ${d.scope.currPages} หน้า)</div>` : ''}
+            ${d.engineChanged ? `<div style="font-size:11.5px;color:var(--mut);margin-bottom:4px">ระบบมีการอัปเกรดวิธีตรวจระหว่าง 2 ครั้งนี้</div>` : ''}
+            ${exp.map(e => `<div style="font-size:12px;color:var(--mut);margin-top:3px">• ${esc(stripEmoji(e.title))} <span style="opacity:.8">(${arrow(e.from, e.to)})</span> — <span style="color:#a16207">${reasonTH(e)}</span></div>`).join('')}
+          </div>
+        </details>` : ''}
     </div>`;
 }
 

@@ -3,6 +3,10 @@
 import { normalizeUrl } from './crawler.js';
 import { validateSchemaNodes } from './schema-validate.js';
 
+// เวอร์ชันของ "วิธีตรวจ" — bump เมื่อ logic ของ check เปลี่ยน (เช่น img-alt 3-state)
+// ใช้ตอนเทียบก่อน/หลัง: ถ้า audit 2 ครั้งคนละเวอร์ชัน → การเปลี่ยนบางอย่างมาจากการอัปเกรดระบบ ไม่ใช่การแก้เว็บ
+export const ENGINE_VERSION = 4;
+
 const CATS = {
   onpage: 'Meta & เนื้อหา',
   index: 'Indexability',

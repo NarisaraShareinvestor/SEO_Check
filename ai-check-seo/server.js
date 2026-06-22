@@ -5,7 +5,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
 import { crawlSite, normalizeUrl } from './lib/crawler.js';
-import { runChecks } from './lib/checks.js';
+import { runChecks, ENGINE_VERSION } from './lib/checks.js';
 import { runGeoChecks } from './lib/geo.js';
 import { fetchCWV, buildPsiChecks } from './lib/psi.js';
 import { fetchLighthouse, crossCheck, annotateChecks, accuracyFromCrossChecks, explainMismatch } from './lib/verify.js';
@@ -70,17 +70,43 @@ function findPreviousAudit(url, beforeIso) {
   return best;
 }
 
-// Delta Engine — เทียบผลตรวจสองครั้ง: อะไรแก้แล้ว อะไรแย่ลง อะไรโผล่ใหม่
+// check ที่ "ผลแกว่งได้เองโดยเว็บไม่เปลี่ยน" — ค่าวัดภายนอก (CWV จาก CrUX) หรือ probe ครั้งเดียวที่ timeout ได้
+// → ถ้าผลพลิกในกลุ่มนี้ ไม่นับเป็น "แก้/แย่จริง" แต่โยนเข้ากล่อง explained ให้คนยืนยันเอง
+const UNSTABLE_CHECKS = new Set([
+  'cwv-score', 'host-variants', 'compression', 'sitemap-exists', 'robots-sitemap',
+  'ssl-chain-incomplete', 'favicon-file', 'security-headers', 'robots-missing',
+]);
+
+// Delta Engine — เทียบผลตรวจสองครั้ง โดย "รู้ตัวว่าเทียบกันได้จริงไหม"
+// แยก: (1) แก้/แย่จริง  (2) explained = เปลี่ยนเพราะตรวจไม่เท่ากัน/ระบบอัปเกรด/ค่าผันผวน ไม่ใช่การแก้เว็บ
 function diffAudits(prev, curr) {
   const prevMap = new Map(prev.checks.map(c => [c.id, c]));
   const isBad = (st) => st === 'fail' || st === 'warn';
-  const fixed = [], regressed = [], newIssues = [];
+  const fixed = [], regressed = [], newIssues = [], explained = [];
+  const prevPages = prev.pagesAnalyzed || 0, currPages = curr.pagesAnalyzed || 0;
+  const scopeGrew = currPages >= prevPages + 3;   // ตรวจหน้าเพิ่มอย่างมีนัย → อาจเจอปัญหาที่มีอยู่แล้วแต่ครั้งก่อนตรวจไม่ถึง
+  const scopeShrank = currPages <= prevPages - 3;
+  const engineChanged = (prev.engineVersion || 0) !== (curr.engineVersion || 0);
+  const exp = (c, from, to, reason) => explained.push({ id: c.id, title: c.title, from, to, reason });
+
   for (const c of curr.checks) {
     const p = prevMap.get(c.id);
-    if (!p) { if (isBad(c.status)) newIssues.push({ id: c.id, title: c.title, status: c.status }); continue; }
-    if (isBad(p.status) && !isBad(c.status)) fixed.push({ id: c.id, title: c.title, from: p.status });
-    else if (!isBad(p.status) && isBad(c.status)) regressed.push({ id: c.id, title: c.title, to: c.status });
-    else if (isBad(p.status) && isBad(c.status) && p.status === 'warn' && c.status === 'fail') regressed.push({ id: c.id, title: c.title, to: c.status });
+    if (!p) { // ── check ใหม่ (ไม่มีใน prev) ──
+      if (!isBad(c.status)) continue;
+      if (UNSTABLE_CHECKS.has(c.id)) exp(c, '—', c.status, 'unstable');
+      else if (scopeGrew) exp(c, '—', c.status, 'scope');      // เพิ่งตรวจถึง ไม่ใช่ปัญหาใหม่
+      else if (engineChanged) exp(c, '—', c.status, 'engine');
+      else newIssues.push({ id: c.id, title: c.title, from: '—', to: c.status });
+      continue;
+    }
+    if (p.status === c.status) continue;
+    const wasBad = isBad(p.status), nowBad = isBad(c.status);
+    const improved = (wasBad && !nowBad) || (p.status === 'fail' && c.status === 'warn');
+    const worsened = (!wasBad && nowBad) || (p.status === 'warn' && c.status === 'fail');
+    if (!improved && !worsened) continue;
+    if (UNSTABLE_CHECKS.has(c.id)) { exp(c, p.status, c.status, 'unstable'); continue; }
+    if (improved) { if (scopeShrank) exp(c, p.status, c.status, 'scope'); else fixed.push({ id: c.id, title: c.title, from: p.status, to: c.status }); }
+    else { if (scopeGrew) exp(c, p.status, c.status, 'scope'); else regressed.push({ id: c.id, title: c.title, from: p.status, to: c.status }); }
   }
   const catDeltas = {};
   for (const k of new Set([...Object.keys(curr.score.categoryScores), ...Object.keys(prev.score.categoryScores)]))
@@ -88,7 +114,8 @@ function diffAudits(prev, curr) {
   return {
     prevId: prev.id, prevDate: prev.createdAt, prevScore: prev.score.overall,
     currScore: curr.score.overall, scoreDelta: curr.score.overall - prev.score.overall,
-    fixed, regressed, newIssues, categoryDeltas: catDeltas,
+    fixed, regressed, newIssues, explained, categoryDeltas: catDeltas,
+    scope: { prevPages, currPages, grew: scopeGrew, shrank: scopeShrank }, engineChanged,
   };
 }
 
@@ -186,6 +213,7 @@ async function runAudit(job, url, maxPages, competitorUrl) {
 
     const audit = {
       id: job.id, url, createdAt: new Date().toISOString(),
+      engineVersion: ENGINE_VERSION,
       pagesAnalyzed: tech.pagesAnalyzed,
       pagesCrawled: site.pages.length,
       sitemapUrls: site.sitemapUrls.length,
