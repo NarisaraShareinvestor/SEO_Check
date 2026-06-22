@@ -204,6 +204,36 @@ for (const fx of FIXTURES) {
   console.log('');
 }
 
+// ── error-pages / broken-links: 429/5xx (ชั่วคราว/บล็อกบอท) ห้ามทำคะแนนตก · 404/410 (หายจริง) ต้องจับ ──
+console.log('▸ error-pages/broken-links: แยก 404/410 (จริง) ออกจาก 429/5xx (ชั่วคราว → info ไม่กระทบคะแนน)');
+{
+  const good = pageFromFixture('decorative-alt.html', 'https://example.com/');
+  const errPage = (url, status) => ({ url, status, links: [], images: [], headings: [], metas: {}, chain: [], jsonLd: [] });
+  const mkSite = (pages, brokenLinks = []) => healthySite(good, { siteOverrides: { pages, brokenLinks } });
+  const idMap = (pages, bl) => Object.fromEntries(runChecks(mkSite(pages, bl)).checks.map(c => [c.id, c.status]));
+  // 429 rate-limit → error-pages ต้องไม่ fail (แต่เป็น info crawl-blocked)
+  let m = idMap([good, errPage('https://example.com/x', 429)]);
+  assert(m['error-pages'] === undefined, '429 → error-pages ไม่ fail', `ได้ ${m['error-pages']}`);
+  assert(m['crawl-blocked'] === 'info', '429 → crawl-blocked info', `ได้ ${m['crawl-blocked']}`);
+  console.log(`    ${m['error-pages'] === undefined && m['crawl-blocked'] === 'info' ? '✅' : '❌'} 429 → error-pages absent, crawl-blocked=info (ไม่กระทบคะแนน)`);
+  // 503 server error → เหมือนกัน
+  m = idMap([good, errPage('https://example.com/y', 503)]);
+  assert(m['error-pages'] === undefined && m['crawl-blocked'] === 'info', '503 → info ไม่ fail', `error-pages=${m['error-pages']}`);
+  console.log(`    ${m['error-pages'] === undefined && m['crawl-blocked'] === 'info' ? '✅' : '❌'} 503 → crawl-blocked info`);
+  // 404 หายจริง → error-pages fail
+  m = idMap([good, errPage('https://example.com/gone', 404)]);
+  assert(m['error-pages'] === 'fail', '404 → error-pages fail', `ได้ ${m['error-pages']}`);
+  console.log(`    ${m['error-pages'] === 'fail' ? '✅' : '❌'} 404 → error-pages fail`);
+  // broken-links: 429 → ไม่ fail (info soft) · 404 → fail
+  m = idMap([good], [{ from: 'x', to: 'https://example.com/a', status: 429 }]);
+  assert(m['broken-links'] === 'pass', 'broken-links 429 → ไม่ fail', `ได้ ${m['broken-links']}`);
+  console.log(`    ${m['broken-links'] === 'pass' ? '✅' : '❌'} broken-links 429 → pass (soft=${m['broken-links-soft']})`);
+  m = idMap([good], [{ from: 'x', to: 'https://example.com/a', status: 404 }]);
+  assert(m['broken-links'] === 'fail', 'broken-links 404 → fail', `ได้ ${m['broken-links']}`);
+  console.log(`    ${m['broken-links'] === 'fail' ? '✅' : '❌'} broken-links 404 → fail`);
+}
+console.log('');
+
 // ── Byte-level decode test: windows-874 (ต้นเหตุ richsport.co.th) ────────
 console.log('▸ decode byte-level: windows-874 → ข้อความไทยต้องไม่เพี้ยน');
 {

@@ -252,8 +252,13 @@ export function runChecks(site) {
     const chains = okPages.filter(p => (p.redirectChain || []).length > 1);
     if (chains.length) checks.push(mk('redirect-chain', 'index', 'med', 'warn', 'redirect ต่อกันหลายชั้น', `${chains.length} หน้ามี redirect chain เกิน 1 hop — เสีย crawl budget และ link equity`, 'แก้ให้ redirect ตรงไปปลายทางใน hop เดียว (301)', pageList(chains)));
 
-    const errPages = site.pages.filter(p => p.status >= 400);
-    if (errPages.length) checks.push(mk('error-pages', 'index', 'high', 'fail', 'หน้าที่ตอบ error (4xx/5xx)', `${errPages.length} URL ตอบ ${[...new Set(errPages.map(p => p.status))].join(', ')} — ถ้าเป็นหน้าหลัก/หน้าบริการ ร้ายแรงมาก (เคส CloudFront 404 ของ ShareInvestor)`, 'แก้ origin/CDN ให้ตอบ 200 หรือ redirect ไปหน้าที่ถูกต้อง', errPages.map(p => `${p.url} → ${p.status}`)));
+    // แยก "หน้าหายจริง" (404/410 = ถาวร ตรวจกี่ครั้งก็เหมือนเดิม) ออกจาก "ตรวจไม่ติดตอน crawl"
+    // (429 rate-limit / 403 บล็อกบอท / 5xx เซิร์ฟเวอร์ error = ชั่วคราว/เกิดจากตรวจถี่ → info ไม่กระทบคะแนน กันคะแนนเด้ง)
+    const isGone = (s) => s === 404 || s === 410;
+    const errGone = site.pages.filter(p => isGone(p.status));
+    const errSoft = site.pages.filter(p => p.status >= 400 && !isGone(p.status));
+    if (errGone.length) checks.push(mk('error-pages', 'index', 'high', 'fail', 'หน้าที่หายจริง (404/410)', `${errGone.length} URL ตอบ ${[...new Set(errGone.map(p => p.status))].join(', ')} — หน้าหายจริง ถ้าเป็นหน้าหลัก/หน้าบริการ ร้ายแรงมาก (เคส CloudFront 404 ของ ShareInvestor)`, 'แก้ origin/CDN ให้ตอบ 200 หรือ redirect ไปหน้าที่ถูกต้อง', errGone.map(p => `${p.url} → ${p.status}`)));
+    if (errSoft.length) checks.push(mk('crawl-blocked', 'index', 'med', 'info', 'บางหน้าตรวจไม่ติดตอน crawl (อาจชั่วคราว/บล็อกบอท)', `${errSoft.length} URL ตอบ ${[...new Set(errSoft.map(p => p.status))].join(', ')} — เช่น 429 (เซิร์ฟเวอร์จำกัด rate เพราะตรวจถี่) / 403 (บล็อกบอท) / 5xx (เซิร์ฟเวอร์ error ชั่วคราว) · ไม่กระทบคะแนนเพราะหน้าจริงอาจปกติ ควรตรวจซ้ำเพื่อยืนยัน`, 'ถ้าตรวจซ้ำแล้วยัง error = ปัญหาจริงต้องแก้ · ถ้า 429 = ปกติ (เซิร์ฟเวอร์กันบอทถี่)', errSoft.map(p => `${p.url} → ${p.status}`)));
 
     if (site.notFoundHandling && !site.notFoundHandling.ok)
       checks.push(mk('soft-404', 'index', 'med', 'warn', 'หน้า 404 ตอบสถานะผิด', `URL ที่ไม่มีจริงตอบ ${site.notFoundHandling.status} แทนที่จะเป็น 404 (soft 404) — Google จะ index ขยะ`, 'ให้หน้าไม่พบตอบ HTTP 404 จริง', [], false));
@@ -350,9 +355,13 @@ export function runChecks(site) {
 
   // ════════ 4. LINKS ════════
   {
-    checks.push(site.brokenLinks.length
-      ? mk('broken-links', 'links', 'high', 'fail', 'ลิงก์ภายในเสีย (broken links)', `พบ ${site.brokenLinks.length} ลิงก์ที่ตอบ 4xx/5xx`, 'แก้หรือลบลิงก์ที่เสีย', site.brokenLinks.map(b => `${b.to} (${b.status}) ← จาก ${b.from}`), false)
+    // เสียจริง = ชี้ไปหน้า 404/410 (ถาวร) · 429/403/5xx = ตรวจไม่ติดชั่วคราว/บล็อกบอท → info ไม่กระทบคะแนน
+    const brokenGone = site.brokenLinks.filter(b => b.status === 404 || b.status === 410);
+    const brokenSoft = site.brokenLinks.filter(b => b.status >= 400 && !(b.status === 404 || b.status === 410));
+    checks.push(brokenGone.length
+      ? mk('broken-links', 'links', 'high', 'fail', 'ลิงก์ภายในเสีย (broken links)', `พบ ${brokenGone.length} ลิงก์ชี้ไปหน้าที่หายจริง (404/410)`, 'แก้หรือลบลิงก์ที่เสีย', brokenGone.map(b => `${b.to} (${b.status}) ← จาก ${b.from}`), false)
       : mk('broken-links', 'links', 'high', 'pass', 'ไม่พบลิงก์ภายในเสีย', `ตรวจลิงก์ภายในจาก ${okPages.length} หน้า`));
+    if (brokenSoft.length) checks.push(mk('broken-links-soft', 'links', 'low', 'info', 'บางลิงก์ตรวจไม่ติดตอน crawl (อาจชั่วคราว/บล็อกบอท)', `${brokenSoft.length} ลิงก์ตอบ ${[...new Set(brokenSoft.map(b => b.status))].join(', ')} (429 rate-limit / 403 บล็อกบอท / 5xx) — ไม่กระทบคะแนน ควรตรวจซ้ำเพื่อยืนยัน`, 'ถ้าตรวจซ้ำยัง error = ลิงก์เสียจริงต้องแก้', brokenSoft.map(b => `${b.to} (${b.status})`)));
 
     const emptyAnchor = [];
     okPages.forEach(p => { const n = p.links.filter(l => !l.text && !/img/i.test(l.href)).length; if (n > 0) emptyAnchor.push({ url: p.url, n }); });
