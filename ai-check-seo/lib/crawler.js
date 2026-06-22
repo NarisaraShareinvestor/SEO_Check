@@ -156,16 +156,29 @@ async function fetchWithMeta(url, { method = 'GET', redirect = 'manual', direct 
   } finally { clearTimeout(timer); }
 }
 
+// อ่าน Retry-After header → คืน ms ที่ควรรอ (รองรับทั้งวินาทีและ HTTP-date) · 0 ถ้าไม่มี/อ่านไม่ได้
+const RETRY_AFTER_CAP = 8000; // รอเกินนี้ไม่คุ้ม (หน่วง audit) → ยอมแพ้ดีกว่า แล้วให้ถูกจัดเป็น info
+function parseRetryAfter(h) {
+  if (!h) return 0;
+  const s = Number(h);
+  if (Number.isFinite(s)) return Math.max(0, s * 1000);
+  const t = Date.parse(h);
+  if (!Number.isNaN(t)) return Math.max(0, t - Date.now());
+  return 0;
+}
+
 // ตาม redirect เองเพื่อเก็บ chain ทั้งหมด — retry เมื่อเจอ error ชั่วคราว
-// (เว็บหลายเจ้า flap/throttle: drop connection หรือ 5xx เป็นพักๆ — retry กันผลหลอกตา 0/F)
+// (เว็บหลายเจ้า flap/throttle: drop connection / 5xx / 429 rate-limit เป็นพักๆ — retry กันผลหลอกตา 0/F)
 async function fetchFollowing(url, maxHops = 8, retries = 2) {
   let lastErr = null;
   const relayActive = !!getWorkerRelay();
   let forceDirect = false;   // relay เจอ Cloudflare 52x หรือ worker error → สลับมาต่อตรงสำหรับ URL นี้
   let forceInsecure = false; // origin ส่ง cert chain ไม่ครบ → ต่อตรงแบบผ่อน TLS verify (ยัง analyze ได้ + รายงานเป็น finding)
   let tlsErrorCode = null;
+  let retryAfterMs = 0; // หน่วงตาม Retry-After ของ 429/503 (override backoff ปกติ)
   for (let attempt = 0; attempt <= retries; attempt++) {
-    if (attempt > 0) await new Promise(r => setTimeout(r, 600 * attempt)); // backoff
+    if (attempt > 0) await new Promise(r => setTimeout(r, retryAfterMs || 600 * attempt)); // backoff (เคารพ Retry-After ถ้ามี)
+    retryAfterMs = 0;
     const chain = [];
     let current = url;
     try {
@@ -195,8 +208,14 @@ async function fetchFollowing(url, maxHops = 8, retries = 2) {
           current = new URL(loc, current).toString();
           continue;
         }
-        // 5xx = ชั่วคราว → retry; 4xx/2xx = ถาวร → คืนเลย
-        if (status >= 500 && attempt < retries) { try { res.body?.cancel?.(); } catch {} lastErr = `http-${status}`; break; }
+        // 429 rate-limit = เซิร์ฟเวอร์กันบอทถี่ → หน่วงตาม Retry-After แล้ว retry (กันนับเป็น "หน้า error" หลอกตา)
+        // ถ้า Retry-After นานเกิน cap → ไม่รอ คืน 429 เลย (จะถูกจัดเป็น info ไม่กระทบคะแนน)
+        if (status === 429 && attempt < retries) {
+          const ra = parseRetryAfter(res.headers.get('retry-after'));
+          if (ra <= RETRY_AFTER_CAP) { try { res.body?.cancel?.(); } catch {} retryAfterMs = ra || 1500; lastErr = 'http-429'; break; }
+        }
+        // 5xx = ชั่วคราว → retry (เคารพ Retry-After ถ้ามี); 4xx/2xx = ถาวร → คืนเลย
+        if (status >= 500 && attempt < retries) { try { const ra = parseRetryAfter(res.headers.get('retry-after')); if (ra && ra <= RETRY_AFTER_CAP) retryAfterMs = ra; res.body?.cancel?.(); } catch {} lastErr = `http-${status}`; break; }
         return { finalUrl: current, status, chain, res, elapsed, insecure: forceInsecure, tlsErrorCode };
       }
       if (chain.length > maxHops) return { finalUrl: current, status: 0, chain, res: null, error: 'redirect-loop' };
@@ -580,7 +599,9 @@ async function renderedCrawl(startUrl, seedUrls, { maxPages, onProgress }) {
   enqueue(startUrl);
   for (const u of seedUrls) enqueue(u);
 
-  const RENDER_TIMEOUT = 25000, RENDER_CONCURRENCY = 3;
+  const RENDER_TIMEOUT = 25000;
+  let renderConcurrency = 3;   // ลดเหลือ 1 อัตโนมัติเมื่อโดน rate-limit (429) — ตรวจแบบสุภาพ
+  let politeDelay = 0;         // หน่วงก่อน launch แต่ละหน้าเมื่อโดน rate-limit (กันยิงถี่ซ้ำ)
   const pages = [], renderedDiff = {};
   let claimed = 0, active = 0;
   const ctx = await browser.newContext({ userAgent: UA, locale: 'th-TH' });
@@ -589,7 +610,16 @@ async function renderedCrawl(startUrl, seedUrls, { maxPages, onProgress }) {
     onProgress(`กำลัง render หน้า (${num}/${maxPages}): ${url}`);
     const page = await ctx.newPage();
     try {
-      const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: RENDER_TIMEOUT });
+      let resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: RENDER_TIMEOUT });
+      // 429 rate-limit → หน่วงตาม Retry-After แล้วลองใหม่ (สูงสุด 2 ครั้ง) + เปลี่ยนเป็นโหมดสุภาพทั้ง crawl
+      for (let rl = 0; rl < 2 && resp && resp.status() === 429; rl++) {
+        const ra = parseRetryAfter(resp.headers()['retry-after']);
+        const waitMs = Math.min(ra || 2000, RETRY_AFTER_CAP);
+        renderConcurrency = 1; politeDelay = Math.max(politeDelay, 800); // ชะลอทั้ง crawl ไม่ให้โดนซ้ำ
+        onProgress(`โดน rate-limit (429) — รอ ${Math.round(waitMs / 1000)} วิแล้วลองใหม่: ${url}`);
+        await page.waitForTimeout(waitMs);
+        resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: RENDER_TIMEOUT });
+      }
       await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
       if (!resp) { pages.push({ url, status: 0, error: 'no-response' }); return; }
       const status = resp.status();
@@ -641,7 +671,8 @@ async function renderedCrawl(startUrl, seedUrls, { maxPages, onProgress }) {
       for (const url of levelUrls) {
         if (claimed >= maxPages) break;
         claimed++; const num = claimed;
-        while (active >= RENDER_CONCURRENCY) await new Promise(r => setTimeout(r, 50));
+        while (active >= renderConcurrency) await new Promise(r => setTimeout(r, 50));
+        if (politeDelay) await new Promise(r => setTimeout(r, politeDelay)); // โหมดสุภาพ: เว้นจังหวะกัน rate-limit ซ้ำ
         active++;
         renderOne(url, num).finally(() => { active--; });
       }
