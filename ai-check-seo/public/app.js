@@ -168,7 +168,7 @@ function render(audit) {
         </div>
       </div>`;
     $('#catBars').innerHTML = '';
-    ['#deltaBox', '#aibox', '#checksList', '#filterbar', '#pagesBody', '#compareBox', '#fixesList'].forEach(id => { const el = $(id); if (el) el.innerHTML = ''; });
+    ['#verifyBox', '#deltaBox', '#aibox', '#checksList', '#filterbar', '#pagesBody', '#compareBox', '#fixesList'].forEach(id => { const el = $(id); if (el) el.innerHTML = ''; });
     loadHistory();
     return;
   }
@@ -189,6 +189,7 @@ function render(audit) {
       <b>${sc}</b>
     </div>`).join('');
 
+  renderVerify(audit);
   renderDelta(audit);
   renderAi(audit.analysis);
   renderChecks(audit, 'issues');
@@ -198,6 +199,24 @@ function render(audit) {
   loadHistory();
   refreshWatch();
 }
+
+// ── Audit Quality: โชว์ผล cross-check กับ Google + flag ต้องรีวิว (#7) ──
+function renderVerify(audit) {
+  const box = $('#verifyBox'); if (!box) return;
+  const v = audit.verify, needs = audit.verifyMeta?.needsVerify || 0;
+  if (!v) { box.innerHTML = ''; return; }
+  if (v.flag) {
+    box.innerHTML = `<div style="background:#fff4e5;border:1px solid #f0b67a;border-radius:10px;padding:12px 16px;margin:10px 0;font-size:14px">
+      <b style="color:#b45309">⚠️ Audit Quality — ควรรีวิวก่อนส่งลูกค้า</b>
+      <div style="margin-top:4px">ผลตรวจ ${v.factMismatches.length} จุดต่างจาก Google Lighthouse: ${v.factMismatches.map(esc).join(' · ')}</div>
+      ${needs ? `<div style="margin-top:2px;color:#777">${needs} check ความเชื่อมั่นต่ำ — ดูป้าย ⚠️ ในรายการตรวจด้านล่าง</div>` : ''}</div>`;
+  } else {
+    box.innerHTML = `<div style="background:#eef9f0;border:1px solid #a8d8b0;border-radius:10px;padding:12px 16px;margin:10px 0;font-size:14px">
+      <b style="color:#15803d">✓ ตรวจสอบความถูกต้องกับ Google Lighthouse แล้ว</b>
+      <div style="margin-top:4px;color:#555">ข้อเท็จจริงหลักตรงกับ Google ${v.factAgree}/${v.factComparable} จุด${v.seoScore != null ? ` · Lighthouse SEO: ${v.seoScore}` : ''}${v.criteria?.length ? ` · เกณฑ์ที่เราเข้มกว่า: ${v.criteria.map(esc).join(', ')}` : ''}</div></div>`;
+  }
+}
+const confBadge = (ch) => ch._confidence == null ? '' : `<span title="ความเชื่อมั่น ${ch._confidence}% · ${ch._type}${ch._needsVerify ? ' — ต่างจาก Google ควรรีวิว' : ''}" style="font-size:11px;margin-left:6px;padding:1px 6px;border-radius:6px;background:${ch._needsVerify ? '#fde2e2;color:#c0392b' : ch._confidence >= 95 ? '#e6f4ea;color:#15803d' : '#f0f0f0;color:#888'}">${ch._needsVerify ? '⚠️ รีวิว ' : ''}${ch._confidence}%</span>`;
 
 // ── เทียบก่อน/หลังแก้ (delta) ──
 function renderDelta(audit) {
@@ -426,6 +445,7 @@ function renderChecks(audit, filter) {
         <b>${esc(stripEmoji(ch.title))}</b>
         ${ch.affectedCount ? `<span class="n">${ch.affectedCount} รายการ</span>` : ''}
         <span class="sev">${sevTh[ch.severity] || ch.severity}</span>
+        ${confBadge(ch)}
       </summary>
       <div class="body">
         <div>${esc(stripEmoji(ch.detail))}</div>
