@@ -714,14 +714,14 @@ async function loadQuality() {
         ${card('ต้องรีวิว', q.flaggedCount + ' เว็บ', '#f59e0b', 'ผลต่างจาก Google')}
       </div>
       <details style="margin-bottom:14px">
-        <summary style="cursor:pointer;font-size:13px;color:var(--mut);font-weight:500">▸ ระบบเรา vs Google Lighthouse ต่างกันอย่างไร? (เวลาผลไม่ตรง ควรเชื่ออันไหน)</summary>
-        <div style="font-size:12.5px;color:var(--mut);padding:10px 2px 0;line-height:1.7">
-          <b style="color:var(--fg,#222)">ระบบเรา</b> — ตรวจ HTML "ดิบ" (สิ่งที่ Googlebot รอบแรก + AI bot ทุกตัว GPTBot/Claude/Perplexity เห็น) · 200+ จุด รวม GEO/AI readiness · เข้มกว่าเรื่อง raw HTML + จับ robots/hreflang/SPA ครบ<br>
-          <b style="color:var(--fg,#222)">Google Lighthouse</b> — render JS ก่อน แล้วเช็ค ~12 ข้อ SEO ผ่าน accessibility tree · เห็นเนื้อหาหลัง JS · ข้ามรูปที่ซ่อน<br><br>
-          <b style="color:var(--fg,#222)">เวลาผลต่างกัน ส่วนใหญ่เป็น 3 แบบ:</b><br>
-          (ก) <b>เราเข้ม/เช็คมากกว่า</b> (เช่น robots บล็อกเว็บ, hreflang ไม่ครบ) → <b style="color:#15803d">เราถูก</b> Lighthouse แค่ไม่เช็คข้อนั้น<br>
-          (ข) <b>raw vs rendered บน SPA</b> (เช่น lang/viewport ใส่ด้วย JS) → <b style="color:#15803d">เราถูกในแง่ AI/GEO</b> (AI bot ไม่รัน JS เลยไม่เห็น)<br>
-          (ค) <b>ต้องเปิดหน้าจริงดู</b> (เช่น รูปซ่อนด้วย CSS ที่ static HTML ตัดสินไม่ได้) → กดดูแต่ละเว็บด้านล่าง
+        <summary style="cursor:pointer;font-size:13px;color:var(--mut);font-weight:500">▸ ระบบเรา กับ Google ต่างกันยังไง? (เวลาผลไม่ตรง ควรเชื่ออันไหน)</summary>
+        <div style="font-size:12.5px;color:var(--mut);padding:10px 2px 0;line-height:1.8">
+          <b style="color:var(--fg,#222)">ระบบเรา</b> — ดูที่ "โค้ดดิบ" คือสิ่งที่ Google รอบแรกและ AI (ChatGPT/Claude) เห็นทันที · ตรวจ 200+ จุด รวมความพร้อมด้าน AI<br>
+          <b style="color:var(--fg,#222)">Google Lighthouse</b> — ดูหน้าเว็บ "หลังโหลดเสร็จ" · เช็ค SEO ประมาณ 12 ข้อ · ข้ามรูป/ส่วนที่ซ่อนอยู่<br><br>
+          <b style="color:var(--fg,#222)">เวลาผลต่างกัน มักเป็น 3 แบบ:</b><br>
+          (ก) <b>เราตรวจละเอียดกว่า</b> (เช่น robots เผลอบล็อกเว็บ, ลิงก์ภาษาไม่ครบ) → <b style="color:#15803d">เชื่อเรา</b> (Google แค่ไม่ได้เช็คข้อนั้น)<br>
+          (ข) <b>เว็บที่เนื้อหาขึ้นด้วยสคริปต์</b> (เช่น ตั้งภาษา/จอมือถือด้วย JS) → <b style="color:#15803d">เชื่อเรา</b> (AI ไม่รันสคริปต์ เลยมองไม่เห็น)<br>
+          (ค) <b>ต้องเปิดหน้าเว็บดูจริง</b> (เช่น รูปที่ซ่อนอยู่) → กดดูแต่ละเว็บด้านล่างว่าควรเชื่ออันไหน
         </div>
       </details>
       ${siteTable}

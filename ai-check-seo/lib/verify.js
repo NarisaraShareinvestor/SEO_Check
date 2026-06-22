@@ -86,30 +86,30 @@ export function crossCheck(audit, lh) {
 //         Google Lighthouse = render JS ก่อน + เช็ค ~12 ข้อ SEO ผ่าน accessibility tree
 const DISAGREE_GUIDE = {
   imageAlt: {
-    diff: 'เราตรวจ <img> ทุกตัวใน DOM · Lighthouse ดูเฉพาะรูปใน accessibility tree (ข้ามรูปที่ซ่อนด้วย CSS / aria-hidden / นอกจอ / lazy)',
-    trust: 'ต้องเปิดหน้าจริงดู — static HTML ตัดสินไม่ได้',
-    detail: 'ถ้ารูปที่เราแจ้ง "แสดงให้คนเห็นจริง" → เราถูก (ควรใส่ alt) · ถ้าซ่อน/decorative ที่ a11y ข้าม → Google ถูก (เรารายงานเกิน)',
+    diff: 'เรานับรูปทุกรูปในหน้า · Google นับเฉพาะรูปที่คน "เห็นจริง" (ข้ามรูปที่ซ่อนอยู่ หรือรูปประดับ)',
+    trust: 'เปิดหน้าเว็บดูจริงก่อน',
+    detail: 'ถ้ารูปนั้นโชว์ให้คนเห็น = ควรมีคำอธิบายรูป (เราถูก) · ถ้าเป็นรูปซ่อน/รูปประดับ = ไม่ต้องมีก็ได้ (Google ถูก)',
   },
   lang: {
-    diff: 'เราตรวจ <html lang> ใน HTML ดิบ (สิ่งที่ AI bot/Googlebot รอบแรกเห็น) · Lighthouse render JS ก่อนจึงเห็น',
-    trust: 'เราเข้มกว่า — ถูกในบริบท GEO/AI',
-    detail: 'เว็บ SPA ที่ใส่ lang ด้วย JS: AI bot (GPTBot/Claude) ไม่รัน JS เลยไม่เห็น → ควรย้ายเข้า raw HTML (เราถูก) · แต่ผู้ใช้+Google รอบสองเห็น จึงไม่ร้ายแรงสุด',
+    diff: 'เราดูที่ "โค้ดดิบ" (สิ่งที่ Google รอบแรกและ AI เห็นทันที) · Google ดูหลังหน้าเว็บโหลดเสร็จ',
+    trust: 'เราถูก (สำคัญกับ AI)',
+    detail: 'ถ้าเว็บตั้งภาษาด้วยสคริปต์: AI อย่าง ChatGPT/Claude ไม่รันสคริปต์ เลยไม่รู้ว่าหน้าเป็นภาษาอะไร → ควรใส่ภาษาไว้ในโค้ดดิบเลย',
   },
   hreflang: {
-    diff: 'เราเช็ค "มี hreflang ครบทุกคู่ภาษา + x-default" · Lighthouse เช็คแค่ hreflang ที่มี "valid ไหม"',
-    trust: 'เกณฑ์ต่างกัน (ไม่ใช่ใครผิด)',
-    detail: 'เราเตือน "ขาด hreflang/x-default" บนเว็บหลายภาษา (Lighthouse ไม่เช็คข้อนี้) — เป็นคำแนะนำที่ถูกตามหลัก · แต่ถ้า hreflang เราเขียนผิด รูปแบบ Lighthouse จะจับได้ดีกว่า',
+    diff: 'เราเช็คว่า "ใส่ลิงก์ภาษาครบทุกคู่ไหม" · Google เช็คแค่ "ที่ใส่มาเขียนถูกไหม"',
+    trust: 'คนละมุม (ไม่ใช่ใครผิด)',
+    detail: 'เราเตือนว่ายังใส่ลิงก์ภาษาไม่ครบ (Google ไม่ได้เช็คข้อนี้) — เป็นคำแนะนำที่ถูกตามหลัก',
   },
   robotsTxt: {
-    diff: 'เราเช็คว่า robots.txt "บล็อก section สำคัญ/ทั้งเว็บ" ไหม · Lighthouse เช็คแค่ "syntax ถูกต้อง"',
-    trust: 'เราแม่นกว่า',
-    detail: 'เช่น Disallow: / (บล็อกทั้งเว็บ) เราจับได้ Lighthouse บอกผ่านเพราะ syntax ถูก — ของเราคือปัญหาจริงที่ต้องแก้',
+    diff: 'เราเช็คว่าไฟล์ robots "บล็อกหน้าเว็บไหม" · Google เช็คแค่ "เขียนไฟล์ถูกรูปแบบไหม"',
+    trust: 'เราถูก',
+    detail: 'เช่นถ้าเว็บเผลอบล็อกทั้งเว็บ เราจับได้ แต่ Google บอกผ่านเพราะดูแค่รูปแบบ — ของเราคือปัญหาจริงที่ต้องรีบแก้',
   },
-  crawlable: { diff: 'เราดู noindex ใน raw · Lighthouse ดูหลัง render', trust: 'ดูที่ raw เป็นหลัก (Googlebot รอบแรกเชื่อ raw)', detail: 'ถ้า raw มี noindex แต่ JS เอาออก — เสี่ยงถูก deindex ช่วงแรก เราเตือนถูก' },
-  viewport: { diff: 'เราตรวจ viewport meta ใน raw · Lighthouse หลัง render', trust: 'เราเข้มกว่า (raw = ภาพ mobile-first index)', detail: 'SPA ที่ใส่ viewport ด้วย JS → ควรมีใน raw' },
-  title: { diff: 'เราอ่าน <title> จาก rendered แล้ว (ตรง Lighthouse)', trust: 'ถ้าต่าง = bug — ควรรีวิว', detail: 'โดยปกติต้องตรงกัน ถ้าต่างให้เช็ค extraction' },
-  description: { diff: 'เราอ่าน meta description rendered (ตรง Lighthouse)', trust: 'ถ้าต่าง = bug — ควรรีวิว', detail: 'โดยปกติต้องตรงกัน' },
-  canonical: { diff: 'เราอ่าน <link rel=canonical>', trust: 'ถ้าต่าง = bug — ควรรีวิว', detail: 'โดยปกติต้องตรงกัน' },
+  crawlable: { diff: 'เราดูที่โค้ดดิบ (สิ่งที่ Google รอบแรกเห็น) · Google ดูหลังโหลดเสร็จ', trust: 'เชื่อโค้ดดิบ (เราถูก)', detail: 'ถ้าโค้ดดิบสั่ง "ห้าม index" แต่สคริปต์ค่อยเอาออก — เสี่ยงหลุดจาก Google ช่วงแรก เราเตือนถูก' },
+  viewport: { diff: 'เราดูที่โค้ดดิบ · Google ดูหลังโหลดเสร็จ', trust: 'เราถูก (Google ใช้มุมมองมือถือเป็นหลัก)', detail: 'ถ้าตั้งค่าจอมือถือด้วยสคริปต์ ควรใส่ไว้ในโค้ดดิบเลย' },
+  title: { diff: 'เราอ่านชื่อหน้า (title) เหมือนที่ Google เห็น', trust: 'ถ้าต่าง = ระบบเราอาจอ่านพลาด ควรเช็ก', detail: 'ปกติต้องตรงกัน' },
+  description: { diff: 'เราอ่านคำโปรย (meta description) เหมือนที่ Google เห็น', trust: 'ถ้าต่าง = ระบบเราอาจอ่านพลาด ควรเช็ก', detail: 'ปกติต้องตรงกัน' },
+  canonical: { diff: 'เราอ่าน canonical (ป้ายบอกหน้าหลัก) เหมือนที่ Google เห็น', trust: 'ถ้าต่าง = ระบบเราอาจอ่านพลาด ควรเช็ก', detail: 'ปกติต้องตรงกัน' },
 };
 // parse "imageAlt(เรา:fail/Google:pass)" → อธิบาย + ตัดสินว่าควรเชื่ออันไหน
 export function explainMismatch(s) {
