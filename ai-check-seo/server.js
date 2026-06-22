@@ -188,6 +188,7 @@ async function runAudit(job, url, maxPages, competitorUrl) {
       sitemapUrls: site.sitemapUrls.length,
       brokenLinks: site.brokenLinks,
       renderedAvailable: !!site.rendered?.available,
+      socials: site.socials || [], logo: site.logo || '', // sameAs/logo จริงสำหรับ schema/E-E-A-T
       score, checks: allChecks, categories: CAT_LABELS,
       aiAvailable: aiAvailable(),
     };
@@ -305,6 +306,7 @@ async function runAudit(job, url, maxPages, competitorUrl) {
         ...(p.renderedH1?.length ? { renderedH1: p.renderedH1 } : {}),
         ...(p.renderedTitle ? { renderedTitle: p.renderedTitle } : {}),
         ...(p.renderedDescription ? { renderedDescription: p.renderedDescription } : {}),
+        ...(p.author ? { author: p.author } : {}),
       }));
 
     // เทียบกับการตรวจครั้งก่อนของ URL เดียวกัน (ก่อน/หลังแก้)

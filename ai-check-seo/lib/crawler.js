@@ -359,6 +359,24 @@ export function extractPageData(html, url, headers, status, elapsed, chain) {
   const copyrightYears = [...bodyTextForSignals.matchAll(/(?:©|&copy;|copyright)[^\n]{0,40}?((?:19|20)\d{2})/gi)].map(m => +m[1]);
   const maxCopyrightYear = copyrightYears.length ? copyrightYears.reduce((a, b) => a > b ? a : b) : null;
 
+  // ── ดึงข้อมูลจริงสำหรับ schema/E-E-A-T: social profiles (sameAs), logo, author ──
+  const abs = (h) => { try { return new URL(h, url).toString(); } catch { return ''; } };
+  // match จาก "host" จริง (ไม่ใช่ substring — กัน poscothaino x.com ไป match x.com)
+  const SOCIAL_HOSTS = ['facebook.com', 'instagram.com', 'linkedin.com', 'youtube.com', 'youtu.be', 'twitter.com', 'x.com', 'tiktok.com', 'pinterest.com', 'threads.net', 'line.me', 'lin.ee'];
+  const isSocial = (h) => { try { const host = new URL(h, url).hostname.replace(/^www\./, '').toLowerCase(); return SOCIAL_HOSTS.some(d => host === d || host.endsWith('.' + d)); } catch { return false; } };
+  const socials = [...new Set($('a[href]').map((_, el) => $(el).attr('href') || '').get()
+    .filter(isSocial).map(abs).filter(u => /^https?:\/\//.test(u))
+    .map(u => u.replace(/[?#].*$/, '').replace(/\/$/, '')))].slice(0, 12);
+  // logo ต้องเป็น "ไฟล์รูปจริง" (มีนามสกุลรูป) — ไม่งั้น src ว่าง/"/" จะถูกเก็บผิด
+  const isImg = (u) => /\.(png|jpe?g|svg|webp|gif|avif|ico)(\?|#|$)/i.test(u || '');
+  let logo = '';
+  for (const j of jsonLd) { if (!j.ok) continue; const m = JSON.stringify(j.data).match(/"logo"\s*:\s*(?:"([^"]+)"|\{[^}]*?"url"\s*:\s*"([^"]+)")/); if (m && isImg(m[1] || m[2])) { logo = abs(m[1] || m[2]); break; } }
+  if (!logo) { const li = $('img[src*="logo" i], img[alt*="logo" i], img[class*="logo" i], [class*="logo" i] img').first(); const src = abs(li.attr('src') || li.attr('data-src') || ''); if (isImg(src)) logo = src; }
+  if (!logo && isImg(metas['og:image'])) logo = abs(metas['og:image']);
+  let author = (metas['author'] || '').trim();
+  if (!author) for (const j of jsonLd) { if (!j.ok) continue; const m = JSON.stringify(j.data).match(/"author"\s*:\s*(?:"([^"]+)"|\{[^}]*?"name"\s*:\s*"([^"]+)")/); if (m && (m[1] || m[2])) { author = (m[1] || m[2]).trim(); break; } }
+  if (!author) { const ra = $('a[rel~="author" i], [class*="author" i] a, .byline a').first().text().replace(/\s+/g, ' ').trim(); if (ra && ra.length < 60) author = ra; }
+
   // ตัด script/style ออกก่อนสกัดข้อความ — ไม่ให้โค้ดปนใน text/wordCount
   $('script, style, noscript, template').remove();
   let text = '';
@@ -415,6 +433,7 @@ export function extractPageData(html, url, headers, status, elapsed, chain) {
     hasDoctype, headBlockingScripts, headStylesheets, deprecatedTags,
     metaRefresh, canonicalCount, emptyHeadings, hasMailto, hasPhone, maxCopyrightYear,
     hiddenH1,
+    socials, logo, author,
   };
 }
 
@@ -519,6 +538,10 @@ async function renderedCrawl(startUrl, seedUrls, { maxPages, onProgress }) {
       data.renderedH1 = renH1;
       data.renderedDescription = rd.metas?.['description'] || '';
       data.renderedTextLength = rd.textLength || 0;
+      // social/logo/author จาก rendered DOM (SPA: raw ว่าง ต้องเอาจาก rendered)
+      if (rd.socials?.length) data.socials = rd.socials;
+      if (rd.logo) data.logo = rd.logo;
+      if (rd.author) data.author = rd.author;
       pages.push(data);
       // render-diff (เทียบ raw vs rendered)
       renderedDiff[finalUrl] = { title: rd.title, h1: renH1, textLength: rd.textLength };
@@ -793,6 +816,12 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
       site.rendered = await tryRenderPages(renderTargets, onProgress);
     }
   }
+
+  // 8. รวม social profiles + logo ระดับเว็บ (sameAs/logo จริงสำหรับ schema) — เอาจากหน้าแรกก่อน
+  const homePage = site.pages.find(p => { try { return new URL(p.finalUrl || p.url).pathname === '/'; } catch { return false; } });
+  const orderedPages = homePage ? [homePage, ...site.pages.filter(p => p !== homePage)] : site.pages;
+  site.socials = [...new Set(orderedPages.flatMap(p => p.socials || []))].slice(0, 12);
+  site.logo = orderedPages.map(p => p.logo).find(Boolean) || '';
 
   return site;
 }
