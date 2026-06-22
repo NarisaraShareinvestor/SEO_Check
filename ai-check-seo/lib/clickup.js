@@ -482,6 +482,10 @@ export function buildPlan(audit, opts = {}) {
     const pb = playbookFor(c, ex, affected);
     const fix = fixBlock(audit, c);
     const pageLines = pages.map(u => { const t = titleFor(titles, u); return t ? `- [${t}](${u})` : `- ${u}`; }).join('\n');
+    // แตกขั้นตอน "1) ... 2) ... 3)" ที่อยู่บรรทัดเดียว → list จริงคนละบรรทัด (กัน ClickUp render เพี้ยน)
+    const devMd = /\s\d\)\s/.test(' ' + pb.devAction)
+      ? pb.devAction.split(/\s+(?=\d\)\s)/).map((s, i) => `${i + 1}. ${s.replace(/^\d\)\s*/, '')}`).join('\n')
+      : pb.devAction;
     // โครงสร้างระดับ consultant report — ส่งให้ dev ทำต่อใน ClickUp ได้ทันที ไม่ต้องตีความเพิ่ม
     const desc = [
       `**1) Problem Summary — สรุปปัญหา**\n${esc(c.detail) || '-'}${ex.what ? `\n\n${esc(ex.what)}` : ''}`,
@@ -489,11 +493,10 @@ export function buildPlan(audit, opts = {}) {
       `**3) SEO Impact**\n${pb.seo}`,
       `**4) AI Readiness Impact (GEO)**\n${pb.ai}`,
       `**5) Recommended Fix — วิธีแก้ (พร้อมโค้ด)**${c.recommendation ? `\n${esc(c.recommendation)}` : ''}${fix ? `\n\n${fix}` : ''}`,
-      `**6) Developer Action Item**\n${pb.devAction}`,
+      `**6) Developer Action Item**\n${devMd}`,
       `**7) Priority:** ${pr.label.replace('↑', '')}${isTop ? ' (อันดับต้นของเว็บนี้)' : ''}    |    **8) Estimated Effort:** ${pb.effort}`,
       pages.length ? `**หน้าที่ได้รับผลกระทบ (${affected} หน้า)**\n${pageLines}${morePages > 0 ? `\n- และอีก ${morePages} หน้า (โค้ดแก้ครบทุกหน้าอยู่ในข้อ 5)` : ''}` : '',
       `**ทีมรับผิดชอบ:** ${g.team}  ·  **หมวด:** ${g.group}  ·  **รายงานฉบับเต็ม:** ${reportUrl}`,
-      `---\nissue-key: ${audit.id}:${c.id}`,
     ].filter(Boolean).join('\n\n');
 
     return {
