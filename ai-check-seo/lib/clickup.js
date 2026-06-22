@@ -160,6 +160,100 @@ function ssrFix(audit, brand) {
   return `**โค้ด/ไฟล์สำหรับแก้ (พร้อมใช้ — เปิด SSR/Pre-render: ${fw})**\nแก้ที่ build config ของ framework (ระดับเว็บ ไม่ใช่รายหน้า) — แก้ข้อนี้ข้อเดียวปลดล็อก H1/title/เนื้อหาให้ search+AI เห็นพร้อมกัน\n` + '```' + lang + '\n' + config + '\n```' + proof + dod;
 }
 
+// ── จำแนกชนิดหน้า (เลือก schema + E-E-A-T ที่เหมาะ) จาก URL ──
+function pageType(u) {
+  let p; try { p = new URL(u).pathname.replace(/^\/(en|th)(?=\/|$)/, '').replace(/\/+$/, '') || '/'; } catch { return 'other'; }
+  if (p === '/' || /\/home$/.test(p)) return 'home';
+  if (/contact|ติดต่อ/i.test(p)) return 'contact';
+  if (/faq|คำถามที่พบบ่อย/i.test(p)) return 'faq';
+  if (/about|team|company|profile|เกี่ยวกับ/i.test(p)) return 'about';
+  if (/\/(blogs?|news|articles?|posts?)\/.+/i.test(p)) return 'article';   // มี slug ต่อท้าย = บทความเดี่ยว
+  if (/\/(blogs?|news|articles?)$/i.test(p)) return 'bloglist';
+  if (/service|product-and-service|solution|บริการ/i.test(p)) return 'service';
+  if (/career|job|recruit|ร่วมงาน/i.test(p)) return 'career';
+  if (/privacy|cookie|term|policy|นโยบาย|sitemap/i.test(p)) return 'policy';
+  return 'other';
+}
+const originOf = (audit) => { try { return new URL(audit.url).origin; } catch { return String(audit.url || '').replace(/\/$/, ''); } };
+// ประเภทเว็บ — สำคัญ: ไม่ใช่ทุกเว็บขายของ (อย่ายัด Product schema มั่ว)
+function siteKind(audit) {
+  const paths = (audit.pages || []).map(p => { try { return new URL(p.url).pathname; } catch { return ''; } }).join(' ').toLowerCase();
+  if (/\/(product|shop|store|cart|checkout|collection)/.test(paths)) return { id: 'ecommerce', label: 'ร้านค้าออนไลน์ (e-commerce)', org: 'OnlineStore', pageSchema: 'Product' };
+  if (/service|solution|product-and-service/.test(paths)) return { id: 'service', label: 'บริษัทให้บริการ/B2B (ไม่ได้ขายสินค้า)', org: 'Organization', pageSchema: 'Service' };
+  if (/(blogs?|news|article)/.test(paths)) return { id: 'content', label: 'เว็บเนื้อหา/สื่อ', org: 'Organization', pageSchema: 'Article' };
+  return { id: 'corporate', label: 'เว็บองค์กร', org: 'Organization', pageSchema: 'WebPage' };
+}
+
+// ── Structured Data fix — แยก Global + page-specific ตามชนิดหน้า + ตามประเภทเว็บจริง (ไม่ยัด Product มั่ว) ──
+function schemaFix(audit) {
+  const brand = brandOf(audit), origin = originOf(audit), kind = siteKind(audit);
+  const ok = (audit.pages || []).filter(p => p.status === 200);
+  const byUrl = pageByUrlMap(audit);
+  const home = ok.find(p => pageType(p.finalUrl || p.url) === 'home') || ok[0];
+  const desc = (home?.renderedDescription || `${brand} — เว็บไซต์ทางการ`).slice(0, 200);
+  const groups = {};
+  for (const p of ok) { const t = pageType(p.finalUrl || p.url); (groups[t] = groups[t] || []).push(p.finalUrl || p.url); }
+  const lang = /[ก-๙]/.test(brand + desc) ? 'th' : 'en';
+  const J = (obj) => '```json\n' + JSON.stringify(obj, null, 2) + '\n```';
+  const out = [];
+  out.push(`**ประเภทเว็บที่ตรวจพบ:** ${kind.label} → ใช้ \`${kind.org}\` + \`${kind.pageSchema}\` (ไม่ใช้ Product เพราะเว็บนี้ไม่ได้ขายสินค้า)`);
+
+  // A) GLOBAL — วางทุกหน้า (layout หลัก)
+  out.push(`**A) Global Schema — วาง <script> นี้ใน <head> ของ "ทุกหน้า" (layout หลัก)**
+_เหตุผล:_ บอก Google/AI ว่าแบรนด์คือใคร (entity) + เว็บนี้คืออะไร — ฐานของ Knowledge Panel และการถูก AI อ้างอิง
+` + '```html\n<script type="application/ld+json">\n' + JSON.stringify({
+    '@context': 'https://schema.org',
+    '@graph': [
+      { '@type': kind.org, '@id': `${origin}/#org`, name: brand, url: `${origin}/`, logo: `${origin}/logo.png`, description: desc },
+      { '@type': 'WebSite', '@id': `${origin}/#website`, url: `${origin}/`, name: brand, publisher: { '@id': `${origin}/#org` }, inLanguage: lang },
+    ],
+  }, null, 2) + '\n</script>\n```');
+
+  // B) BREADCRUMB — ทุกหน้าที่ลึกกว่า 1 ชั้น
+  out.push(`**B) BreadcrumbList — วางในหน้าที่ลึกกว่าหน้าแรก (เปลี่ยน name/item ตาม path ของหน้านั้น)**
+_เหตุผล:_ ช่วยให้ Google แสดง breadcrumb บนผลค้นหา + ช่วย AI เข้าใจโครงสร้างเว็บ
+` + J({
+    '@context': 'https://schema.org', '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: `${origin}/` },
+      { '@type': 'ListItem', position: 2, name: 'About Us', item: `${origin}/about-us` },
+    ],
+  }));
+
+  // C) PAGE-SPECIFIC ตามชนิดหน้า (เฉพาะที่มีจริงในเว็บ)
+  const sec = [];
+  const list = (urls, n = 6) => urls.slice(0, n).map(u => `  - ${u}`).join('\n') + (urls.length > n ? `\n  - …รวม ${urls.length} หน้า (ใช้รูปแบบเดียวกัน เปลี่ยน url/name ตามหน้า)` : '');
+  if (groups.about?.length) sec.push(`• **หน้า About → AboutPage** (${groups.about.length} หน้า)\n${list(groups.about)}\n_เหตุผล:_ ระบุว่าเป็นหน้าแนะนำองค์กร — เสริม E-E-A-T (ตัวตน/ความน่าเชื่อถือ)\n` + J({ '@context': 'https://schema.org', '@type': 'AboutPage', url: groups.about[0], name: `เกี่ยวกับ ${brand}`, about: { '@id': `${origin}/#org` }, isPartOf: { '@id': `${origin}/#website` } }));
+  if (groups.contact?.length) sec.push(`• **หน้า Contact → ContactPage** (${groups.contact.length} หน้า)\n${list(groups.contact)}\n_เหตุผล:_ ช่องทางติดต่อชัด = trust signal ที่ Google/AI ใช้ยืนยันธุรกิจมีตัวตน\n` + J({ '@context': 'https://schema.org', '@type': 'ContactPage', url: groups.contact[0], name: `ติดต่อ ${brand}`, about: { '@id': `${origin}/#org` } }));
+  if (groups.service?.length) sec.push(`• **หน้าบริการ → Service** (${groups.service.length} หน้า — ใช้แทน Product เพราะขายบริการ ไม่ใช่สินค้า)\n${list(groups.service)}\n_เหตุผล:_ บอก AI ว่าให้บริการอะไร ใครให้บริการ — โอกาสถูกแนะนำเมื่อมีคนถาม AI หาบริการแบบนี้\n` + J({ '@context': 'https://schema.org', '@type': 'Service', name: (byUrl.get(normUrl(groups.service[0]))?.renderedH1?.[0]) || wordsFromPath(groups.service[0]), url: groups.service[0], provider: { '@id': `${origin}/#org` }, areaServed: 'TH' }));
+  if (groups.article?.length) sec.push(`• **บทความ → Article** (${groups.article.length} บทความ — author = องค์กร เหมาะกับ blog บริษัท)\n${list(groups.article)}\n_เหตุผล:_ ให้บทความมีสิทธิ์ขึ้น rich result + ให้ AI อ้างอิงเนื้อหาได้ถูกที่มา (E-E-A-T)\n` + J({ '@context': 'https://schema.org', '@type': 'Article', headline: (byUrl.get(normUrl(groups.article[0]))?.renderedTitle || wordsFromPath(groups.article[0])).slice(0, 110), url: groups.article[0], author: { '@id': `${origin}/#org` }, publisher: { '@id': `${origin}/#org` }, mainEntityOfPage: groups.article[0] }));
+  if (groups.faq?.length) sec.push(`• **หน้า FAQ → FAQPage** (${groups.faq.length} หน้า)\n${list(groups.faq)}\n_เหตุผล:_ FAQPage คืออาวุธ GEO — AI Overview/ChatGPT ดึงไปตอบตรงๆ\n_หมายเหตุ:_ คำถาม-คำตอบใน JSON-LD ต้องตรงกับที่แสดงบนหน้าจริง`);
+  out.push(`**C) Page-specific Schema — วางเฉพาะหน้าตามชนิด:**\n` + (sec.length ? sec.join('\n\n') : '_(ไม่พบหน้าเฉพาะทางที่ต้องใส่ schema เพิ่ม)_'));
+
+  return `**โค้ด/ไฟล์สำหรับแก้ (พร้อมใช้ — JSON-LD แยกตามชนิดหน้า)**\n` + out.join('\n\n');
+}
+
+// ── E-E-A-T fix — บอกว่าหน้าไหนต้องเสริมสัญญาณอะไร + โค้ดจริง ──
+function eeatFix(audit) {
+  const brand = brandOf(audit), origin = originOf(audit);
+  const ok = (audit.pages || []).filter(p => p.status === 200);
+  const groups = {};
+  for (const p of ok) { const t = pageType(p.finalUrl || p.url); (groups[t] = groups[t] || []).push(p.finalUrl || p.url); }
+  const list = (urls, n = 6) => (urls || []).slice(0, n).map(u => `  - ${u}`).join('\n') + ((urls || []).length > n ? `\n  - …รวม ${urls.length} หน้า` : '');
+  const parts = [];
+  parts.push(`E-E-A-T = Experience / Expertise / Authoritativeness / Trust — สัญญาณที่ Google & AI ใช้ตัดสินว่าเชื่อถือเนื้อหาได้แค่ไหน เว็บนี้ยังขาด:`);
+  // 1) Organization trust (ทุกหน้า)
+  parts.push(`**1) Authoritativeness — Organization + ช่องทางยืนยันตัวตน (วางทุกหน้าใน layout)**\nเพิ่ม sameAs ชี้ไปโปรไฟล์ทางการที่ "มีจริง" ของแบรนด์ (Facebook/LinkedIn/YouTube) — ตัวเชื่อม entity ที่หนักแน่นสุด\n` + '```json\n' + JSON.stringify({ '@context': 'https://schema.org', '@type': 'Organization', '@id': `${origin}/#org`, name: brand, url: `${origin}/`, sameAs: ['https://www.facebook.com/<หน้าเพจจริง>', 'https://www.linkedin.com/company/<บริษัทจริง>'] }, null, 2) + '\n```\n_(ใส่ URL โปรไฟล์จริงที่ทีมมาร์เก็ตติ้งมี — ห้ามแต่ง)_');
+  // 2) Author/Expertise บนบทความ
+  if (groups.article?.length) parts.push(`**2) Experience/Expertise — ใส่ผู้เขียน (author) ในบทความ ${groups.article.length} บทความ**\n${list(groups.article)}\nวาง byline บนหน้า + Person schema (ผู้เขียนจริง) — ให้ Google/AI รู้ว่าใครเขียน มีความเชี่ยวชาญอะไร\n` + '```html\n<!-- บนหน้าบทความ ใต้หัวข้อ -->\n<p class="byline">โดย <a href="' + origin + '/team/<author-slug>">ชื่อผู้เขียนจริง</a> · เผยแพร่ <time datetime="2026-01-15">15 ม.ค. 2026</time></p>\n\n<script type="application/ld+json">\n' + JSON.stringify({ '@context': 'https://schema.org', '@type': 'Person', name: '<ชื่อผู้เขียนจริง>', jobTitle: '<ตำแหน่ง>', worksFor: { '@id': `${origin}/#org` }, url: `${origin}/team/<author-slug>` }, null, 2) + '\n</script>\n```');
+  // 3) Trust pages
+  const trust = { 'About/ทีมงาน': groups.about, 'Contact (ที่อยู่/เบอร์จริง)': groups.contact, 'นโยบาย (Privacy/Terms)': groups.policy };
+  const haveT = Object.entries(trust).filter(([, v]) => v?.length).map(([k]) => k);
+  const missT = Object.entries(trust).filter(([, v]) => !v?.length).map(([k]) => k);
+  parts.push(`**3) Trust — หน้าความน่าเชื่อถือ**\nมีแล้ว: ${haveT.join(', ') || '-'}${missT.length ? `\nควรเพิ่ม: ${missT.join(', ')}` : ''}\nบนหน้า About ใส่: ทีมงานจริง+รูป+ตำแหน่ง, ปีก่อตั้ง, ลูกค้า/ผลงานอ้างอิงได้ · บนหน้า Contact ใส่ชื่อบริษัท+ที่อยู่+เบอร์ตรงกันทุกที่ (NAP) — ทั้งหมดคือสิ่งที่ AI ใช้ยืนยันว่าธุรกิจมีตัวตนจริง`);
+  return `**โค้ด/แนวทางแก้ (พร้อมใช้ — E-E-A-T)**\n` + parts.join('\n\n');
+}
+
 // ── "โค้ด/ไฟล์สำหรับแก้ (พร้อมใช้)" — โค้ดครบทุกหน้าที่กระทบ ใช้เนื้อหาจริง (ไม่มี placeholder/TODO) ──
 const PER_PAGE_MAX = 60000; // โค้ดรายหน้ายาวได้ (ให้ครบทุกหน้า)
 function fixBlock(audit, c) {
@@ -170,6 +264,12 @@ function fixBlock(audit, c) {
 
   // SSR / SPA shell — แก้ root cause ก่อน
   if (c.id === 'spa-shell' || c.id === 'geo-spa-risk') return ssrFix(audit, brand);
+
+  // Structured Data (JSON-LD) — แยก Global + page-specific ตามชนิดหน้า + ประเภทเว็บจริง
+  if (['jsonld-missing', 'schema-org', 'schema-breadcrumb', 'geo-entity'].includes(c.id)) return schemaFix(audit);
+
+  // E-E-A-T / trust — บอกหน้า + โค้ดเสริมสัญญาณความน่าเชื่อถือ
+  if (['geo-eeat', 'geo-trust-pages'].includes(c.id)) return eeatFix(audit);
 
   // H1 รายหน้า — เสนอ H1 จริงครบทุกหน้า (ใช้ของที่ render แล้วก่อน)
   if (c.id === 'h1-missing' && all.length) {
@@ -249,7 +349,23 @@ const PLAYBOOK = {
     devAction: '1) วาง Global Schema (Organization + WebSite + BreadcrumbList) ใน layout หลักทุกหน้า 2) วาง Page-specific schema ตามชนิดหน้า (FAQPage/Service/Article/ContactPage/AboutPage) 3) ตรวจด้วย Google Rich Results Test ให้ผ่าน',
     effort: 'Dev 1 วัน (global + page-type templates)',
   },
-  'schema-org': { business: 'ดู jsonld-missing', seo: 'ขาด entity markup', ai: 'AI อ่าน entity ไม่ได้', devAction: 'วาง Organization+WebSite schema ตามโค้ด', effort: '~2 ชม.' },
+  'schema-org': { business: 'ไม่มีข้อมูล entity ของแบรนด์ให้ Google/AI — เสียโอกาส Knowledge Panel', seo: 'ขาด Organization markup ที่ช่วย entity understanding', ai: 'AI อ่าน entity (แบรนด์คือใคร) ไม่ได้ → เดาเอง', devAction: 'วาง Organization + WebSite schema (Global) ตามโค้ดด้านบนใน layout หลัก แล้วตรวจด้วย Rich Results Test', effort: 'Dev ~2 ชม.' },
+  'schema-breadcrumb': { business: 'ไม่มี breadcrumb บนผลค้นหา — ดูเป็นมือสมัครเล่นกว่าคู่แข่ง', seo: 'เสีย rich result breadcrumb + Google เข้าใจลำดับชั้นเว็บยากขึ้น', ai: 'AI เข้าใจโครงสร้าง/ลำดับหน้าได้ยากขึ้น', devAction: 'วาง BreadcrumbList schema ตามโค้ดในหน้าที่ลึกกว่าหน้าแรก (เปลี่ยน item ตาม path)', effort: 'Dev ~2-3 ชม.' },
+  'geo-entity': { business: 'AI ไม่รู้จักแบรนด์ในฐานะ "นิติบุคคล" → ไม่ถูกแนะนำเมื่อมีคนถามหาบริการแบบนี้', seo: 'entity ที่ชัดช่วย Google เชื่อมโยงแบรนด์กับหมวดธุรกิจ', ai: 'หัวใจของ GEO — ไม่มี entity data (Organization JSON-LD + sameAs) AI ก็อ้างอิงแบรนด์ผิด/ไม่อ้างเลย', devAction: 'วาง Organization schema (Global) + เพิ่ม sameAs ชี้โปรไฟล์ทางการจริง ตามโค้ดด้านบน', effort: 'Dev ~2-3 ชม.' },
+  'geo-eeat': {
+    business: 'เนื้อหาขาดสัญญาณ "เชื่อถือได้/มืออาชีพ" (ผู้เขียน, ตัวตนองค์กร, หน้า trust) → ทั้งคน Google และ AI ลังเลที่จะเชื่อ/อ้างอิง เสียความได้เปรียบด้านความน่าเชื่อถือให้คู่แข่ง',
+    seo: 'E-E-A-T เป็นเกณฑ์คุณภาพหลักของ Google (โดยเฉพาะธุรกิจการเงิน/YMYL) — ขาดทำให้อันดับถูกกดแม้เนื้อหาดี',
+    ai: 'AI เลือกอ้างอิงเฉพาะแหล่งที่ดู authoritative — ไม่มี author/entity/trust signals = ถูกข้ามเมื่อ AI หาแหล่งตอบ',
+    devAction: '1) เพิ่ม sameAs โปรไฟล์ทางการจริงใน Organization schema (ทุกหน้า) 2) ใส่ byline ผู้เขียน + Person schema ในบทความ 3) เสริมหน้า About (ทีม+ตำแหน่ง+ปีก่อตั้ง) และ Contact (NAP จริงตรงกันทุกที่) — ดูโค้ด/หน้าที่กระทบด้านบน',
+    effort: 'Dev + Content 1-2 วัน (ต้องใช้ข้อมูลจริงจากทีม: ผู้เขียน/โซเชียล/ทีมงาน)',
+  },
+  'geo-trust-pages': {
+    business: 'หน้าสร้างความเชื่อมั่น (About/Contact/ทีม/นโยบาย) ไม่ครบ → ลูกค้าและ AI หาข้อมูลยืนยันตัวตนธุรกิจไม่เจอ',
+    seo: 'Trust pages ครบ = สัญญาณ E-E-A-T ที่ Google ใช้ประเมินความน่าเชื่อถือ',
+    ai: 'AI ใช้หน้า About/Contact ยืนยันว่าธุรกิจมีตัวตนจริงก่อนอ้างอิง',
+    devAction: 'สร้าง/เสริมหน้า: About (ทีมงานจริง+ตำแหน่ง+ปีก่อตั้ง), Contact (ชื่อบริษัท+ที่อยู่+เบอร์จริง NAP), นโยบายความเป็นส่วนตัว — ดูรายหน้าที่ขาดด้านบน',
+    effort: 'Content 1 วัน',
+  },
   'canonical-missing': {
     business: 'หลาย URL ของหน้าเดียวกัน (/, ?param) ถูกนับแยก — คะแนนกระจาย อันดับตก และอาจโชว์ URL ไม่สวยให้ลูกค้า',
     seo: 'เสี่ยง duplicate content — Google เลือกหน้าผิดมา index คะแนน link เจือจาง',
@@ -323,10 +439,12 @@ export function buildPlan(audit, opts = {}) {
     let pr = priorityOf(c.severity, c.status);
     const isTop = topIds.has(c.id);
     if (isTop && pr.priority > 1) pr = { ...pr, priority: pr.priority - 1, label: pr.label + '↑' };
-    const pages = (c.pages || []).slice(0, 10);
-    const morePages = (c.affectedCount || (c.pages || []).length) - pages.length;
+    const LINK_CAP = 200; // แสดง URL ให้ครบ (เดิม cap 10) — ดึง list เต็มจาก recompute ก่อน
+    const allAffected = affectedPages(audit, c) || (c.pages || []);
+    const pages = allAffected.slice(0, LINK_CAP);
+    const morePages = Math.max(0, (c.affectedCount || allAffected.length) - pages.length);
     const ex = explainOf(c); // { what, why } ภาษาคนอ่านเข้าใจ
-    const affected = c.affectedCount || (c.pages || []).length;
+    const affected = c.affectedCount || allAffected.length;
     const pb = playbookFor(c, ex, affected);
     const fix = fixBlock(audit, c);
     const pageLines = pages.map(u => { const t = titleFor(titles, u); return t ? `- [${t}](${u})` : `- ${u}`; }).join('\n');
