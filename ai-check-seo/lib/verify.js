@@ -81,6 +81,26 @@ export function crossCheck(audit, lh) {
   };
 }
 
+// ── Accuracy: รวมผล crossCheck หลายเว็บ → precision/recall/FPR/FNR (Google = ground truth) ──
+// positive class = "มีปัญหา" (verdict 'fail') · วัดเฉพาะ FACT dims ที่ Google ตัดสินได้
+export function accuracyFromCrossChecks(results) {
+  const perDim = {}, tot = { tp: 0, fp: 0, fn: 0, tn: 0 };
+  for (const r of results) for (const row of (r.rows || [])) {
+    if (row.kind !== 'fact') continue;
+    const d = perDim[row.dim] || (perDim[row.dim] = { tp: 0, fp: 0, fn: 0, tn: 0 });
+    const cell = row.ours === 'fail' ? (row.lighthouse === 'fail' ? 'tp' : 'fp') : (row.lighthouse === 'fail' ? 'fn' : 'tn');
+    d[cell]++; tot[cell]++;
+  }
+  const metric = (m) => ({
+    ...m,
+    precision: (m.tp + m.fp) ? +(m.tp / (m.tp + m.fp) * 100).toFixed(1) : null,
+    recall: (m.tp + m.fn) ? +(m.tp / (m.tp + m.fn) * 100).toFixed(1) : null,
+    fpr: (m.fp + m.tn) ? +(m.fp / (m.fp + m.tn) * 100).toFixed(1) : null,
+    fnr: (m.fn + m.tp) ? +(m.fn / (m.fn + m.tp) * 100).toFixed(1) : null,
+  });
+  return { overall: metric(tot), perDim: Object.fromEntries(Object.entries(perDim).map(([k, v]) => [k, metric(v)])) };
+}
+
 // ── ประเภท check (ตาม roadmap): deterministic (parser) / rule (เกณฑ์) / ai (ประเมิน) ──
 const CHECK_TYPE = {
   // deterministic — parser ตรวจ มี/ไม่มี (ความเชื่อมั่นสูงสุด)

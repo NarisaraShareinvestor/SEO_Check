@@ -314,9 +314,13 @@ export function extractPageData(html, url, headers, status, elapsed, chain) {
   });
   const images = [];
   $('img').each((_, el) => {
+    const role = ($(el).attr('role') || '').toLowerCase();
+    // "labeled" = เข้าถึงได้/ตั้งใจ: มี alt (แม้ "" = decorative) หรือ aria-label/aria-labelledby หรือ role=presentation/none
+    // ตรงเกณฑ์ Lighthouse/accessibility — รูปแบบนี้ไม่นับเป็น "ไม่มี alt" (เดิมนับเกิน → false positive)
+    const labeled = $(el).attr('alt') != null || !!$(el).attr('aria-label') || !!$(el).attr('aria-labelledby') || role === 'presentation' || role === 'none';
     images.push({
       src: ($(el).attr('src') || $(el).attr('data-src') || '').slice(0, 300),
-      alt: $(el).attr('alt'),
+      alt: $(el).attr('alt'), labeled,
       loading: $(el).attr('loading') || '',
       width: $(el).attr('width') || '', height: $(el).attr('height') || '',
     });

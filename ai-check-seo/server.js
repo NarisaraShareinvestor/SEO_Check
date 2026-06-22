@@ -302,7 +302,7 @@ async function runAudit(job, url, maxPages, competitorUrl) {
         h1: p.headings?.filter(h => h.tag === 'h1').map(h => h.text) || [],
         canonical: p.canonical || '', noindex: /noindex/i.test(p.metas?.['robots'] || ''),
         wordCount: p.wordCount || 0, images: p.images?.length || 0,
-        imagesNoAlt: p.images?.filter(i => i.src && i.alt == null).length || 0, // alt="" = decorative (valid) ไม่นับ
+        imagesNoAlt: p.images?.filter(i => i.src && (i.labeled != null ? !i.labeled : i.alt == null)).length || 0, // ไม่นับ alt=""/aria-label/role=presentation (ตรง Lighthouse)
         jsonLdCount: p.jsonLd?.length || 0, emptyRoot: !!p.emptyRoot,
         elapsed: p.elapsed || 0, htmlKb: Math.round((p.htmlBytes || 0) / 1024),
         // เนื้อหาฉบับ render แล้ว (เฉพาะเว็บ SPA ที่ rendered crawl เก็บมา) — ใช้เสนอ H1/title จริงในรายงาน
