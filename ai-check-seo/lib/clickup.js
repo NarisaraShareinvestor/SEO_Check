@@ -242,15 +242,16 @@ function eeatFix(audit) {
   const list = (urls, n = 6) => (urls || []).slice(0, n).map(u => `  - ${u}`).join('\n') + ((urls || []).length > n ? `\n  - …รวม ${urls.length} หน้า` : '');
   const parts = [];
   parts.push(`E-E-A-T = Experience / Expertise / Authoritativeness / Trust — สัญญาณที่ Google & AI ใช้ตัดสินว่าเชื่อถือเนื้อหาได้แค่ไหน เว็บนี้ยังขาด:`);
-  // 1) Organization trust (ทุกหน้า)
-  parts.push(`**1) Authoritativeness — Organization + ช่องทางยืนยันตัวตน (วางทุกหน้าใน layout)**\nเพิ่ม sameAs ชี้ไปโปรไฟล์ทางการที่ "มีจริง" ของแบรนด์ (Facebook/LinkedIn/YouTube) — ตัวเชื่อม entity ที่หนักแน่นสุด\n` + '```json\n' + JSON.stringify({ '@context': 'https://schema.org', '@type': 'Organization', '@id': `${origin}/#org`, name: brand, url: `${origin}/`, sameAs: ['https://www.facebook.com/<หน้าเพจจริง>', 'https://www.linkedin.com/company/<บริษัทจริง>'] }, null, 2) + '\n```\n_(ใส่ URL โปรไฟล์จริงที่ทีมมาร์เก็ตติ้งมี — ห้ามแต่ง)_');
-  // 2) Author/Expertise บนบทความ
-  if (groups.article?.length) parts.push(`**2) Experience/Expertise — ใส่ผู้เขียน (author) ในบทความ ${groups.article.length} บทความ**\n${list(groups.article)}\nวาง byline บนหน้า + Person schema (ผู้เขียนจริง) — ให้ Google/AI รู้ว่าใครเขียน มีความเชี่ยวชาญอะไร\n` + '```html\n<!-- บนหน้าบทความ ใต้หัวข้อ -->\n<p class="byline">โดย <a href="' + origin + '/team/<author-slug>">ชื่อผู้เขียนจริง</a> · เผยแพร่ <time datetime="2026-01-15">15 ม.ค. 2026</time></p>\n\n<script type="application/ld+json">\n' + JSON.stringify({ '@context': 'https://schema.org', '@type': 'Person', name: '<ชื่อผู้เขียนจริง>', jobTitle: '<ตำแหน่ง>', worksFor: { '@id': `${origin}/#org` }, url: `${origin}/team/<author-slug>` }, null, 2) + '\n</script>\n```');
-  // 3) Trust pages
+  // Authoritativeness — Organization trust (ทุกหน้า)
+  parts.push(`**Authoritativeness (A) — Organization + ช่องทางยืนยันตัวตน · วางทุกหน้าใน layout**\nเพิ่ม sameAs ชี้ไปโปรไฟล์ทางการที่ "มีจริง" ของแบรนด์ (Facebook/LinkedIn/YouTube) — ตัวเชื่อม entity ที่หนักแน่นสุด\n` + '```json\n' + JSON.stringify({ '@context': 'https://schema.org', '@type': 'Organization', '@id': `${origin}/#org`, name: brand, url: `${origin}/`, sameAs: ['https://www.facebook.com/<หน้าเพจจริง>', 'https://www.linkedin.com/company/<บริษัทจริง>'] }, null, 2) + '\n```\n_(ใส่ URL โปรไฟล์จริงที่ทีมมาร์เก็ตติ้งมี — ห้ามแต่ง)_');
+  // Experience/Expertise — author บนบทความ (เฉพาะถ้ามีหน้าบทความในชุดที่ crawl)
+  if (groups.article?.length) parts.push(`**Experience / Expertise (E) — ใส่ผู้เขียน (author) ในบทความ ${groups.article.length} บทความ**\n${list(groups.article)}\nวาง byline บนหน้า + Person schema (ผู้เขียนจริง) — ให้ Google/AI รู้ว่าใครเขียน มีความเชี่ยวชาญอะไร\n` + '```html\n<!-- บนหน้าบทความ ใต้หัวข้อ -->\n<p class="byline">โดย <a href="' + origin + '/team/<author-slug>">ชื่อผู้เขียนจริง</a> · เผยแพร่ <time datetime="2026-01-15">15 ม.ค. 2026</time></p>\n\n<script type="application/ld+json">\n' + JSON.stringify({ '@context': 'https://schema.org', '@type': 'Person', name: '<ชื่อผู้เขียนจริง>', jobTitle: '<ตำแหน่ง>', worksFor: { '@id': `${origin}/#org` }, url: `${origin}/team/<author-slug>` }, null, 2) + '\n</script>\n```');
+  else parts.push(`**Experience / Expertise (E) — ใส่ผู้เขียนในบทความ**\nรอบ crawl นี้ยังไม่พบหน้าบทความ (/blogs/*) — เมื่อมีบทความ ให้ใส่ byline ผู้เขียน + Person schema (worksFor = องค์กร) ทุกบทความ เพื่อให้ AI/Google รู้ว่าใครเขียนและเชี่ยวชาญอะไร`);
+  // Trust — หน้าความน่าเชื่อถือ
   const trust = { 'About/ทีมงาน': groups.about, 'Contact (ที่อยู่/เบอร์จริง)': groups.contact, 'นโยบาย (Privacy/Terms)': groups.policy };
   const haveT = Object.entries(trust).filter(([, v]) => v?.length).map(([k]) => k);
   const missT = Object.entries(trust).filter(([, v]) => !v?.length).map(([k]) => k);
-  parts.push(`**3) Trust — หน้าความน่าเชื่อถือ**\nมีแล้ว: ${haveT.join(', ') || '-'}${missT.length ? `\nควรเพิ่ม: ${missT.join(', ')}` : ''}\nบนหน้า About ใส่: ทีมงานจริง+รูป+ตำแหน่ง, ปีก่อตั้ง, ลูกค้า/ผลงานอ้างอิงได้ · บนหน้า Contact ใส่ชื่อบริษัท+ที่อยู่+เบอร์ตรงกันทุกที่ (NAP) — ทั้งหมดคือสิ่งที่ AI ใช้ยืนยันว่าธุรกิจมีตัวตนจริง`);
+  parts.push(`**Trust (T) — หน้าความน่าเชื่อถือ**\nมีแล้ว: ${haveT.join(', ') || '-'}${missT.length ? `\nควรเพิ่ม: ${missT.join(', ')}` : ''}\nบนหน้า About ใส่: ทีมงานจริง+รูป+ตำแหน่ง, ปีก่อตั้ง, ลูกค้า/ผลงานอ้างอิงได้ · บนหน้า Contact ใส่ชื่อบริษัท+ที่อยู่+เบอร์ตรงกันทุกที่ (NAP) — ทั้งหมดคือสิ่งที่ AI ใช้ยืนยันว่าธุรกิจมีตัวตนจริง`);
   return `**โค้ด/แนวทางแก้ (พร้อมใช้ — E-E-A-T)**\n` + parts.join('\n\n');
 }
 
