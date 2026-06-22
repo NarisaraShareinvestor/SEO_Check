@@ -677,7 +677,7 @@ async function loadQuality() {
       <span>${esc(f.url.replace(/^https?:\/\//, ''))}</span><span style="color:#c0392b">${(f.mismatches || []).map(esc).join(', ')}</span></div>`).join('') || '<div style="color:var(--mut);font-size:13px;padding:6px 0">— ไม่มีเว็บที่ต้องรีวิว ✓</div>';
     const needsRows = (q.topNeeds || []).map(n => `<span style="display:inline-block;background:#fde2e2;color:#c0392b;border-radius:6px;padding:2px 8px;margin:2px;font-size:12px">${esc(n.id)} ×${n.n}</span>`).join('') || '<span style="color:var(--mut);font-size:13px">— ไม่มี</span>';
     box.innerHTML = `
-      <div style="font-size:12px;color:var(--mut);margin-bottom:12px">วัดจาก ${q.withVerify}/${q.total} audit ที่ cross-check แล้ว · Google = ground truth (เฉพาะ FACT dims)</div>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:12px">วัดจาก ${q.withVerify}/${q.sites ?? q.withVerify} เว็บ (ใช้ผลล่าสุดต่อเว็บ ไม่นับซ้ำ) · Google = ground truth (เฉพาะ FACT dims)</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
         ${card('Precision', pct(o.precision), '#10b981', 'แจ้งแล้วถูกจริง · เป้า >95%')}
         ${card('Recall', pct(o.recall), '#3b82f6', 'ปัญหาจริงจับได้ · เป้า >90%')}

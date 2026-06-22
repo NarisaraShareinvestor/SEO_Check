@@ -375,23 +375,29 @@ app.get('/api/audit/:id', (req, res) => {
 
 // Audit Quality — รวม verify จากทุก audit → precision/recall/FP/FN + เว็บที่ต้องรีวิว + check ที่พลาดบ่อย
 app.get('/api/quality', (_req, res) => {
-  const ccs = [], flagged = []; const needsCount = {};
-  let total = 0, withVerify = 0;
+  // เอา audit "ล่าสุดต่อ 1 URL" เท่านั้น — กันเว็บเดียวที่ scan ซ้ำหลายครั้งโผล่/ถูกนับซ้ำ
+  const latest = new Map(); let total = 0;
   for (const f of readdirSync(DATA_DIR).filter(f => f.endsWith('.json'))) {
     try {
       const a = JSON.parse(readFileSync(join(DATA_DIR, f), 'utf8'));
       total++;
-      if (a.verify?.rows) {
-        withVerify++;
-        ccs.push({ rows: a.verify.rows });
-        if (a.verify.flag) flagged.push({ id: a.id, url: a.url, createdAt: a.createdAt, mismatches: a.verify.factMismatches || [] });
-      }
-      for (const c of (a.checks || [])) if (c._needsVerify) needsCount[c.id] = (needsCount[c.id] || 0) + 1;
+      const prev = latest.get(a.url);
+      if (!prev || (a.createdAt || '') > (prev.createdAt || '')) latest.set(a.url, a);
     } catch {}
+  }
+  const ccs = [], flagged = [], needsCount = {};
+  let withVerify = 0;
+  for (const a of latest.values()) {
+    if (a.verify?.rows) {
+      withVerify++;
+      ccs.push({ rows: a.verify.rows });
+      if (a.verify.flag) flagged.push({ id: a.id, url: a.url, createdAt: a.createdAt, mismatches: a.verify.factMismatches || [] });
+    }
+    for (const c of (a.checks || [])) if (c._needsVerify) needsCount[c.id] = (needsCount[c.id] || 0) + 1;
   }
   flagged.sort((x, y) => (y.createdAt || '').localeCompare(x.createdAt || ''));
   const topNeeds = Object.entries(needsCount).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([id, n]) => ({ id, n }));
-  res.json({ total, withVerify, flaggedCount: flagged.length, accuracy: accuracyFromCrossChecks(ccs), flagged: flagged.slice(0, 25), topNeeds });
+  res.json({ total, sites: latest.size, withVerify, flaggedCount: flagged.length, accuracy: accuracyFromCrossChecks(ccs), flagged: flagged.slice(0, 25), topNeeds });
 });
 
 app.get('/api/audits', (_req, res) => {
