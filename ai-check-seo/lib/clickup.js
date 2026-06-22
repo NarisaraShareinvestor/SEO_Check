@@ -426,13 +426,42 @@ const PLAYBOOK = {
 };
 const CAT_AI_IMPACT = { geo: 'กระทบโดยตรงต่อการถูก AI (ChatGPT/Claude/Perplexity) เข้าใจและอ้างอิงแบรนด์', rendering: 'กระทบการที่บอท/AI เข้าถึงเนื้อหา', index: 'กระทบการที่ Google/AI ค้นเจอและเก็บหน้า', schema: 'กระทบการที่ AI อ่าน entity ของแบรนด์', performance: 'กระทบทางอ้อม (ประสบการณ์ผู้ใช้/อันดับ)' };
 
-// effort ประเมินจากชนิดงาน (รายหน้า vs config vs architecture)
+// effort "ตามจริง" — งานเล็กให้เวลาน้อย (เดิมเหมาเป็นครึ่งวัน-1วันทำให้ favicon/lang ดูใหญ่เกิน)
+const EFFORT = {
+  // ~10 นาที — แก้ไฟล์/แท็กเดียว (มักมีโค้ด/ไฟล์ให้พร้อม)
+  'lang-missing': '~10 นาที (ใส่ <html lang> ใน template เดียว)',
+  'favicon-missing': '~10 นาที (อัปโหลด favicon + 1 บรรทัด)',
+  'viewport-missing': '~10 นาที (1 meta tag ใน template)', 'viewport-noscale': '~10 นาที',
+  'geo-llms-txt': '~10 นาที (ไฟล์สร้างให้แล้ว — วางที่ root)',
+  'robots-missing': '~15 นาที (วางไฟล์ robots.txt ที่สร้างให้)', 'robots-blocks-section': '~15 นาที (แก้ robots.txt)', 'robots-blocks-all': '~15 นาที',
+  // ~15-30 นาที — config/snippet เดียว
+  'sitemap-lastmod': '~15-30 นาที', 'noscript-fallback': '~15-30 นาที',
+  'security-headers': '~20-30 นาที (config + reload)', 'compression': '~20-30 นาที',
+  'soft-404': '~20-30 นาที', 'sitemap-exists': '~20-30 นาที (gen + submit)', 'sitemap-coverage': '~20-30 นาที',
+  'orphan-pages': '~30 นาที (ลิงก์ถึงหน้า + ใส่ sitemap)', 'internal-links-few': '~30-60 นาที (เพิ่มลิงก์ภายใน/เมนู)',
+  // ~30 นาที-1 ชม — วาง schema (โค้ดให้แล้ว)
+  'schema-org': '~30 นาที (วาง JSON-LD ใน layout)', 'schema-breadcrumb': '~30-45 นาที', 'geo-entity': '~30 นาที',
+  'hreflang': '~30-45 นาที', 'jsonld-missing': '~1 ชม. (Global + page-type — โค้ดให้แล้ว)',
+  // ต้องเขียนเนื้อหาจริง
+  'geo-faq-schema': '~1 ชม. (วาง schema + ใส่ Q&A จริง)', 'geo-qa-content': '~1-2 ชม. (เขียน Q&A จริง 3-5 ข้อ)',
+  'geo-citable': 'Content ~ครึ่งวัน (เพิ่มสถิติ/แหล่งอ้างอิงในเนื้อหา)',
+  'geo-eeat': 'Dev ~1 ชม. (โค้ด) + Content (ใช้ข้อมูลจริง: ผู้เขียน/โซเชียล/ทีม)',
+  'geo-trust-pages': 'Content ~ครึ่งวัน (เขียนหน้า About/ติดต่อจริง)',
+  // architecture / performance
+  'spa-shell': 'Dev 2-5 วัน (เปิด SSR/pre-render — ครั้งเดียวปลดล็อกหลายข้อ)',
+  'geo-spa-risk': 'รวมกับงานเปิด SSR (ดู task SPA เปลือกเปล่า)', 'render-diff': 'รวมกับงานเปิด SSR',
+  'cwv-score': 'แปรผันตามสาเหตุ (บีบรูป/แคช ~ครึ่งวัน · ปรับโครงสร้าง ~หลายวัน — ดู opportunities)',
+};
 function effortOf(c, affected) {
-  if (c.category === 'rendering') return 'Dev 2-5 วัน (build/SSR config)';
-  const perPage = ['h1-missing', 'title-missing', 'title-duplicate', 'desc-missing', 'desc-duplicate', 'canonical-missing', 'image-alt'];
-  if (perPage.includes(c.id)) { const hrs = Math.max(1, Math.ceil((affected || 1) * 3 / 60)); return `~${hrs} ชม. (${affected || '?'} หน้า) · หรือทำผ่าน template/SSR ครั้งเดียว`; }
-  if (['robots-missing', 'security-headers', 'compression', 'sitemap-exists', 'geo-llms-txt', 'jsonld-missing', 'schema-org'].includes(c.id)) return 'Dev 1-2 ชม. (config/ไฟล์เดียว)';
-  return 'Dev ครึ่งวัน–1 วัน';
+  if (EFFORT[c.id]) return EFFORT[c.id];
+  // งานรายหน้าที่มีโค้ดให้ copy — ผ่าน template เร็วสุด
+  if (['h1-missing', 'title-missing', 'title-duplicate', 'desc-missing', 'desc-duplicate', 'canonical-missing', 'image-alt'].includes(c.id)) {
+    const n = affected || 1, mins = Math.max(15, Math.round(n * 1.5));
+    const perPage = mins >= 60 ? `~${Math.ceil(mins / 30) / 2} ชม.` : `~${Math.ceil(mins / 5) * 5} นาที`;
+    return `ผ่าน template/SSR ~30 นาที · หรือรายหน้า ${perPage} (${n} หน้า — โค้ดให้แล้ว copy วาง)`;
+  }
+  if (c.category === 'rendering') return 'Dev 1-3 วัน';
+  return '~30 นาที–1 ชม.'; // default ตามจริง (เดิม "ครึ่งวัน-1 วัน" สูงไป)
 }
 
 // ประกอบ 8 section จาก playbook + fallback (ทุก issue ต้องครบ ไม่มีช่องว่าง)
@@ -443,7 +472,7 @@ function playbookFor(c, ex, affected) {
     seo: pb.seo || esc(ex.what) || esc(c.detail) || '-',
     ai: pb.ai || CAT_AI_IMPACT[c.category] || 'กระทบทางอ้อมต่อความพร้อมด้าน AI (คุณภาพ/โครงสร้างเว็บโดยรวม)',
     devAction: pb.devAction || (c.recommendation ? `ดำเนินการตามนี้: ${esc(c.recommendation)} (ดูโค้ดประกอบด้านบนถ้ามี) แล้วรัน audit ซ้ำให้ข้อนี้เป็น PASS` : 'ดูโค้ด/แนวทางด้านบน แล้วรัน audit ซ้ำให้ข้อนี้เป็น PASS'),
-    effort: pb.effort || effortOf(c, affected),
+    effort: effortOf(c, affected), // แหล่งเดียว — ตามจริงตามชนิดงาน (งานเล็ก = เวลาน้อย)
   };
 }
 
