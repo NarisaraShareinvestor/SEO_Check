@@ -385,19 +385,25 @@ app.get('/api/quality', (_req, res) => {
       if (!prev || (a.createdAt || '') > (prev.createdAt || '')) latest.set(a.url, a);
     } catch {}
   }
-  const ccs = [], flagged = [], needsCount = {};
+  const ccs = [], flagged = [], needsCount = {}, perSite = [];
   let withVerify = 0;
   for (const a of latest.values()) {
     if (a.verify?.rows) {
       withVerify++;
       ccs.push({ rows: a.verify.rows });
+      // metric ราย "เว็บ" (เพราะจะตรวจหลายเว็บ) — confusion จาก verify ของเว็บนั้นเอง
+      const o = accuracyFromCrossChecks([{ rows: a.verify.rows }]).overall;
+      perSite.push({ id: a.id, url: a.url, createdAt: a.createdAt, score: a.score?.overall, grade: a.score?.grade,
+        precision: o.precision, recall: o.recall, fpr: o.fpr, fnr: o.fnr, tp: o.tp, fp: o.fp, fn: o.fn, tn: o.tn,
+        flag: !!a.verify.flag, mismatches: a.verify.factMismatches || [], explained: (a.verify.factMismatches || []).map(explainMismatch), seoScore: a.verify.seoScore });
       if (a.verify.flag) flagged.push({ id: a.id, url: a.url, createdAt: a.createdAt, mismatches: a.verify.factMismatches || [], explained: (a.verify.factMismatches || []).map(explainMismatch) });
     }
     for (const c of (a.checks || [])) if (c._needsVerify) needsCount[c.id] = (needsCount[c.id] || 0) + 1;
   }
   flagged.sort((x, y) => (y.createdAt || '').localeCompare(x.createdAt || ''));
+  perSite.sort((x, y) => (y.flag - x.flag) || (x.fp + x.fn) - (y.fp + y.fn) || (y.createdAt || '').localeCompare(x.createdAt || ''));
   const topNeeds = Object.entries(needsCount).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([id, n]) => ({ id, n }));
-  res.json({ total, sites: latest.size, withVerify, flaggedCount: flagged.length, accuracy: accuracyFromCrossChecks(ccs), flagged: flagged.slice(0, 25), topNeeds });
+  res.json({ total, sites: latest.size, withVerify, flaggedCount: flagged.length, accuracy: accuracyFromCrossChecks(ccs), perSite, flagged: flagged.slice(0, 25), topNeeds });
 });
 
 app.get('/api/audits', (_req, res) => {

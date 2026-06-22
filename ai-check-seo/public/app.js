@@ -689,6 +689,21 @@ async function loadQuality() {
         </summary>${expl}</details>`;
     }).join('') || '<div style="color:var(--mut);font-size:13px;padding:6px 0">— ไม่มีเว็บที่ต้องรีวิว ✓</div>';
     const needsRows = (q.topNeeds || []).map(n => `<span style="display:inline-block;background:#fde2e2;color:#c0392b;border-radius:6px;padding:2px 8px;margin:2px;font-size:12px">${esc(n.id)} ×${n.n}</span>`).join('') || '<span style="color:var(--mut);font-size:13px">— ไม่มี</span>';
+    // ตารางความแม่น "รายเว็บ" (เพราะจะตรวจหลายเว็บ)
+    const siteRows = (q.perSite || []).map(s => `<tr style="border-top:1px solid var(--border);font-size:13px">
+      <td style="padding:8px 10px"><a href="#" onclick="openAudit('${s.id}');return false" style="color:#3b82f6;text-decoration:none">${esc(s.url.replace(/^https?:\/\//, ''))}</a></td>
+      <td style="padding:8px 6px;text-align:center;color:var(--mut)">${s.score ?? '—'}${s.grade ? ' ' + s.grade : ''}</td>
+      <td style="padding:8px 6px;text-align:center">${s.precision != null ? s.precision + '%' : '—'}</td>
+      <td style="padding:8px 6px;text-align:center">${s.recall != null ? s.recall + '%' : '—'}</td>
+      <td style="padding:8px 6px;text-align:center;font-weight:600;color:${s.fp ? '#c0392b' : 'var(--mut)'}">${s.fp}</td>
+      <td style="padding:8px 6px;text-align:center;font-weight:600;color:${s.fn ? '#c0392b' : 'var(--mut)'}">${s.fn}</td>
+      <td style="padding:8px 10px;font-size:12px">${s.flag ? `<span style="color:#b45309">⚠️ ${esc((s.mismatches || []).join(', '))}</span>` : '<span style="color:#15803d">✓ ตรง Google</span>'}</td></tr>`).join('');
+    const siteTable = (q.perSite || []).length ? `<div class="card" style="padding:0;overflow:hidden;margin-bottom:14px">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:600">ความแม่นรายเว็บ (${q.perSite.length} เว็บ) — คลิกเปิดผลตรวจ</div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:var(--hover);text-align:left;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em">
+          <th style="padding:9px 10px">เว็บ</th><th style="padding:9px 6px;text-align:center">คะแนน</th><th style="padding:9px 6px;text-align:center">Precision</th><th style="padding:9px 6px;text-align:center">Recall</th><th style="padding:9px 6px;text-align:center">FP</th><th style="padding:9px 6px;text-align:center">FN</th><th style="padding:9px 10px">เทียบ Google</th></tr></thead>
+        <tbody>${siteRows}</tbody></table></div></div>` : '';
     box.innerHTML = `
       <div style="font-size:12px;color:var(--mut);margin-bottom:12px">วัดจาก ${q.withVerify}/${q.sites ?? q.withVerify} เว็บ (ใช้ผลล่าสุดต่อเว็บ ไม่นับซ้ำ) · Google = ground truth (เฉพาะ FACT dims)</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
@@ -709,8 +724,9 @@ async function loadQuality() {
           (ค) <b>ต้องเปิดหน้าจริงดู</b> (เช่น รูปซ่อนด้วย CSS ที่ static HTML ตัดสินไม่ได้) → กดดูแต่ละเว็บด้านล่าง
         </div>
       </details>
+      ${siteTable}
       <div class="card" style="padding:16px 20px">
-        <div style="font-weight:600;margin-bottom:4px">⚠️ เว็บที่ควรรีวิวก่อนส่งลูกค้า (ผลต่างจาก Google)</div>
+        <div style="font-weight:600;margin-bottom:4px">⚠️ เว็บที่ควรรีวิวก่อนส่งลูกค้า — กดดูว่าควรเชื่ออันไหน</div>
         ${flaggedRows}
         <div style="font-weight:600;margin:14px 0 6px">check ที่ต่างจาก Google บ่อยสุด (Most Incorrect)</div>
         <div>${needsRows}</div>
