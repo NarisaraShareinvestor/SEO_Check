@@ -181,8 +181,7 @@ function fixBlock(audit, c) {
   // Title รายหน้า — เสนอ <title> จริงครบทุกหน้า (≤60 ตัวอักษร เหมาะ SEO) ไม่มี placeholder
   if (['title-missing', 'title-length', 'title-duplicate'].includes(c.id) && all.length) {
     const code = all.map(u => `<!-- ${u} -->\n<title>${esc(titleForPage(byUrl.get(normUrl(u)), u, brand))}</title>`).join('\n\n');
-    const real = all.filter(u => byUrl.get(normUrl(u))?.renderedTitle?.trim()).length;
-    return codeBox('title-tags.html', `วางแทน <title> เดิมในแต่ละหน้า — ครบ ${all.length} หน้า${real ? ` (${real} หน้าใช้ title จริงจากเนื้อหา)` : ''} · ≤60 ตัวอักษร แต่ละหน้าไม่ซ้ำกัน`, 'html', code, PER_PAGE_MAX);
+    return codeBox('title-tags.html', `วางแทน <title> เดิมในแต่ละหน้า — ครบ ${all.length} หน้า · แต่ละหน้าไม่ซ้ำกัน ≤60 ตัวอักษร (สร้างจากหัวข้อ/ชื่อหน้า + แบรนด์ · หน้าแรกใช้ title จริงของเว็บ)`, 'html', code, PER_PAGE_MAX);
   }
 
   // Description รายหน้า — เสนอ meta description จริง (rendered ก่อน, ไม่มีก็ประกอบจากหัวข้อ+แบรนด์)
