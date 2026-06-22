@@ -30,9 +30,27 @@ const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (
 const FETCH_TIMEOUT = 12000; // หน้าจริงตอบใน 1-2 วิ; ที่นานกว่านี้คือ origin ค้าง (เช่น IRPlus flap) — ตัดไว ๆ
 const CONCURRENCY = 5;
 
+// เลื่อนหน้าจนสุดเพื่อ "ปลุก" รูป lazy-load (รูปใต้ fold ไม่มีขนาดจริงจนเลื่อนถึง → ถ้าไม่ทำจะนับพลาด = false negative)
+// Google/Lighthouse เห็นรูปพวกนี้ (mobile-first render) เราต้องเห็นด้วยถึงจะตรง — เคส vgi (2026-splash-princess)
+async function autoScroll(page) {
+  try {
+    await page.evaluate(async () => {
+      await new Promise(resolve => {
+        let y = 0; const t0 = Date.now();
+        const step = () => {
+          window.scrollTo(0, y); y += Math.max(500, window.innerHeight);
+          if (y < document.body.scrollHeight + window.innerHeight && Date.now() - t0 < 4000) setTimeout(step, 120);
+          else { window.scrollTo(0, 0); setTimeout(resolve, 400); }
+        };
+        step();
+      });
+    });
+    await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
+  } catch {}
+}
+
 // img-alt 3-state ต้องรู้ว่ารูป "โชว์ให้คนเห็นจริงไหม" ซึ่ง static HTML บอกไม่ได้ (CSS ซ่อนรูป/รูป 0px)
-// ฟังก์ชันนี้รันใน browser context (page.evaluate) — เก็บ alt/labeled/visible ของทุก <img> จาก rendered DOM
-// visible = ไม่ได้ถูกซ่อนด้วย CSS และมีขนาดจริง > 1px · ariaHidden = อยู่ใน subtree ที่ aria-hidden
+// รันใน browser context (page.evaluate) — เก็บ alt/labeled/visible ของทุก <img> จาก rendered DOM
 const IMG_VIS_FN = () => [...document.querySelectorAll('img')].map(img => {
   const s = getComputedStyle(img), r = img.getBoundingClientRect();
   return {
@@ -527,6 +545,7 @@ async function auditImageVisibility(url, onProgress) {
     onProgress?.('กำลังเปิดหน้าเว็บจริงเพื่อตรวจว่ารูปไหน "มองเห็นจริง" (image visibility)...');
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
     await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
+    await autoScroll(page); // ปลุกรูป lazy-load ก่อนวัด
     return await page.evaluate(IMG_VIS_FN);
   } catch { return null; }
   finally { try { await browser?.close(); } catch {} }
@@ -599,7 +618,8 @@ async function renderedCrawl(startUrl, seedUrls, { maxPages, onProgress }) {
       if (rd.logo) data.logo = rd.logo;
       if (rd.author) data.author = rd.author;
       // รูปที่ "มองเห็นจริง" จาก rendered DOM → ให้ img-alt check ตัดสิน 3-state ได้ (ข้ามรูปซ่อน/รูปประดับ)
-      try { data.imageVis = await page.evaluate(IMG_VIS_FN); } catch {}
+      // (เลื่อนหน้าหลังเก็บ content/links แล้ว — ไม่กระทบการค้นลิงก์ แค่ปลุกรูป lazy เพื่อวัด visible ให้ครบ)
+      try { await autoScroll(page); data.imageVis = await page.evaluate(IMG_VIS_FN); } catch {}
       pages.push(data);
       // render-diff (เทียบ raw vs rendered)
       renderedDiff[finalUrl] = { title: rd.title, h1: renH1, textLength: rd.textLength };
