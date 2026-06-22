@@ -514,13 +514,14 @@ async function renderedCrawl(startUrl, seedUrls, { maxPages, onProgress }) {
       data.finalUrl = finalUrl;
       // เก็บเนื้อหา "ฉบับ render แล้ว" ไว้กับ page (persist ใน audit) — ใช้เสนอ H1/Title จริงที่มีอยู่ใน DOM
       // (SPA: H1/title เขียนไว้แล้วใน JS แค่ไม่อยู่ raw HTML → รายงานเสนอค่าจริงได้เลย ไม่ต้องเดา)
+      const renH1 = (rd.headings || []).filter(h => h.tag === 'h1').map(h => h.text);
       data.renderedTitle = rd.title || '';
-      data.renderedH1 = rd.h1 || [];
-      data.renderedDescription = rd.description || '';
+      data.renderedH1 = renH1;
+      data.renderedDescription = rd.metas?.['description'] || '';
       data.renderedTextLength = rd.textLength || 0;
       pages.push(data);
       // render-diff (เทียบ raw vs rendered)
-      renderedDiff[finalUrl] = { title: rd.title, h1: rd.h1 || [], textLength: rd.textLength };
+      renderedDiff[finalUrl] = { title: rd.title, h1: renH1, textLength: rd.textLength };
       // ค้นลิงก์จาก rendered (เจอลิงก์ JS ครบ)
       for (const l of (rd.links || [])) enqueue(l.href, finalUrl);
     } catch (e) {

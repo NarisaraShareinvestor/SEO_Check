@@ -301,6 +301,10 @@ async function runAudit(job, url, maxPages, competitorUrl) {
         imagesNoAlt: p.images?.filter(i => i.src && !i.alt).length || 0,
         jsonLdCount: p.jsonLd?.length || 0, emptyRoot: !!p.emptyRoot,
         elapsed: p.elapsed || 0, htmlKb: Math.round((p.htmlBytes || 0) / 1024),
+        // เนื้อหาฉบับ render แล้ว (เฉพาะเว็บ SPA ที่ rendered crawl เก็บมา) — ใช้เสนอ H1/title จริงในรายงาน
+        ...(p.renderedH1?.length ? { renderedH1: p.renderedH1 } : {}),
+        ...(p.renderedTitle ? { renderedTitle: p.renderedTitle } : {}),
+        ...(p.renderedDescription ? { renderedDescription: p.renderedDescription } : {}),
       }));
 
     // เทียบกับการตรวจครั้งก่อนของ URL เดียวกัน (ก่อน/หลังแก้)

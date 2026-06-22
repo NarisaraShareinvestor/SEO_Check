@@ -122,12 +122,12 @@ function brandOf(audit) {
 }
 // แปลง path → คำอ่านได้ (fallback ตอนไม่มีข้อมูล rendered) เช่น /our-portfolio → "Our Portfolio"
 const wordsFromPath = (u) => { try { const seg = new URL(u).pathname.replace(/\/+$/, '').split('/').filter(s => s && s !== 'en' && s !== 'th').pop() || 'Home'; return decodeURIComponent(seg).replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); } catch { return 'Home'; } }
-// H1 ที่เหมาะกับหน้า: ใช้ของจริงที่ render แล้วก่อน (มีอยู่ใน DOM) ไม่มีค่อย fallback
-const h1For = (p, u) => (p?.renderedH1 && p.renderedH1[0]) || p?.renderedTitle?.split(/[|\-–—]/)[0].trim() || wordsFromPath(u);
-// Title ที่เหมาะกับหน้า + ยาวพอ SEO (≤60): ใช้ rendered title จริงก่อน ไม่มีค่อยประกอบจากหน้า+แบรนด์
+const isHomePath = (u) => { try { const p = new URL(u).pathname.replace(/\/+$/, ''); return p === '' || /^\/(en|th)$/.test(p) || /\/home$/.test(p); } catch { return false; } };
+// H1 ที่เหมาะกับหน้า: ใช้ H1 จริงที่ render แล้วก่อน (เฉพาะหน้า) ไม่มีก็ derive จาก URL slug (unique+ตรงเนื้อหา) / แบรนด์ (home)
+const h1For = (p, u, brand) => (p?.renderedH1 && (p.renderedH1[0] || '').trim()) || (isHomePath(u) ? brand : wordsFromPath(u));
+// Title ที่เหมาะกับหน้า ≤60 ตัวอักษร: home ใช้ของจริง · sub-page ประกอบจาก slug+แบรนด์ (เลี่ยง title ซ้ำที่ SPA ตั้ง default เหมือนกันทุกหน้า)
 function titleForPage(p, u, brand) {
-  let t = (p?.renderedTitle || '').trim();
-  if (!t) { const w = wordsFromPath(u); t = w === 'Home' ? `${brand} — ${'นักลงทุนสัมพันธ์ / IR Website'}` : `${w} | ${brand}`; }
+  let t = isHomePath(u) ? ((p?.renderedTitle || '').trim() || `${brand} — IR Website / นักลงทุนสัมพันธ์`) : `${wordsFromPath(u)} | ${brand}`;
   return t.length > 60 ? t.slice(0, 57).trimEnd() + '…' : t;
 }
 
@@ -173,7 +173,7 @@ function fixBlock(audit, c) {
 
   // H1 รายหน้า — เสนอ H1 จริงครบทุกหน้า (ใช้ของที่ render แล้วก่อน)
   if (c.id === 'h1-missing' && all.length) {
-    const code = all.map(u => `<!-- ${u} -->\n<h1>${esc(h1For(byUrl.get(normUrl(u)), u))}</h1>`).join('\n\n');
+    const code = all.map(u => `<!-- ${u} -->\n<h1>${esc(h1For(byUrl.get(normUrl(u)), u, brand))}</h1>`).join('\n\n');
     const real = all.filter(u => byUrl.get(normUrl(u))?.renderedH1?.length).length;
     return codeBox('h1-tags.html', `วาง <h1> เดียวต่อหน้า ใน HTML ดิบ — ครบ ${all.length} หน้า${real ? ` (${real} หน้าใช้ H1 จริงจากเนื้อหาที่ render แล้ว)` : ''}`, 'html', code, PER_PAGE_MAX);
   }
