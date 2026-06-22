@@ -248,6 +248,7 @@ function renderDelta(audit) {
         ${chip('pass', 'แก้สำเร็จจริง ' + (d.fixed || []).length + ' ข้อ')}
         ${badReal ? chip('fail', 'แย่ลงจริง ' + badReal + ' ข้อ') : chip('gray', 'ไม่มีปัญหาใหม่จริง')}
       </div>
+      ${d.scoreDelta !== 0 && !real.length && exp.length ? `<div style="font-size:12.5px;color:#a16207;background:#fffbeb;border:1px solid #fde68a;padding:7px 11px;border-radius:7px;margin-top:8px">⚠️ คะแนนต่าง ${Math.abs(d.scoreDelta)} แต้ม มาจากผลตรวจที่ไม่เสถียร/ตรวจไม่เท่ากัน (${exp.map(e => esc(stripEmoji(e.title))).join(', ')}) — <b>ไม่ใช่เว็บเปลี่ยนจริง</b></div>` : ''}
       ${(d.fixed || []).length ? `<div style="margin-top:8px"><div style="font-size:12px;font-weight:600;color:#16a34a">✓ แก้สำเร็จจริง</div>${d.fixed.map(e => line(e, '#16a34a')).join('')}</div>` : ''}
       ${badReal ? `<div style="margin-top:8px"><div style="font-size:12px;font-weight:600;color:var(--red)">✗ แย่ลง/ปัญหาใหม่จริง</div>${[...d.regressed, ...d.newIssues].map(e => line(e, 'var(--red)')).join('')}</div>` : ''}
       ${!real.length && !exp.length ? `<div style="font-size:12.5px;color:var(--mut);margin-top:8px">ไม่มีอะไรเปลี่ยนแปลง</div>` : ''}

@@ -600,14 +600,21 @@ export function runChecks(site) {
     // origin variants (www/https รวมร่างถูกไหม)
     if (site.variants?.length) {
       const live = site.variants.filter(v => v.status === 200 && v.finalOrigin !== site.origin);
-      const dead = site.variants.filter(v => v.status === 0 || v.status >= 500);
+      // แยก "ตายจริง" (DNS ไม่มี/cert พัง/refused/5xx = ผู้ใช้เข้าไม่ได้แน่นอน) ออกจาก "ตรวจไม่ติดชั่วคราว"
+      // probe variant ไม่ retry → timeout ครั้งเดียว = สรุปไม่ได้ (อาจเน็ตเซิร์ฟเวอร์เราเอง) → ไม่ลงโทษคะแนน กันคะแนนเด้งจาก noise
+      const definiteFail = (v) => v.status >= 500 || (v.status === 0 && /ENOTFOUND|getaddrinfo|ECONNREFUSED|ERR_TLS|CERT|SELF_SIGNED|UNABLE_TO_|DEPTH_ZERO|altname/i.test(v.error || ''));
+      const trulyDead = site.variants.filter(definiteFail);
+      const shaky = site.variants.filter(v => v.status === 0 && !definiteFail(v)); // timeout/unknown = ตรวจไม่ติดชั่วคราว ไม่ฟันธง
       if (live.length) checks.push(mk('host-variants', 'index', 'high', 'fail', 'โดเมนหลายเวอร์ชันตอบ 200 พร้อมกัน',
         `${live.map(v => v.variant).join(', ')} ไม่ redirect มาที่ ${site.origin} — Google มองเป็นคนละเว็บ แบ่งคะแนนกันเอง`,
         'ตั้ง 301 redirect ทุก variant (http/https, www/non-www) มาที่เวอร์ชันหลักเดียว', live.map(v => `${v.variant} → ${v.finalOrigin} (${v.status})`)));
-      else if (dead.length) checks.push(mk('host-variants', 'index', 'med', 'warn', 'บาง variant ของโดเมนเข้าไม่ได้',
-        `${dead.map(v => v.variant).join(', ')} ตอบ error/timeout — ผู้ใช้ที่พิมพ์ www (หรือไม่พิมพ์) จะเข้าเว็บไม่ได้`,
-        'ชี้ DNS + certificate ให้ครบทุก variant แล้ว 301 มาที่หลัก', dead.map(v => `${v.variant} (${v.status || 'timeout'})`)));
-      else checks.push(mk('host-variants', 'index', 'high', 'pass', 'www/https variants รวมร่างถูกต้อง', 'ทุกเวอร์ชัน redirect มาที่ origin หลักเดียว'));
+      else if (trulyDead.length) checks.push(mk('host-variants', 'index', 'med', 'warn', 'บาง variant ของโดเมนเข้าไม่ได้',
+        `${trulyDead.map(v => v.variant).join(', ')} เข้าไม่ได้ (DNS/certificate/server error) — ผู้ใช้ที่พิมพ์ www (หรือไม่พิมพ์) จะเข้าเว็บไม่ได้`,
+        'ชี้ DNS + certificate ให้ครบทุก variant แล้ว 301 มาที่หลัก', trulyDead.map(v => `${v.variant} (${v.status || v.error || 'error'})`)));
+      else checks.push(mk('host-variants', 'index', 'high', 'pass', 'www/https variants รวมร่างถูกต้อง',
+        shaky.length
+          ? `ทุกเวอร์ชัน redirect ถูกต้อง · หมายเหตุ: ${shaky.map(v => v.variant).join(', ')} ตรวจไม่ติดชั่วคราว (timeout) — ไม่กระทบคะแนน ควรลองเปิดเองอีกครั้งเพื่อยืนยัน`
+          : 'ทุกเวอร์ชัน redirect มาที่ origin หลักเดียว'));
     }
 
     // favicon.ico ตอบ 200 ไหม

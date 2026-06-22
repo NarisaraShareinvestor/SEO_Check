@@ -147,6 +147,25 @@ const FIXTURES = [
     expect: { 'img-alt': 'warn' },
     absent: ['h1-multiple', 'h1-hidden'],
   },
+  // ── host-variants: timeout ชั่วคราวต้องไม่ลงโทษคะแนน (กันคะแนนเด้ง) · ตายจริงต้องจับ ──
+  {
+    name: 'host-variants: variant timeout ชั่วคราว → PASS (ไม่ลงโทษคะแนน)',
+    file: 'decorative-alt.html', url: 'https://example.com/',
+    siteOverrides: { variants: [{ variant: 'https://www.example.com/', status: 0, error: 'This operation was aborted' }] },
+    expect: { 'host-variants': 'pass' },
+  },
+  {
+    name: 'host-variants: variant DNS ไม่มีจริง (ENOTFOUND) → WARN',
+    file: 'decorative-alt.html', url: 'https://example.com/',
+    siteOverrides: { variants: [{ variant: 'https://www.example.com/', status: 0, error: 'getaddrinfo ENOTFOUND www.example.com' }] },
+    expect: { 'host-variants': 'warn' },
+  },
+  {
+    name: 'host-variants: หลาย variant ตอบ 200 (ไม่ redirect) → FAIL',
+    file: 'decorative-alt.html', url: 'https://example.com/',
+    siteOverrides: { variants: [{ variant: 'https://www.example.com/', status: 200, finalOrigin: 'https://www.example.com' }] },
+    expect: { 'host-variants': 'fail' },
+  },
 ];
 
 // ── Runner ─────────────────────────────────────────────────────────────
