@@ -39,7 +39,7 @@ const EVIDENCE_FN = {
   'viewport-missing': (p) => 'ไม่พบ <meta name="viewport"> ในหน้า',
   'lang-missing': (p) => 'แอตทริบิวต์ lang ใน <html> ว่างเปล่า/ไม่มี',
   'content-thin': (p) => `จำนวนคำในหน้า ≈ ${p.wordCount} คำ (ต่ำกว่าเกณฑ์ 150)`,
-  'img-alt': (p) => { const imgs = (p.images || []).filter(i => i.src); const miss = imgs.filter(i => i.alt == null || i.alt === '').length; return `รูปภาพไม่มี alt ${miss}/${imgs.length} รูป`; },
+  'img-alt': (p) => { const imgs = (p.images || []).filter(i => i.src); const miss = imgs.filter(i => i.alt == null).length; return `รูปภาพไม่มี alt ${miss}/${imgs.length} รูป`; },
   'noindex': () => 'พบคำสั่ง noindex (meta robots หรือ X-Robots-Tag)',
   'heading-order': (p) => `ลำดับหัวข้อข้ามระดับ (พบ ${(p.headings || []).map(h => h.tag).join(' → ') || '—'})`,
   'jsonld-missing': () => 'ไม่พบ <script type="application/ld+json"> ในหน้า',
@@ -370,7 +370,8 @@ export function runChecks(site) {
     okPages.forEach(p => {
       const imgs = p.images.filter(i => i.src);
       totalImg += imgs.length;
-      const missing = imgs.filter(i => i.alt == null || i.alt === '').length;
+      // alt="" = รูปตกแต่ง (decorative) ถูกต้องตามมาตรฐาน — นับ "ขาด alt" เฉพาะที่ไม่มี attribute เลย (ตรงกับ Lighthouse)
+      const missing = imgs.filter(i => i.alt == null).length;
       noAlt += missing;
       if (missing) noAltPages.push(`${p.url} (${missing}/${imgs.length} รูป)`);
     });

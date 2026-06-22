@@ -8,6 +8,7 @@ import { crawlSite, normalizeUrl } from './lib/crawler.js';
 import { runChecks } from './lib/checks.js';
 import { runGeoChecks } from './lib/geo.js';
 import { fetchCWV, buildPsiChecks } from './lib/psi.js';
+import { fetchLighthouse, crossCheck } from './lib/verify.js';
 import { discoverCompetitors } from './lib/discover.js';
 import { fixLivePage, fixPagesBatch } from './lib/pagefix.js';
 import { execFile } from 'node:child_process';
@@ -160,6 +161,8 @@ async function runAudit(job, url, maxPages, competitorUrl) {
     job.status = 'crawling';
     push(`เริ่มตรวจ ${url} (สูงสุด ${maxPages} หน้า)`);
     const psiPromise = fetchCWV(url); // ยิง Google PageSpeed คู่ขนานไปกับ crawl (ใช้เวลา ~30-60s)
+    // ตาข่ายกันตรวจผิด: ดึง Lighthouse SEO ของ Google มาเทียบผลเรา (คู่ขนาน) — ห้ามใช้ engine ตัดสิน engine
+    const lhPromise = fetchLighthouse(url, process.env.PAGESPEED_API_KEY).catch(() => null);
     push('ส่งคำขอ Core Web Vitals ไปที่ Google PageSpeed (รันคู่ขนาน)...');
 
     // crawl เว็บเรา + เว็บคู่แข่ง คู่ขนานกัน
@@ -299,7 +302,7 @@ async function runAudit(job, url, maxPages, competitorUrl) {
         h1: p.headings?.filter(h => h.tag === 'h1').map(h => h.text) || [],
         canonical: p.canonical || '', noindex: /noindex/i.test(p.metas?.['robots'] || ''),
         wordCount: p.wordCount || 0, images: p.images?.length || 0,
-        imagesNoAlt: p.images?.filter(i => i.src && !i.alt).length || 0,
+        imagesNoAlt: p.images?.filter(i => i.src && i.alt == null).length || 0, // alt="" = decorative (valid) ไม่นับ
         jsonLdCount: p.jsonLd?.length || 0, emptyRoot: !!p.emptyRoot,
         elapsed: p.elapsed || 0, htmlKb: Math.round((p.htmlBytes || 0) / 1024),
         // เนื้อหาฉบับ render แล้ว (เฉพาะเว็บ SPA ที่ rendered crawl เก็บมา) — ใช้เสนอ H1/title จริงในรายงาน
@@ -308,6 +311,16 @@ async function runAudit(job, url, maxPages, competitorUrl) {
         ...(p.renderedDescription ? { renderedDescription: p.renderedDescription } : {}),
         ...(p.author ? { author: p.author } : {}),
       }));
+
+    // ตาข่ายกันตรวจผิด: เทียบ "ข้อเท็จจริง" ของเรากับ Lighthouse ของ Google → เก็บใน audit.verify
+    try {
+      const lh = await lhPromise;
+      if (lh && !lh.error) {
+        audit.verify = crossCheck(audit, lh);
+        if (audit.verify.flag) push(`⚠️ verify: ผลต่างจาก Google ${audit.verify.factMismatches.length} จุด (${audit.verify.factMismatches.join(', ')}) — ควรรีวิวก่อนส่งลูกค้า`);
+        else push(`verify: ตรงกับ Google Lighthouse ${audit.verify.factAgree}/${audit.verify.factComparable} จุดหลัก ✓`);
+      }
+    } catch {}
 
     // เทียบกับการตรวจครั้งก่อนของ URL เดียวกัน (ก่อน/หลังแก้)
     const prevAudit = findPreviousAudit(url, audit.createdAt);

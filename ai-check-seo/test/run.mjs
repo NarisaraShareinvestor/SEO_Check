@@ -105,6 +105,18 @@ const FIXTURES = [
     expect: { 'schema-incomplete': 'fail' },
     absent: ['h1-multiple', 'h1-hidden', 'robots-meta-invalid'],
   },
+  {
+    name: 'รูปตกแต่ง alt="" (decorative) → ต้องไม่นับเป็นไม่มี alt (img-alt PASS)',
+    file: 'decorative-alt.html', url: 'https://example.com/decorative-alt',
+    expect: { 'img-alt': 'pass' },
+    absent: ['h1-multiple', 'h1-hidden'],
+  },
+  {
+    name: 'รูปไม่มี alt attribute (1/3) → ยังต้องจับได้ (img-alt WARN)',
+    file: 'missing-alt.html', url: 'https://example.com/missing-alt',
+    expect: { 'img-alt': 'warn' },
+    absent: ['h1-multiple', 'h1-hidden'],
+  },
 ];
 
 // ── Runner ─────────────────────────────────────────────────────────────
