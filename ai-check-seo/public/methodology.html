@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>หลักการวัดและการให้คะแนน — AI SEO Audit Pro</title>
+<style>
+  :root{
+    --ink:#16203a; --blue:#1b4dd8; --navy:#0f1e3d; --mut:#667085;
+    --line:#e5e8ee; --line2:#eef1f6; --paper:#fff; --faint:#f7f9fc;
+    --hi:#c0392b; --me:#b7791f; --lo:#0e7490; --ok:#15803d;
+    --serif:"Georgia","Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,"Sarabun",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:#eef0f4;color:var(--ink);font-family:var(--sans);line-height:1.62;font-size:15px;-webkit-font-smoothing:antialiased}
+  .page{max-width:1000px;margin:24px auto;background:var(--paper);box-shadow:0 1px 3px rgba(16,30,61,.06),0 12px 40px rgba(16,30,61,.07)}
+  .pad{padding:0 clamp(20px,5vw,62px)}
+  /* cover */
+  .cover{background:var(--navy);color:#fff;padding:clamp(34px,6vw,64px) clamp(20px,5vw,62px) clamp(30px,5vw,52px)}
+  .eyebrow{font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:#9db4e8;font-weight:600}
+  .cover h1{font-family:var(--serif);font-weight:700;font-size:clamp(30px,6vw,54px);line-height:1.06;margin:14px 0 0;letter-spacing:-.5px}
+  .cover h1 em{font-style:italic;color:#c7d6f7}
+  .cover .lead{max-width:660px;color:#c3cee2;font-size:clamp(14px,2.4vw,16px);margin:18px 0 0}
+  .cover .scope{max-width:680px;margin:16px 0 0;font-size:12.5px;color:#8ea3cf;border-left:2px solid #2f4a86;padding-left:14px}
+  .cover .scope b{color:#c7d6f7;font-weight:600}
+  /* section frame */
+  section{padding:clamp(30px,5vw,52px) 0;border-bottom:1px solid var(--line)}
+  section:last-of-type{border-bottom:0}
+  .shead{display:flex;align-items:baseline;gap:16px;margin-bottom:26px}
+  .shead .num{font-family:var(--serif);font-size:34px;font-weight:700;color:var(--line);line-height:1;flex:none}
+  .shead .tt{flex:1}
+  .shead h2{font-family:var(--serif);font-weight:700;font-size:clamp(20px,3.4vw,27px);margin:0;letter-spacing:-.3px}
+  .shead .sub{font-size:13px;color:var(--mut);margin-top:3px}
+  /* principle grid */
+  .grid{display:grid;gap:1px;background:var(--line);border:1px solid var(--line)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:720px){.g3,.g2{grid-template-columns:1fr}}
+  .cell{background:var(--paper);padding:20px 22px}
+  .cell .k{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);font-weight:700}
+  .cell h3{font-family:var(--serif);font-size:17px;margin:7px 0 5px;font-weight:700}
+  .cell p{margin:0;font-size:13px;color:var(--mut);line-height:1.6}
+  /* diagram */
+  .figure{border:1px solid var(--line);background:var(--faint);padding:18px clamp(8px,3vw,26px);border-radius:2px}
+  .figure svg{width:100%;height:auto;display:block}
+  .figcap{font-size:12px;color:var(--mut);text-align:center;margin-top:12px;font-style:italic;font-family:var(--serif)}
+  /* formula */
+  .formula{border:1px solid var(--line);border-radius:2px;overflow:hidden}
+  .frow{display:flex;gap:18px;align-items:baseline;padding:15px 22px;border-bottom:1px solid var(--line2)}
+  .frow:last-child{border-bottom:0}
+  .frow .stage{flex:none;width:118px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);font-weight:700}
+  .frow .eq{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:13.5px;color:var(--ink)}
+  .frow .eq b{color:var(--blue)}
+  .worked{margin-top:16px;font-size:13px;color:var(--mut);background:var(--faint);border-left:3px solid var(--blue);padding:13px 18px}
+  .worked b{color:var(--ink)}
+  .mono{font-family:ui-monospace,Menlo,monospace}
+  /* weight bars */
+  .wrow{display:flex;align-items:center;gap:14px;padding:7px 0}
+  .wrow .nm{flex:none;width:160px;font-size:13.5px;font-weight:600}
+  .wrow .track{flex:1;height:14px;background:var(--line2);border-radius:1px;overflow:hidden}
+  .wrow .fill{height:100%;background:var(--blue)}
+  .wrow .v{flex:none;width:30px;text-align:right;font-weight:700;font-size:14px;color:var(--navy)}
+  .wrow .note{flex:none;width:120px;font-size:11px;color:var(--mut);text-align:right}
+  @media(max-width:600px){.wrow .nm{width:120px}.wrow .note{display:none}}
+  .gradebar{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;font-size:12.5px}
+  .gradebar span{border:1px solid var(--line);padding:4px 12px;border-radius:2px}
+  .gradebar b{font-family:var(--serif);color:var(--blue)}
+  /* tables */
+  table{width:100%;border-collapse:collapse;font-size:13.5px;border:1px solid var(--line)}
+  th,td{padding:11px 16px;text-align:left;border-bottom:1px solid var(--line2);vertical-align:top}
+  th{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);font-weight:700;background:var(--faint)}
+  tr:last-child td{border-bottom:0}
+  td.c,th.c{text-align:center}
+  .sq{display:inline-block;width:9px;height:9px;border-radius:1px;margin-right:7px;vertical-align:middle}
+  .s-hi{background:var(--hi)} .s-me{background:var(--me)} .s-lo{background:var(--lo)}
+  .src{font-size:12.5px;color:var(--blue);font-weight:600}
+  .srcs td{font-size:12.8px}
+  .srcs .what{font-weight:600;color:var(--ink)}
+  /* H1 deep dive */
+  .deep{border:1px solid var(--line);border-radius:2px;padding:0}
+  .deep .dh{background:var(--navy);color:#fff;padding:13px 22px;font-family:var(--serif);font-size:16px;font-weight:700}
+  .deep .db{padding:8px 22px 18px}
+  .deep .drow{display:flex;gap:16px;padding:11px 0;border-bottom:1px solid var(--line2)}
+  .deep .drow:last-child{border-bottom:0}
+  .deep .dk{flex:none;width:104px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);font-weight:700;padding-top:2px}
+  .deep .dv{flex:1;font-size:13.3px;color:var(--ink)}
+  .deep .dv .ref{color:var(--mut);font-size:12px}
+  /* confidence */
+  .conf{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
+  @media(max-width:720px){.conf{grid-template-columns:1fr}}
+  .conf .c{background:#fff;padding:20px 22px}
+  .conf .pct{font-family:var(--serif);font-size:30px;font-weight:700;color:var(--navy);line-height:1}
+  .conf .lab{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);font-weight:700;margin:8px 0 5px}
+  .conf p{margin:0;font-size:12.5px;color:var(--mut)}
+  /* glossary */
+  .gcat{border:1px solid var(--line);border-radius:2px;margin-bottom:11px}
+  .gcat .gh{display:flex;align-items:baseline;gap:12px;padding:12px 18px;background:var(--faint);border-bottom:1px solid var(--line)}
+  .gcat .gh b{font-family:var(--serif);font-size:15px}
+  .gcat .gh .d{font-size:12px;color:var(--mut)}
+  .gcat .gh .w{margin-left:auto;font-size:11px;letter-spacing:.08em;color:var(--navy);font-weight:700}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;padding:13px 18px}
+  .chip{font-size:12px;background:#fff;border:1px solid var(--line);padding:3px 9px;display:inline-flex;align-items:center;border-radius:2px;color:#2c3banged}
+  .chip{color:#33404f}
+  .legend{display:flex;gap:20px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-bottom:16px}
+  .legend span{display:inline-flex;align-items:center}
+  .foot{padding:26px 0 4px;font-size:11.5px;color:var(--mut);text-align:center}
+  .foot .b{font-family:var(--serif);color:var(--ink);font-size:13px}
+  a{color:var(--blue)}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- COVER -->
+  <div class="cover">
+    <div class="eyebrow">Measurement Methodology · 2026</div>
+    <h1>หลักการวัดผล<br>และการให้คะแนน <em>SEO &amp; GEO</em></h1>
+    <p class="lead">เอกสารนี้อธิบายว่าระบบประเมินเว็บไซต์อย่างไร — วัดจากอะไร อ้างอิงมาตรฐานใด และแปลงผลเป็นคะแนน 0–100 ด้วยวิธีการที่ทำซ้ำได้และตรวจสอบย้อนกลับได้ทุกข้อ</p>
+    <p class="scope"><b>ขอบเขตตามจริง</b> — ระบบวิเคราะห์ HTML และการตอบสนองของเซิร์ฟเวอร์โดยตรง ไม่ได้เชื่อมต่อ API กับ ChatGPT, Claude หรือ Perplexity และไม่ได้วัดผลภายในเครื่องมือเหล่านั้น สิ่งที่ประเมินด้าน AI คือความพร้อมของเนื้อหาให้ AI crawler เข้าถึงและดึงไปใช้ได้</p>
+  </div>
+
+  <div class="pad">
+
+    <!-- 01 DIAGRAM -->
+    <section>
+      <div class="shead"><div class="num">01</div><div class="tt"><h2>ภาพรวมวิธีการวัด</h2><div class="sub">จากการเก็บข้อมูลถึงคะแนนและการตรวจทาน</div></div></div>
+      <div class="figure">
+        <svg viewBox="0 0 780 340" role="img" aria-label="แผนภาพกระบวนการวัดผล">
+          <defs>
+            <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#1b4dd8"/></marker>
+            <marker id="ar2" markerWidth="8" markerHeight="8" refX="1" refY="3" orient="auto"><path d="M6,0 L0,3 L6,6 Z" fill="#9aa7bd"/></marker>
+            <marker id="ar3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#9aa7bd"/></marker>
+          </defs>
+          <style>
+            .nlab{font:700 14px Georgia,serif;fill:#0f1e3d}
+            .nlabw{font:700 14px Georgia,serif;fill:#fff}
+            .nsub{font:10.5px -apple-system,Arial,sans-serif;fill:#667085}
+            .nsubw{font:10.5px -apple-system,Arial,sans-serif;fill:#b9c6e2}
+            .stg{font:700 9.5px -apple-system,Arial,sans-serif;fill:#1b4dd8;letter-spacing:1.4px}
+            .stgw{font:700 9.5px -apple-system,Arial,sans-serif;fill:#9db4e8;letter-spacing:1.4px}
+            .conn{stroke:#1b4dd8;stroke-width:1.4;stroke-dasharray:4 4;fill:none}
+            .conng{stroke:#9aa7bd;stroke-width:1.4;stroke-dasharray:4 4;fill:none}
+          </style>
+          <!-- connectors -->
+          <path class="conn" d="M180,113 C216,113 216,130 250,130" marker-end="url(#ar)"/>
+          <path class="conn" d="M180,187 C216,187 216,168 250,168" marker-end="url(#ar)"/>
+          <path class="conn" d="M460,150 C505,150 500,119 540,119" marker-end="url(#ar)"/>
+          <path class="conn" d="M640,146 V154" marker-end="url(#ar)"/>
+          <path class="conng" d="M355,208 V258" marker-start="url(#ar2)" marker-end="url(#ar3)"/>
+          <!-- input: raw -->
+          <rect x="24" y="84" width="156" height="58" rx="3" fill="#fff" stroke="#c8d2e6"/>
+          <text x="40" y="112" class="nlab">HTML ดิบ</text>
+          <text x="40" y="129" class="nsub">Googlebot รอบแรก · AI crawler</text>
+          <!-- input: rendered -->
+          <rect x="24" y="158" width="156" height="58" rx="3" fill="#fff" stroke="#c8d2e6"/>
+          <text x="40" y="186" class="nlab">Rendered DOM</text>
+          <text x="40" y="203" class="nsub">เปิดจริงด้วย headless Chrome</text>
+          <!-- engine -->
+          <rect x="250" y="92" width="210" height="116" rx="3" fill="#0f1e3d"/>
+          <text x="270" y="122" class="stgw">RULE ENGINE</text>
+          <text x="270" y="146" class="nlabw">ตรวจ ~75 จุด</text>
+          <text x="270" y="167" class="nsubw">9 หมวด · ถ่วงน้ำหนัก</text>
+          <text x="270" y="185" class="nsubw">deterministic — ผลนิ่ง</text>
+          <!-- score -->
+          <rect x="540" y="92" width="200" height="54" rx="3" fill="#1b4dd8"/>
+          <text x="560" y="116" class="stgw">OUTPUT</text>
+          <text x="560" y="136" class="nlabw">คะแนน 0–100</text>
+          <!-- grade -->
+          <rect x="540" y="154" width="200" height="54" rx="3" fill="#fff" stroke="#c8d2e6"/>
+          <text x="560" y="187" class="nlab">เกรด A · B · C · D · F</text>
+          <!-- lighthouse -->
+          <rect x="250" y="258" width="210" height="58" rx="3" fill="#fff" stroke="#c8d2e6"/>
+          <text x="270" y="283" class="stg">CROSS-CHECK</text>
+          <text x="270" y="302" class="nlab">Google Lighthouse</text>
+        </svg>
+      </div>
+      <div class="figcap">เก็บทั้ง HTML ดิบและหน้าที่ render แล้ว → ประเมินด้วยกฎตายตัว 9 หมวด → ถ่วงน้ำหนักเป็นคะแนน → ตรวจทานกับ Google Lighthouse</div>
+    </section>
+
+    <!-- 02 PRINCIPLES -->
+    <section>
+      <div class="shead"><div class="num">02</div><div class="tt"><h2>หลักการพื้นฐาน</h2><div class="sub">เหตุผลเบื้องหลังวิธีวัด</div></div></div>
+      <div class="grid g3">
+        <div class="cell"><div class="k">Raw-first</div><h3>วัดจาก HTML ดิบ</h3><p>ประเมินสิ่งที่ Googlebot รอบแรกและ AI crawler อ่านได้ก่อนรัน JavaScript เพราะ crawler ส่วนใหญ่ไม่ประมวลผล JS</p></div>
+        <div class="cell"><div class="k">Two-wave</div><h3>เทียบหน้า render จริง</h3><p>เปิดด้วย headless Chrome เทียบ raw กับ rendered ตามพฤติกรรม two-wave indexing ที่ Google ใช้</p></div>
+        <div class="cell"><div class="k">Deterministic</div><h3>ผลนิ่ง ทำซ้ำได้</h3><p>ใช้กฎตายตัวไม่สุ่ม เว็บเดิมได้คะแนนเดิม จึงเปรียบเทียบก่อน/หลังแก้ได้อย่างมีความหมาย</p></div>
+        <div class="cell"><div class="k">Mobile-first</div><h3>วัดแบบมือถือ</h3><p>ประเมินรูปและ viewport แบบที่ผู้ใช้มือถือเห็นจริง (กระตุ้น lazy-load ก่อนวัด) ตรงกับที่ Google ใช้ index</p></div>
+        <div class="cell"><div class="k">Generative</div><h3>ความพร้อมด้าน AI</h3><p>ตรวจว่า robots.txt อนุญาต AI crawler ที่ระบุชื่อหรือไม่ และเนื้อหาอยู่ในรูปที่ AI ดึงไปใช้ได้ (ไม่พึ่ง JS ล้วน)</p></div>
+        <div class="cell"><div class="k">Verified</div><h3>ตรวจทานกับ Google</h3><p>เทียบผลกับ Google Lighthouse เป็นเกณฑ์อิสระ พร้อมวัด Precision / Recall รายเว็บ เพื่อกันการตรวจผิด</p></div>
+      </div>
+    </section>
+
+    <!-- 03 SCORING -->
+    <section>
+      <div class="shead"><div class="num">03</div><div class="tt"><h2>วิธีคิดคะแนน</h2><div class="sub">สามชั้น จาก check เดี่ยวสู่คะแนนรวม</div></div></div>
+      <div class="formula">
+        <div class="frow"><div class="stage">ชั้น 1 · check</div><div class="eq">หักคะแนน = <b>น้ำหนักความรุนแรง</b> × <b>โทษตามสถานะ</b></div></div>
+        <div class="frow"><div class="stage">ชั้น 2 · หมวด</div><div class="eq">คะแนนหมวด = ( 1 − Σ หักคะแนน ÷ Σ น้ำหนักเต็ม ) × 100</div></div>
+        <div class="frow"><div class="stage">ชั้น 3 · รวม</div><div class="eq">คะแนนรวม = Σ ( คะแนนหมวด × <b>น้ำหนักหมวด</b> ) ÷ 100</div></div>
+      </div>
+      <div class="worked"><b>ตัวอย่างหมวดรูปภาพ</b> — img-alt (รุนแรงปานกลาง = 5, สถานะ Fail → โทษ 100%), img-lazy (เล็กน้อย = 2, Warn → 45%), img-dimensions (เล็กน้อย = 2, Pass → 0%)<br>น้ำหนักเต็ม = 5 + 2 + 2 = 9 · หักจริง = (5 × 1.0) + (2 × 0.45) + 0 = 5.9 · <b>คะแนนหมวด = (1 − 5.9 ÷ 9) × 100 = 34</b></div>
+    </section>
+
+    <!-- 04 WEIGHTS -->
+    <section>
+      <div class="shead"><div class="num">04</div><div class="tt"><h2>น้ำหนักทั้ง 9 หมวด</h2><div class="sub">รวมเป็น 100 ถ่วงตามผลกระทบต่ออันดับ</div></div></div>
+      <div class="wrow"><span class="nm">Indexability</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="v">20</span><span class="note">เข้า Google ได้ไหม</span></div>
+      <div class="wrow"><span class="nm">Meta &amp; เนื้อหา</span><span class="track"><span class="fill" style="width:90%"></span></span><span class="v">18</span><span class="note">title · h1 · desc</span></div>
+      <div class="wrow"><span class="nm">Structured Data</span><span class="track"><span class="fill" style="width:60%"></span></span><span class="v">12</span><span class="note">schema · JSON-LD</span></div>
+      <div class="wrow"><span class="nm">JS Rendering</span><span class="track"><span class="fill" style="width:60%"></span></span><span class="v">12</span><span class="note">raw เทียบ rendered</span></div>
+      <div class="wrow"><span class="nm">ความเร็ว</span><span class="track"><span class="fill" style="width:50%"></span></span><span class="v">10</span><span class="note">Core Web Vitals</span></div>
+      <div class="wrow"><span class="nm">GEO (AI Search)</span><span class="track"><span class="fill" style="width:50%"></span></span><span class="v">10</span><span class="note">ความพร้อม AI</span></div>
+      <div class="wrow"><span class="nm">ลิงก์</span><span class="track"><span class="fill" style="width:40%"></span></span><span class="v">8</span><span class="note">broken · internal</span></div>
+      <div class="wrow"><span class="nm">รูปภาพ</span><span class="track"><span class="fill" style="width:25%"></span></span><span class="v">5</span><span class="note">alt · lazy</span></div>
+      <div class="wrow"><span class="nm">ความปลอดภัย</span><span class="track"><span class="fill" style="width:25%"></span></span><span class="v">5</span><span class="note">HTTPS · SSL</span></div>
+      <div class="gradebar"><span>เกรด <b>A</b> ≥ 90</span><span><b>B</b> ≥ 75</span><span><b>C</b> ≥ 60</span><span><b>D</b> ≥ 45</span><span><b>F</b> &lt; 45</span></div>
+    </section>
+
+    <!-- 05 SEVERITY -->
+    <section>
+      <div class="shead"><div class="num">05</div><div class="tt"><h2>ความรุนแรง × สถานะ</h2><div class="sub">แต่ละผลหักคะแนนเท่าไร</div></div></div>
+      <div class="grid g2">
+        <div class="cell" style="padding:0">
+          <table style="border:0">
+            <tr><th>ระดับความรุนแรง</th><th class="c">น้ำหนัก</th></tr>
+            <tr><td><span class="sq s-hi"></span>High — ร้ายแรง</td><td class="c mono">10</td></tr>
+            <tr><td><span class="sq s-me"></span>Medium — ปานกลาง</td><td class="c mono">5</td></tr>
+            <tr><td><span class="sq s-lo"></span>Low — เล็กน้อย</td><td class="c mono">2</td></tr>
+          </table>
+        </div>
+        <div class="cell" style="padding:0">
+          <table style="border:0">
+            <tr><th>สถานะผลตรวจ</th><th class="c">โทษ</th></tr>
+            <tr><td>Fail — เสียจริง</td><td class="c mono">100%</td></tr>
+            <tr><td>Warn — ควรปรับ</td><td class="c mono">45%</td></tr>
+            <tr><td>Pass — ผ่าน</td><td class="c mono">0%</td></tr>
+            <tr><td>Info — ข้อมูล</td><td class="c mono">0%</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="worked">สถานะ <b>Info ไม่กระทบคะแนน</b> ใช้กับสิ่งที่สรุปไม่ได้ในรอบนั้น เช่น HTTP 429 (rate-limit), 5xx ชั่วคราว หรือ render ไม่สำเร็จ — เพื่อกันคะแนนแกว่งจากปัจจัยเครือข่ายที่ไม่เกี่ยวกับคุณภาพเว็บ</div>
+    </section>
+
+    <!-- 06 STANDARDS -->
+    <section>
+      <div class="shead"><div class="num">06</div><div class="tt"><h2>มาตรฐานอ้างอิง</h2><div class="sub">ทุกการวัดอิงเอกสารทางการ ไม่ใช่ความเห็นส่วนตัว</div></div></div>
+
+      <div class="deep" style="margin-bottom:22px">
+        <div class="dh">กรณีตัวอย่าง — ทำไมวัด H1 แบบนี้</div>
+        <div class="db">
+          <div class="drow"><div class="dk">วัดอะไร</div><div class="dv">แต่ละหน้าควรมี H1 หนึ่งตัว ไม่ว่างเปล่า และไม่ถูกซ่อนด้วย CSS — ตรวจทั้งใน HTML ดิบและหน้า render</div></div>
+          <div class="drow"><div class="dk">อิงมาตรฐาน</div><div class="dv">HTML Living Standard (WHATWG) §4.3 ว่าด้วยโครงสร้างหัวข้อ · WCAG 2.2 เกณฑ์ 1.3.1 “Info and Relationships” (โครงสร้างต้องอ่านได้ด้วยโปรแกรม) · Google Search Central — แนะนำหัวข้อที่สื่อความหมายเพื่อช่วยเข้าใจหน้า <span class="ref">และมีผลต่อการดึง featured snippet</span></div></div>
+          <div class="drow"><div class="dk">เหตุผล</div><div class="dv">H1 คือหัวเรื่องหลักที่บอกทั้งผู้ใช้ เครื่องช่วยอ่าน และเครื่องมือค้นหาว่าหน้านี้เกี่ยวกับอะไร — หายหรือซ่อน = โครงสร้างกำกวม, ซ้ำหลายตัว = สับสนว่าหน้าเน้นอะไร</div></div>
+          <div class="drow"><div class="dk">ให้คะแนน</div><div class="dv"><span class="sq s-hi"></span>ไม่มี / ซ่อน = High &nbsp;&nbsp; <span class="sq s-me"></span>ซ้ำหลายตัว = Medium</div></div>
+        </div>
+      </div>
+
+      <table class="srcs">
+        <tr><th>สิ่งที่วัด</th><th>มาตรฐาน / แหล่งอ้างอิง</th></tr>
+        <tr><td class="what">Title · Meta description</td><td>Google Search Central — Title links &amp; Snippets</td></tr>
+        <tr><td class="what">Canonical (หน้าหลัก)</td><td>Google — Consolidate duplicate URLs · RFC 6596 (rel=canonical)</td></tr>
+        <tr><td class="what">robots.txt · noindex</td><td>RFC 9309 — Robots Exclusion Protocol · Google robots &amp; meta robots</td></tr>
+        <tr><td class="what">XML Sitemap</td><td>sitemaps.org 0.9 · Google sitemap guidelines</td></tr>
+        <tr><td class="what">hreflang (หลายภาษา)</td><td>Google — Localized versions of pages</td></tr>
+        <tr><td class="what">Structured data · JSON-LD</td><td>schema.org vocabulary · Google structured data / rich results</td></tr>
+        <tr><td class="what">Viewport · Mobile</td><td>Google — Mobile-first indexing · web.dev responsive design</td></tr>
+        <tr><td class="what">Image alt text</td><td>WCAG 2.2 เกณฑ์ 1.1.1 Non-text Content · Google Images best practices</td></tr>
+        <tr><td class="what">HTTPS · ความปลอดภัย</td><td>Google — HTTPS as a ranking signal</td></tr>
+        <tr><td class="what">Core Web Vitals · TTFB</td><td>web.dev — Core Web Vitals · Google Page Experience</td></tr>
+        <tr><td class="what">HTTP status (404 / 410 / 429 / 5xx)</td><td>RFC 9110 — HTTP Semantics</td></tr>
+        <tr><td class="what">JS rendering · SSR · two-wave</td><td>Google — JavaScript SEO basics &amp; how Google renders</td></tr>
+        <tr><td class="what">AI crawler access</td><td>เอกสารผู้ให้บริการบอตโดยตรง — OpenAI GPTBot · Anthropic ClaudeBot · Perplexity</td></tr>
+        <tr><td class="what">llms.txt</td><td>ข้อเสนอมาตรฐาน llmstxt.org</td></tr>
+        <tr><td class="what">E-E-A-T</td><td>Google — Search Quality Rater Guidelines</td></tr>
+      </table>
+    </section>
+
+    <!-- 07 CONFIDENCE -->
+    <section>
+      <div class="shead"><div class="num">07</div><div class="tt"><h2>ความเชื่อมั่นรายข้อ</h2><div class="sub">บอกว่าแต่ละผลเชื่อได้แค่ไหน</div></div></div>
+      <div class="conf">
+        <div class="c"><div class="pct">97%</div><div class="lab">Deterministic</div><p>parser ตรวจ “มี/ไม่มี” ตรงตัว เช่น มี title ไหม robots บล็อกหรือไม่ — เป็นข้อเท็จจริงที่เถียงไม่ได้</p></div>
+        <div class="c"><div class="pct">88%</div><div class="lab">Rule</div><p>วัดตามเกณฑ์มาตรฐาน เช่น เนื้อหาบางเกินไป ลิงก์เสีย รูปไม่มี alt — อิงแนวปฏิบัติอุตสาหกรรม</p></div>
+        <div class="c"><div class="pct">65%</div><div class="lab">AI Assessment</div><p>ประเมินเชิงคุณภาพ เช่น E-E-A-T และความเหมาะกับการถูกอ้างอิง — เป็นคำแนะนำ ไม่ฟันธง</p></div>
+      </div>
+      <div class="worked">เมื่อ <b>Google Lighthouse ยืนยันตรงกัน</b> ความเชื่อมั่นจะถูกยกเป็น 99% · หาก <b>ขัดแย้งกับ Google</b> จะลดเหลือ 50% และติดธง “ควรรีวิว” ให้ตรวจด้วยตาก่อนส่งลูกค้า</div>
+    </section>
+
+    <!-- 08 GLOSSARY -->
+    <section>
+      <div class="shead"><div class="num">08</div><div class="tt"><h2>รายการตรวจทั้งหมด</h2><div class="sub">ประมาณ 75 จุด จัดกลุ่มตาม 9 หมวด</div></div></div>
+      <div class="legend">
+        <span><span class="sq s-hi"></span>High — ร้ายแรง</span>
+        <span><span class="sq s-me"></span>Medium — ปานกลาง</span>
+        <span><span class="sq s-lo"></span>Low — เล็กน้อย</span>
+      </div>
+
+      <div class="gcat"><div class="gh"><b>Indexability</b><span class="d">เข้า Google / AI ได้ไหม</span><span class="w">น้ำหนัก 20</span></div>
+        <div class="chips"><span class="chip"><span class="sq s-hi"></span>noindex</span><span class="chip"><span class="sq s-hi"></span>canonical หาย/ซ้ำ</span><span class="chip"><span class="sq s-hi"></span>robots บล็อกทั้งเว็บ</span><span class="chip"><span class="sq s-hi"></span>host variants (www/https)</span><span class="chip"><span class="sq s-hi"></span>error pages (404/410)</span><span class="chip"><span class="sq s-me"></span>sitemap หาย/ไม่ครบ</span><span class="chip"><span class="sq s-me"></span>soft 404</span><span class="chip"><span class="sq s-me"></span>redirect chain</span><span class="chip"><span class="sq s-me"></span>hreflang</span><span class="chip"><span class="sq s-me"></span>near-duplicate</span><span class="chip"><span class="sq s-me"></span>meta refresh</span><span class="chip"><span class="sq s-me"></span>trailing slash</span><span class="chip"><span class="sq s-me"></span>crawl-blocked (429/5xx)</span></div>
+      </div>
+      <div class="gcat"><div class="gh"><b>Meta &amp; เนื้อหา</b><span class="d">ป้ายบอกหน้า + คุณภาพคอนเทนต์</span><span class="w">น้ำหนัก 18</span></div>
+        <div class="chips"><span class="chip"><span class="sq s-hi"></span>title หาย/ซ้ำ</span><span class="chip"><span class="sq s-hi"></span>h1 หาย/ซ่อน</span><span class="chip"><span class="sq s-hi"></span>viewport (มือถือ)</span><span class="chip"><span class="sq s-me"></span>title ยาว/สั้น</span><span class="chip"><span class="sq s-me"></span>description หาย/ซ้ำ</span><span class="chip"><span class="sq s-me"></span>h1 ซ้ำ</span><span class="chip"><span class="sq s-me"></span>เนื้อหาบาง</span><span class="chip"><span class="sq s-lo"></span>heading order</span><span class="chip"><span class="sq s-lo"></span>lang attribute</span><span class="chip"><span class="sq s-lo"></span>url hygiene</span><span class="chip"><span class="sq s-lo"></span>favicon</span><span class="chip"><span class="sq s-lo"></span>deprecated tags</span></div>
+      </div>
+      <div class="gcat"><div class="gh"><b>Structured Data</b><span class="d">schema ให้ AI/Google เข้าใจ</span><span class="w">น้ำหนัก 12</span></div>
+        <div class="chips"><span class="chip"><span class="sq s-hi"></span>JSON-LD หาย/ผิดรูป</span><span class="chip"><span class="sq s-hi"></span>schema ไม่ครบ field</span><span class="chip"><span class="sq s-me"></span>Organization / Schema.org</span><span class="chip"><span class="sq s-me"></span>Open Graph (แชร์โซเชียล)</span><span class="chip"><span class="sq s-lo"></span>breadcrumb</span><span class="chip"><span class="sq s-lo"></span>twitter card</span></div>
+      </div>
+      <div class="gcat"><div class="gh"><b>JS Rendering</b><span class="d">AI bot เห็นเนื้อหาไหม</span><span class="w">น้ำหนัก 12</span></div>
+        <div class="chips"><span class="chip"><span class="sq s-hi"></span>spa shell (เนื้อหาเป็น JS ล้วน)</span><span class="chip"><span class="sq s-hi"></span>render diff (raw ≠ rendered)</span><span class="chip"><span class="sq s-lo"></span>noscript fallback</span></div>
+      </div>
+      <div class="gcat"><div class="gh"><b>ความเร็ว</b><span class="d">Core Web Vitals</span><span class="w">น้ำหนัก 10</span></div>
+        <div class="chips"><span class="chip"><span class="sq s-me"></span>TTFB ช้า</span><span class="chip"><span class="sq s-me"></span>compression</span><span class="chip"><span class="sq s-me"></span>HTML ใหญ่</span><span class="chip"><span class="sq s-me"></span>script บล็อก head</span><span class="chip"><span class="sq s-me"></span>third-party เยอะ</span><span class="chip"><span class="sq s-lo"></span>text ratio</span><span class="chip"><span class="sq s-lo"></span>inline bloat</span></div>
+      </div>
+      <div class="gcat"><div class="gh"><b>GEO (AI Search)</b><span class="d">ความพร้อมให้ AI ดึงไปใช้</span><span class="w">น้ำหนัก 10</span></div>
+        <div class="chips"><span class="chip"><span class="sq s-hi"></span>AI bot เข้าถึงได้ (robots.txt)</span><span class="chip"><span class="sq s-hi"></span>spa risk (AI มองไม่เห็น)</span><span class="chip"><span class="sq s-me"></span>FAQ schema</span><span class="chip"><span class="sq s-me"></span>เนื้อหาถาม-ตอบ</span><span class="chip"><span class="sq s-me"></span>E-E-A-T</span><span class="chip"><span class="sq s-me"></span>entity recognition</span><span class="chip"><span class="sq s-me"></span>citability</span><span class="chip"><span class="sq s-me"></span>หน้าความน่าเชื่อถือ</span><span class="chip"><span class="sq s-lo"></span>llms.txt</span></div>
+      </div>
+      <div class="gcat"><div class="gh"><b>ลิงก์</b><span class="w">น้ำหนัก 8</span></div>
+        <div class="chips"><span class="chip"><span class="sq s-hi"></span>broken links (404/410)</span><span class="chip"><span class="sq s-me"></span>internal links น้อย</span><span class="chip"><span class="sq s-me"></span>orphan pages</span><span class="chip"><span class="sq s-me"></span>empty anchor</span><span class="chip"><span class="sq s-lo"></span>generic anchor</span></div>
+      </div>
+      <div class="gcat"><div class="gh"><b>รูปภาพ</b><span class="w">น้ำหนัก 5</span></div>
+        <div class="chips"><span class="chip"><span class="sq s-me"></span>alt text (มี / ว่าง / ไม่มี)</span><span class="chip"><span class="sq s-lo"></span>lazy loading</span><span class="chip"><span class="sq s-lo"></span>width/height (CLS)</span></div>
+      </div>
+      <div class="gcat"><div class="gh"><b>ความปลอดภัย</b><span class="w">น้ำหนัก 5</span></div>
+        <div class="chips"><span class="chip"><span class="sq s-hi"></span>HTTPS</span><span class="chip"><span class="sq s-hi"></span>SSL chain ไม่ครบ</span><span class="chip"><span class="sq s-me"></span>mixed content</span><span class="chip"><span class="sq s-lo"></span>security headers</span></div>
+      </div>
+    </section>
+
+    <div class="foot">
+      <div class="b">AI SEO Audit Pro</div>
+      คะแนน 0–100 · ถ่วงน้ำหนัก 9 หมวด · ตรวจประมาณ 75 จุด · ผลคำนวณแบบ deterministic และตรวจทานกับ Google Lighthouse<br>
+      ทุกข้อค้นพบตรวจสอบย้อนกลับได้จากข้อมูลการ crawl จริง
+    </div>
+  </div>
+</div>
+</body>
+</html>
