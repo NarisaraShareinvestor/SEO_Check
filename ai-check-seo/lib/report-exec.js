@@ -323,7 +323,7 @@ export function renderExecReport(audit, brand = {}) {
 --red:#e74c5e;--amber:#f0a92e;--teal:#19b394}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Inter','Noto Sans Thai',sans-serif;background:#dfe5ee;color:var(--ink);line-height:1.6;font-size:14px;-webkit-font-smoothing:antialiased}
-.slide{width:1188px;min-height:840px;background:#fff;margin:28px auto;padding:60px 72px 26px;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(14,34,64,.28);position:relative}
+.slide{width:1280px;min-height:720px;background:#fff;margin:28px auto;padding:46px 64px 22px;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(14,34,64,.28);position:relative}
 .slide.dark{background:var(--navy);color:#fff}
 .kick{font-size:12px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--goldtx);margin-bottom:14px}
 .dark .kick{color:var(--gold)}
@@ -391,10 +391,10 @@ footer{margin-top:auto;padding-top:22px;display:flex;justify-content:space-betwe
 @media print{
   body{background:#fff}
   .toolbar{display:none}
-  .slide{margin:0;box-shadow:none;page-break-after:always;width:1188px;min-height:840px;height:840px;overflow:hidden}
+  .slide{margin:0;box-shadow:none;page-break-after:always;width:1280px;min-height:720px;height:720px;overflow:hidden}
   .icard{break-inside:avoid}
   th,.chip,.dark,.bstat,.goldstrip,.cover-premium,.pc-stat,.pc-num,.pc-hero,.wm,.wm-corner,.catfill,.sev{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  @page{size:1188px 840px;margin:0}
+  @page{size:13.333in 7.5in;margin:0}
 }
 .foot-center{justify-content:center;text-align:center}
 ${MAKER_CSS}

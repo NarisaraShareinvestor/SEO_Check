@@ -1,9 +1,9 @@
 // Export สไลด์ทั้งเล่มเป็น PowerPoint (.pptx) ฝั่งเบราว์เซอร์
-// ถ่ายภาพแต่ละ .slide ด้วย html2canvas แล้วฝังลง pptxgenjs หนึ่งภาพต่อหนึ่งสไลด์ (A4 แนวนอน)
+// ถ่ายภาพแต่ละ .slide ด้วย html2canvas แล้วฝังลง pptxgenjs หนึ่งภาพต่อหนึ่งสไลด์ (16:9 widescreen)
 // ต้องโหลด html2canvas + pptxgenjs (ผ่าน CDN) มาก่อนหน้านี้
 (function () {
-  // A4 แนวนอน (นิ้ว) — ตรงกับ @page A4 landscape ของรายงาน
-  const PAGE_W = 11.69, PAGE_H = 8.27;
+  // 16:9 widescreen (นิ้ว) — ตรงกับ @page 13.333in × 7.5in และสัดส่วน .slide 1280×720 ของรายงาน
+  const PAGE_W = 13.333, PAGE_H = 7.5;
 
   function setStatus(btn, txt, disabled) {
     if (!btn) return;
@@ -29,8 +29,8 @@
       if (document.fonts && document.fonts.ready) await document.fonts.ready;
 
       const pptx = new window.PptxGenJS();
-      pptx.defineLayout({ name: 'A4L', width: PAGE_W, height: PAGE_H });
-      pptx.layout = 'A4L';
+      pptx.defineLayout({ name: 'W169', width: PAGE_W, height: PAGE_H });
+      pptx.layout = 'W169';
 
       for (let i = 0; i < slides.length; i++) {
         setStatus(btn, `กำลังสร้าง PowerPoint… ${i + 1}/${slides.length}`, true);
