@@ -330,7 +330,7 @@ export function runChecks(site) {
     }));
     checks.push(ldTypes.has('Organization') || ldTypes.has('LocalBusiness') || ldTypes.has('Corporation')
       ? mk('schema-org', 'schema', 'med', 'pass', 'มี Organization schema', `พบ types: ${[...ldTypes].slice(0, 10).join(', ')}`)
-      : mk('schema-org', 'schema', 'med', 'fail', 'ไม่มี Organization/LocalBusiness schema', 'Google และ AI engines ไม่รู้ว่าธุรกิจนี้คือใคร อยู่ที่ไหน — กระทบ Knowledge Panel', 'เพิ่ม Organization schema พร้อม logo, address, sameAs (social links)', [], true));
+      : mk('schema-org', 'schema', 'med', 'fail', 'ไม่มี Organization/LocalBusiness schema', `ไม่พบใน ${okPages.length} หน้าที่ตรวจ — Google และ AI engines ไม่รู้ว่าธุรกิจนี้คือใคร อยู่ที่ไหน (กระทบ Knowledge Panel) · ปกติใส่ครั้งเดียวใน template/หน้าแรกก็ครอบคลุมทั้งเว็บ`, 'เพิ่ม Organization schema พร้อม logo, address, sameAs (social links)', okPages.map(p => p.url), true));
     checks.push(ldTypes.has('BreadcrumbList')
       ? mk('schema-breadcrumb', 'schema', 'low', 'pass', 'มี BreadcrumbList schema', '')
       : mk('schema-breadcrumb', 'schema', 'low', 'warn', 'ไม่มี BreadcrumbList schema', 'breadcrumb ใน SERP ช่วย CTR', 'เพิ่ม BreadcrumbList ทุกหน้า', [], true));

@@ -72,8 +72,8 @@ export function runGeoChecks(site) {
   checks.push((ldTypes.has('FAQPage') || ldTypes.has('QAPage'))
     ? mk('geo-faq-schema', 'med', 'pass', 'มี FAQ/QA schema', 'AI engines ดึง Q&A ที่มี schema ไปตอบได้ตรงที่สุด')
     : mk('geo-faq-schema', 'med', 'fail', 'ยังไม่มี FAQ schema',
-      'คำถาม-คำตอบที่มี FAQPage schema คือ format ที่ AI Overview และ ChatGPT ดึงไปตอบได้ดี — ตอนนี้ยังไม่พบในเว็บ',
-      'เพิ่ม FAQ section + FAQPage schema ในหน้าบริการหลักทุกหน้า (Auto-Fix สร้าง template ให้)', [], true));
+      `ไม่พบ FAQPage/QAPage schema ใน ${pages.length} หน้าที่ตรวจ — เป็น format ที่ AI Overview และ ChatGPT ดึงไปตอบได้ดี`,
+      'เพิ่ม FAQ section + FAQPage schema ในหน้าบริการหลัก (ไม่จำเป็นทุกหน้า) — Auto-Fix สร้าง template ให้', pages.map(p => p.url), true));
 
   // ── 5. Q&A content blocks (heading เป็นคำถาม) ──
   const qWords = /(\?|คืออะไร|คือ\s|ทำไม|อย่างไร|ยังไง|เท่าไหร่|ที่ไหน|เมื่อไหร่|^(what|how|why|when|where|who)\b)/i;
@@ -93,10 +93,16 @@ export function runGeoChecks(site) {
   let sameAs = false;
   pages.forEach(p => p.jsonLd.forEach(j => { if (j.ok && /"sameAs"/.test(JSON.stringify(j.data))) sameAs = true; }));
   if (!sameAs) eat.push('Organization ไม่มี sameAs ลิงก์ไป social/Wikipedia (สัญญาณ entity)');
+  // list หน้าที่ขาดสัญญาณรายหน้า (author/วันที่) — sameAs เป็นระดับเว็บ ไม่ list รายหน้า
+  const eatMissingPages = pages.filter(p => {
+    const a = p.metas['author'] || p.jsonLd.some(j => j.ok && JSON.stringify(j.data).includes('"author"'));
+    const d = p.metas['article:published_time'] || p.jsonLd.some(j => j.ok && /datePublished|dateModified/.test(JSON.stringify(j.data)));
+    return !a || !d;
+  }).map(p => p.url);
   checks.push(eat.length
     ? mk('geo-eeat', 'med', eat.length >= 2 ? 'fail' : 'warn', 'สัญญาณ E-E-A-T ไม่ครบ',
       eat.join(' · ') + ' — AI engines ใช้สัญญาณเหล่านี้ตัดสินว่าควรเชื่อและอ้างถึงเว็บไหน',
-      'เพิ่ม author bio + วันที่ + Organization.sameAs (Auto-Fix ช่วยสร้าง schema ได้)', [], true)
+      'เพิ่ม author bio + วันที่ + Organization.sameAs (Auto-Fix ช่วยสร้าง schema ได้)', eatMissingPages, true)
     : mk('geo-eeat', 'med', 'pass', 'สัญญาณ E-E-A-T ครบ', 'มี author, dates และ entity links'));
 
   // ── 7. Citation-worthy content ──
