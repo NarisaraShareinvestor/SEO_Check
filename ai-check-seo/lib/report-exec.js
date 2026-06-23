@@ -405,14 +405,14 @@ ${brandColor ? `<style>:root{--gold:${esc(brandColor)};--goldtx:${esc(brandColor
 <body>
 <div class="toolbar">
   <div class="ppt-menu" id="pptMenu">
-    <button onclick="togglePptMenu(event)">บันทึกเป็น PowerPoint ▾</button>
+    <button onclick="togglePptMenu(event)" title="ดาวน์โหลดไฟล์ .pptx (16:9) เปิด/แก้ใน PowerPoint ได้">ไฟล์ PowerPoint (.pptx) ▾</button>
     <div class="ppt-pop">
       <button onclick="exportThemed('standard')">แบบมาตรฐาน<small>โลโก้ลายน้ำกลางหน้า · ปกเรียบ</small></button>
       <button onclick="exportThemed('premium')">แบบพรีเมียม<small>ปกหรู + โลโก้มุมขวาบน</small></button>
     </div>
   </div>
-  <button onclick="var b=this;b.disabled=true;b.textContent='กำลังสร้าง PDF…';var u=location.pathname.replace(/\/+$/,'')+'/pdf'+location.search;var f=document.createElement('iframe');f.style.display='none';f.src=u;document.body.appendChild(f);setTimeout(function(){b.disabled=false;b.textContent='ดาวน์โหลด PDF';},15000);">ดาวน์โหลด PDF</button>
-  <button onclick="window.print()" style="background:transparent;border:1px solid var(--gold);box-shadow:none" title="พิมพ์ผ่านเบราว์เซอร์">พิมพ์</button>
+  <button onclick="var b=this;b.disabled=true;b.textContent='กำลังสร้าง PDF…';var u=location.pathname.replace(/\/+$/,'')+'/pdf'+location.search;var f=document.createElement('iframe');f.style.display='none';f.src=u;document.body.appendChild(f);setTimeout(function(){b.disabled=false;b.textContent='ดาวน์โหลด PDF (16:9)';},15000);" title="ไฟล์ PDF สไลด์แนวนอน 16:9 — เหมือนสไลด์ PowerPoint ส่งลูกค้าได้เลย">ดาวน์โหลด PDF (16:9)</button>
+  <button onclick="window.print()" style="background:transparent;border:1px solid var(--gold);box-shadow:none" title="พิมพ์ผ่านเบราว์เซอร์ หรือ Save as PDF เอง">พิมพ์</button>
 </div>
 <div id="cover-standard">${cover}</div>
 <div id="cover-premium">${coverPremium}</div>
