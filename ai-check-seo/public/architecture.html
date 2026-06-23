@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>สถาปัตยกรรมระบบ & แนวคิด — AI SEO Audit Pro</title>
+<style>
+  :root{
+    --ink:#16203a; --blue:#1b4dd8; --navy:#0f1e3d; --mut:#667085;
+    --line:#e5e8ee; --line2:#eef1f6; --paper:#fff; --faint:#f7f9fc;
+    --hi:#c0392b; --me:#b7791f; --lo:#0e7490; --ok:#15803d;
+    --serif:"Georgia","Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,"Sarabun",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:#eef0f4;color:var(--ink);font-family:var(--sans);line-height:1.62;font-size:15px;-webkit-font-smoothing:antialiased}
+  .page{max-width:1000px;margin:24px auto;background:var(--paper);box-shadow:0 1px 3px rgba(16,30,61,.06),0 12px 40px rgba(16,30,61,.07)}
+  .pad{padding:0 clamp(20px,5vw,62px)}
+  .cover{background:var(--navy);color:#fff;padding:clamp(34px,6vw,64px) clamp(20px,5vw,62px) clamp(30px,5vw,52px)}
+  .eyebrow{font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:#9db4e8;font-weight:600}
+  .cover h1{font-family:var(--serif);font-weight:700;font-size:clamp(28px,6vw,50px);line-height:1.07;margin:14px 0 0;letter-spacing:-.5px}
+  .cover h1 em{font-style:italic;color:#c7d6f7}
+  .cover .lead{max-width:680px;color:#c3cee2;font-size:clamp(14px,2.4vw,16px);margin:18px 0 0}
+  section{padding:clamp(30px,5vw,52px) 0;border-bottom:1px solid var(--line)}
+  section:last-of-type{border-bottom:0}
+  .shead{display:flex;align-items:baseline;gap:16px;margin-bottom:24px}
+  .shead .num{font-family:var(--serif);font-size:34px;font-weight:700;color:var(--line);line-height:1;flex:none}
+  .shead h2{font-family:var(--serif);font-weight:700;font-size:clamp(20px,3.4vw,27px);margin:0;letter-spacing:-.3px}
+  .shead .sub{font-size:13px;color:var(--mut);margin-top:3px}
+  .grid{display:grid;gap:1px;background:var(--line);border:1px solid var(--line)}
+  .g3{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:720px){.g3,.g2{grid-template-columns:1fr}}
+  .cell{background:var(--paper);padding:20px 22px}
+  .cell .k{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);font-weight:700}
+  .cell h3{font-family:var(--serif);font-size:16.5px;margin:7px 0 5px;font-weight:700}
+  .cell p{margin:0;font-size:12.8px;color:var(--mut);line-height:1.6}
+  .cell code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;background:var(--faint);padding:1px 5px;border-radius:3px;color:var(--navy)}
+  .figure{border:1px solid var(--line);background:var(--faint);padding:18px clamp(8px,3vw,26px);border-radius:2px}
+  .figure svg{width:100%;height:auto;display:block}
+  .figcap{font-size:12px;color:var(--mut);text-align:center;margin-top:12px;font-style:italic;font-family:var(--serif)}
+  table{width:100%;border-collapse:collapse;font-size:13.3px;border:1px solid var(--line)}
+  th,td{padding:10px 15px;text-align:left;border-bottom:1px solid var(--line2);vertical-align:top}
+  th{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);font-weight:700;background:var(--faint)}
+  tr:last-child td{border-bottom:0}
+  td .mod{font-family:ui-monospace,Menlo,monospace;font-weight:700;color:var(--navy);font-size:12.5px}
+  .flow{counter-reset:step;list-style:none;padding:0;margin:0}
+  .flow li{position:relative;padding:0 0 18px 52px;counter-increment:step}
+  .flow li::before{content:counter(step);position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:var(--navy);color:#fff;font-family:var(--serif);font-weight:700;display:grid;place-items:center;font-size:14px}
+  .flow li::after{content:'';position:absolute;left:15.5px;top:34px;bottom:2px;width:1px;background:var(--line)}
+  .flow li:last-child::after{display:none}
+  .flow b{font-size:14.5px}
+  .flow .d{font-size:12.8px;color:var(--mut);margin-top:2px}
+  .flow .d code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;background:var(--faint);padding:1px 5px;border-radius:3px;color:var(--navy)}
+  .tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+  .tag{font-size:12.5px;background:#fff;border:1px solid var(--line);padding:4px 11px;border-radius:2px;color:#33404f}
+  .tag b{color:var(--navy)}
+  .note{font-size:12.5px;color:var(--mut);margin-top:14px;background:var(--faint);border-left:3px solid var(--blue);padding:10px 15px;border-radius:0 6px 6px 0}
+  .foot{padding:26px 0 4px;font-size:11.5px;color:var(--mut);text-align:center}
+  .foot .b{font-family:var(--serif);color:var(--ink);font-size:13px}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="cover">
+    <div class="eyebrow">System Architecture · Engineering Notes</div>
+    <h1>สถาปัตยกรรมระบบ<br>และ <em>แนวคิดเบื้องหลัง</em></h1>
+    <p class="lead">เอกสารนี้อธิบายว่าระบบประกอบด้วยอะไรบ้าง — ฝั่ง Backend, Frontend, การไหลของข้อมูล และแนวคิดทางวิศวกรรมที่ทำให้ผลการตรวจ "แม่นยำ ทำซ้ำได้ และตรวจสอบย้อนกลับได้"</p>
+  </div>
+
+  <div class="pad">
+
+    <!-- 01 DIAGRAM -->
+    <section>
+      <div class="shead"><div class="num">01</div><div><h2>ภาพรวมสถาปัตยกรรม</h2><div class="sub">4 ชั้น + บริการภายนอก</div></div></div>
+      <div class="figure">
+        <svg viewBox="0 0 820 470" role="img" aria-label="แผนภาพสถาปัตยกรรมระบบ">
+          <defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#1b4dd8"/></marker></defs>
+          <style>
+            .l{font:700 13px Georgia,serif;fill:#0f1e3d}.lw{font:700 13px Georgia,serif;fill:#fff}
+            .s{font:10.5px -apple-system,Arial,sans-serif;fill:#667085}.sw{font:10.5px -apple-system,Arial,sans-serif;fill:#b9c6e2}
+            .tag{font:700 9px -apple-system,Arial,sans-serif;fill:#1b4dd8;letter-spacing:1.2px}
+            .c{stroke:#1b4dd8;stroke-width:1.3;stroke-dasharray:4 3;fill:none}
+          </style>
+          <!-- vertical connectors -->
+          <path class="c" d="M250,92 V120" marker-end="url(#a)"/>
+          <path class="c" d="M250,184 V212" marker-end="url(#a)"/>
+          <path class="c" d="M250,330 V358" marker-end="url(#a)"/>
+          <!-- external link -->
+          <path class="c" d="M470,270 H past" /><path class="c" d="M470,270 H past"/>
+          <path class="c" d="M468,250 H612" marker-end="url(#a)"/>
+          <path class="c" d="M612,290 H468" marker-end="url(#a)"/>
+          <!-- 1 frontend -->
+          <rect x="40" y="40" width="420" height="52" rx="4" fill="#fff" stroke="#c8d2e6"/>
+          <text x="58" y="60" class="tag">FRONTEND · เบราว์เซอร์</text>
+          <text x="58" y="80" class="l">SPA (index.html · app.js) + รายงาน HTML/PDF/PPTX</text>
+          <!-- 2 api -->
+          <rect x="40" y="120" width="420" height="62" rx="4" fill="#0f1e3d"/>
+          <text x="58" y="142" class="tag" fill="#9db4e8">BACKEND API · Express (server.js)</text>
+          <text x="58" y="162" class="lw">/api/audit · /api/quality · /report-exec · /methodology</text>
+          <text x="58" y="176" class="sw">คิวงานเบื้องหลัง (background jobs) + ส่งสถานะแบบ poll</text>
+          <!-- 3 engine -->
+          <rect x="40" y="212" width="420" height="116" rx="4" fill="#fff" stroke="#1b4dd8" stroke-width="1.4"/>
+          <text x="58" y="234" class="tag">AUDIT ENGINE · lib/</text>
+          <text x="58" y="255" class="l">crawler → checks + geo → scorer → ai → verify</text>
+          <text x="58" y="276" class="s">crawler.js เก็บ raw + rendered · checks.js กฎ ~75 จุด</text>
+          <text x="58" y="291" class="s">scorer.js ถ่วงน้ำหนัก · geo.js ความพร้อม AI</text>
+          <text x="58" y="306" class="s">ai.js วิเคราะห์ (มี guardrail) · verify.js เทียบ Lighthouse</text>
+          <!-- 4 data -->
+          <rect x="40" y="358" width="420" height="52" rx="4" fill="#fff" stroke="#c8d2e6"/>
+          <text x="58" y="378" class="tag">DATA STORE</text>
+          <text x="58" y="397" class="l">ไฟล์ JSON ต่อ 1 การตรวจ (data/audits/&lt;id&gt;.json)</text>
+          <!-- external -->
+          <rect x="540" y="150" width="240" height="210" rx="4" fill="#f7f9fc" stroke="#c8d2e6"/>
+          <text x="560" y="172" class="tag">บริการภายนอก</text>
+          <text x="560" y="198" class="l">Headless Chrome</text><text x="560" y="213" class="s">(Playwright) — render SPA, PDF</text>
+          <text x="560" y="242" class="l">Google PageSpeed</text><text x="560" y="257" class="s">Lighthouse — ตรวจทาน/CWV</text>
+          <text x="560" y="286" class="l">OpenAI API</text><text x="560" y="301" class="s">วิเคราะห์เชิงคุณภาพ</text>
+          <text x="560" y="330" class="l">ClickUp</text><text x="560" y="345" class="s">ส่ง Action Item ให้ dev</text>
+        </svg>
+      </div>
+      <div class="figcap">เบราว์เซอร์เรียก API → Engine ตรวจ (เรียกบริการภายนอกตามต้องการ) → เก็บผลเป็น JSON → ส่งกลับให้หน้าเว็บแสดง</div>
+    </section>
+
+    <!-- 02 PRINCIPLES -->
+    <section>
+      <div class="shead"><div class="num">02</div><div><h2>แนวคิดหลักทางวิศวกรรม</h2><div class="sub">การตัดสินใจที่ทำให้ผลเชื่อถือได้</div></div></div>
+      <div class="grid g3">
+        <div class="cell"><div class="k">Raw-first</div><h3>วัดจาก HTML ดิบ</h3><p>วิเคราะห์สิ่งที่ Googlebot รอบแรกและ AI crawler อ่านได้ก่อนรัน JavaScript — เพราะ AI bot ส่วนใหญ่ไม่ประมวลผล JS</p></div>
+        <div class="cell"><div class="k">Two-wave</div><h3>เก็บทั้ง raw และ rendered</h3><p>crawler เปิดหน้าด้วย headless Chrome เก็บทั้งโค้ดดิบและหน้าหลัง render แล้วเทียบกัน ตามพฤติกรรม two-wave indexing</p></div>
+        <div class="cell"><div class="k">Deterministic</div><h3>กฎตายตัว ผลนิ่ง</h3><p>หัวใจคือ rule engine ที่ไม่สุ่ม (ไม่ใช่ AI ตัดสิน) — เว็บเดิมได้คะแนนเดิม จึงเทียบก่อน/หลังแก้ได้จริง</p></div>
+        <div class="cell"><div class="k">AI as a layer</div><h3>AI เป็นชั้นเสริม มี guardrail</h3><p>ใช้ AI เฉพาะการประเมินเชิงคุณภาพ + มีด่านตรวจกัน hallucination (ตัด finding ที่อ้างอิง check ที่ไม่มีจริง)</p></div>
+        <div class="cell"><div class="k">Cross-check</div><h3>ไม่ใช้ engine ตัดสิน engine</h3><p>เทียบผลกับ Google Lighthouse เป็นเกณฑ์อิสระ คำนวณ Precision/Recall รายเว็บ เพื่อจับกรณีตรวจผิด</p></div>
+        <div class="cell"><div class="k">Resilient</div><h3>ทนต่อความไม่เสถียร</h3><p>retry ตาม Retry-After, แยก timeout (สรุปไม่ได้) ออกจากปัญหาจริง, ค่าที่ผันผวนไม่กระทบคะแนน</p></div>
+      </div>
+    </section>
+
+    <!-- 03 BACKEND -->
+    <section>
+      <div class="shead"><div class="num">03</div><div><h2>Backend</h2><div class="sub">Node.js + Express · ตรรกะทั้งหมดอยู่ใน lib/</div></div></div>
+      <table>
+        <tr><th>โมดูล</th><th>หน้าที่</th></tr>
+        <tr><td><span class="mod">server.js</span></td><td>Express API + คิวงานเบื้องหลัง + บันทึก/อ่านผลเป็นไฟล์ JSON + เส้นทางรายงาน/PDF</td></tr>
+        <tr><td><span class="mod">crawler.js</span></td><td>ดึง HTML ดิบ (retry, จัดการ 429/redirect/TLS), rendered crawl ด้วย Playwright สำหรับ SPA, ตรวจรูปที่มองเห็นจริง, robots/sitemap, broken links, การตรวจแบบสุภาพ</td></tr>
+        <tr><td><span class="mod">checks.js</span></td><td>Rule engine — กฎ deterministic ~75 จุด แบ่ง 9 หมวด (มี <code>ENGINE_VERSION</code> สำหรับเทียบเวอร์ชัน)</td></tr>
+        <tr><td><span class="mod">scorer.js</span></td><td>คำนวณคะแนน 0–100 ถ่วงน้ำหนักตามความรุนแรง × หมวด → เกรด A–F</td></tr>
+        <tr><td><span class="mod">geo.js</span></td><td>ตรวจความพร้อมด้าน AI Search — robots สำหรับ AI bot, SPA risk, FAQ schema, E-E-A-T, llms.txt</td></tr>
+        <tr><td><span class="mod">verify.js / psi.js</span></td><td>ดึง Google Lighthouse / PageSpeed มาตรวจทาน + คำนวณ Precision/Recall + ระดับความเชื่อมั่นรายข้อ</td></tr>
+        <tr><td><span class="mod">ai.js</span></td><td>วิเคราะห์เชิงคุณภาพด้วย OpenAI + guardrail กัน hallucination</td></tr>
+        <tr><td><span class="mod">schema-validate.js</span></td><td>ตรวจ JSON-LD / schema.org ตามเกณฑ์ Google</td></tr>
+        <tr><td><span class="mod">report-exec · report-sales · report</span></td><td>สร้างรายงาน 3 แบบ (ผู้บริหาร / เซลส์ / เทคนิค) เป็น HTML → PDF/PPTX</td></tr>
+        <tr><td><span class="mod">autofix · pagefix</span></td><td>สร้างหน้าเว็บ "ฉบับแก้แล้ว" ให้ dev นำไปใช้</td></tr>
+        <tr><td><span class="mod">clickup.js</span></td><td>ส่ง Action Item พร้อมโค้ดแก้ไปยัง ClickUp ให้ทีม dev</td></tr>
+      </table>
+    </section>
+
+    <!-- 04 FRONTEND -->
+    <section>
+      <div class="shead"><div class="num">04</div><div><h2>Frontend</h2><div class="sub">SPA แบบ vanilla — ไม่มี build step ไม่พึ่ง framework</div></div></div>
+      <div class="grid g2">
+        <div class="cell"><div class="k">index.html + app.js</div><h3>Single-page app</h3><p>แถบเมนูด้านข้าง (ตรวจเว็บ · ประวัติ · คุณภาพการตรวจ · Dashboard · หลักการให้คะแนน) สลับมุมมองด้วย JS · เรียก API แล้ว poll สถานะจนตรวจเสร็จ · เรนเดอร์ผล/กราฟ/ตารางคุณภาพ</p></div>
+        <div class="cell"><div class="k">รายงาน (server-rendered)</div><h3>HTML ที่พิมพ์/ส่งออกได้</h3><p>รายงานสร้างฝั่งเซิร์ฟเวอร์เป็น HTML สไลด์ 16:9 · ดาวน์โหลด PDF (headless Chrome) หรือ PowerPoint (.pptx) · รองรับ white-label (โลโก้/สีแบรนด์)</p></div>
+      </div>
+      <div class="note">เลือกใช้ vanilla JS โดยตั้งใจ — ไม่มีขั้นตอน build, deploy ง่าย, โหลดเร็ว และไม่มี dependency frontend ให้ดูแล</div>
+    </section>
+
+    <!-- 05 DATA FLOW -->
+    <section>
+      <div class="shead"><div class="num">05</div><div><h2>การไหลของข้อมูล (1 รอบการตรวจ)</h2></div></div>
+      <ol class="flow">
+        <li><b>รับคำขอ</b><div class="d">หน้าเว็บส่ง <code>POST /api/audit</code> (URL + จำนวนหน้า) → เซิร์ฟเวอร์สร้าง job แล้วทำงานเบื้องหลัง คืน id ทันที</div></li>
+        <li><b>Crawl</b><div class="d">ดึง HTML ดิบทุกหน้า + ถ้าเป็น SPA เปิด headless Chrome เก็บหน้า render · ตรวจ robots/sitemap/broken links · เก็บรูปที่มองเห็นจริง</div></li>
+        <li><b>ตรวจด้วยกฎ</b><div class="d"><code>runChecks</code> (deterministic ~75 จุด) + <code>runGeoChecks</code> (ความพร้อม AI) → ได้รายการผลพร้อมความรุนแรง/สถานะ</div></li>
+        <li><b>ให้คะแนน</b><div class="d"><code>scoreAudit</code> ถ่วงน้ำหนัก 9 หมวด → คะแนน 0–100 + เกรด</div></li>
+        <li><b>วิเคราะห์ AI</b><div class="d">ai.js สรุปประเด็นสำคัญเชิงธุรกิจ ผ่าน guardrail ก่อนแสดง</div></li>
+        <li><b>ตรวจทาน</b><div class="d">verify.js เทียบกับ Google Lighthouse (ขนานกัน) → ติดธง "ควรรีวิว" ถ้าผลต่างจาก Google ในข้อเท็จจริง</div></li>
+        <li><b>บันทึก + ส่งกลับ</b><div class="d">เก็บผลทั้งหมดเป็น <code>data/audits/&lt;id&gt;.json</code> · หน้าเว็บ poll <code>GET /api/audit/:id</code> จนเสร็จแล้วเรนเดอร์</div></li>
+      </ol>
+    </section>
+
+    <!-- 06 STACK -->
+    <section>
+      <div class="shead"><div class="num">06</div><div><h2>Tech Stack</h2></div></div>
+      <div class="tags">
+        <span class="tag"><b>Node.js</b> ≥18 (runtime)</span>
+        <span class="tag"><b>Express</b> (web server / API)</span>
+        <span class="tag"><b>cheerio</b> (parse HTML ดิบ)</span>
+        <span class="tag"><b>Playwright</b> / Chromium (render SPA + สร้าง PDF)</span>
+        <span class="tag"><b>OpenAI API</b> (วิเคราะห์เชิงคุณภาพ)</span>
+        <span class="tag"><b>Google PageSpeed / Lighthouse</b> (ตรวจทาน + CWV)</span>
+        <span class="tag"><b>pptxgenjs + html2canvas</b> (export PowerPoint)</span>
+        <span class="tag"><b>VPS + pm2 + nginx</b> (deploy)</span>
+      </div>
+      <div class="note">เก็บผลเป็นไฟล์ JSON (ไม่ต้องมีฐานข้อมูล) — เบา ตรวจสอบย้อนกลับได้ และทุกการตรวจเป็นหลักฐานในตัวเอง · deploy ด้วย git → ดึงลง VPS → pm2 restart</div>
+    </section>
+
+    <div class="foot">
+      <div class="b">AI SEO Audit Pro</div>
+      Backend: Node.js + Express · Engine deterministic + AI + GEO · ตรวจทานกับ Google Lighthouse<br>
+      Frontend: vanilla SPA · รายงาน server-rendered (PDF/PPTX 16:9) · ทุกผลตรวจสอบย้อนกลับได้จากข้อมูล crawl จริง
+    </div>
+  </div>
+</div>
+</body>
+</html>

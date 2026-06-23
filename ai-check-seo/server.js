@@ -44,6 +44,7 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.static(join(__dirname, 'public')));
 app.use('/demo', express.static(join(__dirname, 'demo-site'), { extensions: ['html'] }));
 app.get('/methodology', (_req, res) => res.sendFile(join(__dirname, 'public', 'methodology.html')));
+app.get('/architecture', (_req, res) => res.sendFile(join(__dirname, 'public', 'architecture.html')));
 
 // in-memory job state (ผลถาวรเก็บเป็นไฟล์ JSON)
 const jobs = new Map(); // id → {id, status, progress[], result?}
