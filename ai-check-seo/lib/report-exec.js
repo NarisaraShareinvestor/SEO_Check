@@ -276,8 +276,9 @@ export function renderExecReport(audit, brand = {}) {
   // แบ่งส่วนตาม "ระดับความสำคัญจริง" (ไม่ใช่ fail/warn) เพื่อให้สีการ์ดตรงกับชื่อส่วน:
   // สูง (แดง) → ประเด็นที่ต้องดำเนินการแก้ไข · ปานกลาง+ต่ำ (เหลือง+เขียว) → ประเด็นที่ควรปรับปรุง
   const nonGeoIssues = [...fails, ...warns].filter(c => c.category !== 'geo');
-  const urgentItems = nonGeoIssues.filter(c => effRank(c) === 0);
-  const improveItems = nonGeoIssues.filter(c => effRank(c) >= 1);
+  const urgentItems = nonGeoIssues.filter(c => effRank(c) === 0);   // สูง (แดง)
+  const improveItems = nonGeoIssues.filter(c => effRank(c) === 1);  // ปานกลาง (เหลือง)
+  const minorItems = nonGeoIssues.filter(c => effRank(c) === 2);    // ต่ำ (เขียว)
 
   // ── รายการที่ผ่านเกณฑ์ ──
   const goodSlide = passes.length ? `
@@ -300,7 +301,7 @@ export function renderExecReport(audit, brand = {}) {
     <p class="sub" style="margin-bottom:24px">เพื่อยกระดับประสิทธิภาพด้าน SEO และความพร้อมต่อระบบค้นหายุค AI อย่างเป็นรูปธรรม ขอเสนอแนวทางการดำเนินงานตามลำดับความสำคัญ ดังนี้</p>
     <div class="steps">
       <div class="stepi"><b>ระยะที่ 1</b><div><b>แก้ไขประเด็นสำคัญเร่งด่วน</b><p>ดำเนินการแก้ไขประเด็นที่ต้องดำเนินการ ${urgentItems.length} รายการ โดยเริ่มจากประเด็นที่มีผลกระทบสูงสุด</p></div></div>
-      <div class="stepi"><b>ระยะที่ 2</b><div><b>ปรับปรุงประเด็นรอง</b><p>ดำเนินการปรับปรุงประเด็นที่ควรปรับปรุง ${improveItems.length + geoFails.length + geoWarns.length} รายการ เพื่อเสริมความแข็งแกร่งของเว็บไซต์</p></div></div>
+      <div class="stepi"><b>ระยะที่ 2</b><div><b>ปรับปรุงประเด็นรอง</b><p>ดำเนินการปรับปรุงประเด็นที่ควรปรับปรุงและปรับแต่งเพิ่มเติม ${improveItems.length + minorItems.length + geoFails.length + geoWarns.length} รายการ เพื่อเสริมความแข็งแกร่งของเว็บไซต์</p></div></div>
       <div class="stepi"><b>ระยะที่ 3</b><div><b>ตรวจประเมินซ้ำและวัดผล</b><p>ตรวจประเมินซ้ำเพื่อเปรียบเทียบผลก่อนและหลังการดำเนินการ และติดตามผลอย่างต่อเนื่อง</p></div></div>
     </div>
     <p class="note" style="color:#b9c4d6;margin-top:30px">รายงานฉบับนี้จัดทำจากการตรวจประเมินเว็บไซต์จริง ณ วันที่ ${esc(dateTh)} · ข้อมูลเชิงเทคนิคโดยละเอียดสามารถขอเพิ่มเติมได้จากรายงานฉบับเต็ม</p>
@@ -418,9 +419,11 @@ ${execSlide}
 ${prioritySlide}
 ${urgentItems.length ? divider(1, 'ประเด็นที่ต้องดำเนินการแก้ไข', 'ประเด็นที่ส่งผลกระทบต่อการจัดอันดับและธุรกิจมากที่สุด พร้อมสิ่งที่ตรวจพบ ผลกระทบ และคำแนะนำ') : ''}
 ${issueSlides(urgentItems, 'ประเด็นที่ต้องดำเนินการแก้ไข', 'ประเด็นที่ต้องดำเนินการแก้ไข', 'รายละเอียดของแต่ละประเด็นประกอบด้วยสิ่งที่ตรวจพบ ผลกระทบต่อธุรกิจ ระดับความสำคัญ และคำแนะนำในการดำเนินการ เรียงตามระดับผลกระทบ')}
-${improveItems.length ? divider(2, 'ประเด็นที่ควรปรับปรุง', 'ประเด็นที่ยังไม่ถึงระดับวิกฤต แต่หากดำเนินการจะช่วยเสริมความแข็งแกร่งและความสามารถในการแข่งขัน') : ''}
+${improveItems.length ? divider(2, 'ประเด็นที่ควรปรับปรุง', 'ประเด็นระดับปานกลางที่หากดำเนินการจะช่วยเสริมความแข็งแกร่งและความสามารถในการแข่งขัน') : ''}
 ${issueSlides(improveItems, 'ประเด็นที่ควรปรับปรุง', 'ประเด็นที่ควรปรับปรุง')}
-${(geoFails.length || geoWarns.length) ? divider(3, 'ความพร้อมต่อระบบค้นหายุค AI', 'การค้นหาผ่านระบบปัญญาประดิษฐ์ (ChatGPT, Google AI Overview, Perplexity) กำลังมีบทบาทเพิ่มขึ้น ส่วนนี้ประเมินความพร้อมของเว็บไซต์') : ''}
+${minorItems.length ? divider(3, 'ประเด็นปรับแต่งเพิ่มเติม', 'ประเด็นระดับเล็กน้อยที่ปรับเพิ่มเพื่อความสมบูรณ์ของเว็บไซต์ ไม่กระทบการจัดอันดับอย่างมีนัยสำคัญ') : ''}
+${issueSlides(minorItems, 'ประเด็นปรับแต่งเพิ่มเติม', 'ประเด็นปรับแต่งเพิ่มเติม')}
+${(geoFails.length || geoWarns.length) ? divider(4, 'ความพร้อมต่อระบบค้นหายุค AI', 'การค้นหาผ่านระบบปัญญาประดิษฐ์ (ChatGPT, Google AI Overview, Perplexity) กำลังมีบทบาทเพิ่มขึ้น ส่วนนี้ประเมินความพร้อมของเว็บไซต์') : ''}
 ${issueSlides([...geoFails, ...geoWarns], 'ความพร้อมต่อระบบค้นหายุค AI', 'ความพร้อมต่อระบบค้นหายุค AI (GEO)', 'ประเด็นต่อไปนี้มีผลต่อการที่ระบบ AI จะนำเนื้อหาของเว็บไซต์ไปใช้อ้างอิงและตอบคำถามแก่ผู้ใช้งาน')}
 ${goodSlide}
 ${closeSlide}
