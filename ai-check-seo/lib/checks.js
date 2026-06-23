@@ -493,8 +493,13 @@ export function runChecks(site) {
       checks.push(diffs.length
         ? mk('render-diff', 'rendering', 'high', 'fail', 'หลักฐาน: เนื้อหาต่างกันระหว่าง raw กับ rendered', `เทียบด้วย headless Chrome แล้วพบความต่างชัดเจน — สิ่งที่ Googlebot รอบแรกเห็น ≠ สิ่งที่ผู้ใช้เห็น`, 'เปิด SSR/pre-render เพื่อให้ raw HTML มีเนื้อหาครบ', diffs)
         : mk('render-diff', 'rendering', 'high', 'pass', 'Raw และ rendered ตรงกัน', `เทียบ ${Object.keys(site.rendered.pages).length} หน้าด้วย headless Chrome — เนื้อหาตรงกัน`));
+    } else if (site.renderFailedSpa) {
+      // SPA แต่ render ไม่สำเร็จทั้ง 2 รอบ (rate-limit/timeout) → ได้แค่ shell เปล่า ผลไม่สมบูรณ์ — เตือนชัด (ไม่ใช่ "ไม่ได้ติดตั้ง")
+      checks.push(mk('render-diff', 'rendering', 'high', 'warn', 'render ไม่สำเร็จรอบนี้ — ผลตรวจอาจไม่สมบูรณ์', 'เว็บนี้เป็น SPA (เนื้อหา render ด้วย JS) แต่เปิดด้วย headless Chrome ไม่สำเร็จ (อาจโดน rate-limit/timeout ชั่วคราว) จึงตรวจได้แค่โครงหน้า', 'ตรวจใหม่อีกครั้ง — ถ้ายังล้มซ้ำ แปลว่าเว็บจำกัดบอทเข้มงวด ต้องตรวจตอนคนน้อย'));
+    } else if (!site.rendered || site.rendered.skipped === 'worker-relay') {
+      // ใช้ raw HTML ผ่าน relay หรือไม่จำเป็นต้อง render (non-SPA เนื้อหาครบ) — ไม่ใช่ปัญหา ไม่ต้องอ้างว่า "ไม่ได้ติดตั้ง"
     } else {
-      checks.push(mk('render-diff', 'rendering', 'low', 'info', 'ยังไม่ได้เทียบ rendered (Playwright ไม่ได้ติดตั้ง)', 'ติดตั้งด้วย: npm i playwright && npx playwright install chromium — แล้วระบบจะเทียบ raw vs rendered ให้อัตโนมัติ', ''));
+      checks.push(mk('render-diff', 'rendering', 'low', 'info', 'ไม่ได้เทียบ raw vs rendered รอบนี้', 'ระบบจะเทียบ raw vs rendered อัตโนมัติเมื่อ render ได้ (ถ้ารันเองในเครื่องที่ไม่มี Chromium: npm i playwright && npx playwright install chromium)', ''));
     }
 
     const noNoscript = okPages.filter(p => p.emptyRoot && !p.hasNoscript);
