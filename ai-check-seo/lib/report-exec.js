@@ -237,7 +237,7 @@ export function renderExecReport(audit, brand = {}) {
   const issueCard = (c) => {
     const cnt = c.affectedCount || (c.pages || []).length;
     return `
-    <div class="icard ${c.status}">
+    <div class="icard pri-${effSevKey(c)}">
       <div class="ic-head">
         <div class="ic-title">${esc(titleOf(c))}</div>
         <div class="ic-badges"><span class="sev sev-${effSevKey(c) || 'med'}">ระดับความสำคัญ: ${effSevTH(c) || 'ปานกลาง'}</span></div>
@@ -353,8 +353,9 @@ h2 .pgof{font-size:15px;font-weight:600;color:var(--mut)}
 .pdesc{font-size:13px;color:#3b4d68}
 /* การ์ดปัญหา */
 .icard{border:1px solid var(--border);border-left:5px solid var(--mut);border-radius:8px;padding:16px 22px;margin-bottom:13px;background:#fff}
-.icard.fail{border-left-color:var(--red);background:#fffafa}
-.icard.warn{border-left-color:var(--amber);background:#fffdf6}
+.icard.pri-high{border-left-color:var(--red);background:#fffafa}
+.icard.pri-med{border-left-color:var(--amber);background:#fffdf6}
+.icard.pri-low{border-left-color:var(--teal);background:#f3fbf8}
 .ic-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:11px}
 .ic-title{font-size:16.5px;font-weight:800;color:var(--navy);flex:1;line-height:1.34}
 .ic-badges{flex-shrink:0}
