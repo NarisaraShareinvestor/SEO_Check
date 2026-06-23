@@ -146,10 +146,15 @@ const CAT_EXEC = {
 // ตัดส่วนขยายเชิงอธิบายหลัง "—" ออก เพื่อคงเฉพาะข้อเท็จจริง แล้วลบ emoji
 const factualLead = (detail) => stripEmoji(String(detail || '').split('—')[0].split(' · ')[0].trim());
 
-const titleOf = (c) => stripEmoji(EXEC[c.id]?.t || c.title);
-const foundOf = (c) => EXEC[c.id]?.f || factualLead(c.detail) || 'ตรวจพบประเด็นที่ควรได้รับการพิจารณา';
-const impactOf = (c) => EXEC[c.id]?.i || CAT_EXEC[c.category]?.i || 'มีผลต่อประสิทธิภาพด้าน SEO โดยรวมของเว็บไซต์';
-const recOf = (c) => EXEC[c.id]?.r || CAT_EXEC[c.category]?.r || stripEmoji(c.recommendation) || 'ดำเนินการปรับปรุงตามแนวทางมาตรฐาน';
+// check ที่ "อาจไม่ได้ขาดจริง แต่ถูกสร้างด้วย JavaScript" (SPA/CSR) — เมื่อ status=warn ใช้ข้อความจริงจาก check
+// (ไม่ฟันธงว่า 'ไม่มี' เพราะ Googlebot เห็นหลัง render · EXEC map สงวนไว้สำหรับเคส fail = ขาดจริง)
+const SPA_NUANCED = new Set(['title-missing', 'h1-missing', 'desc-missing', 'jsonld-missing']);
+const isSoft = (c) => SPA_NUANCED.has(c.id) && c.status === 'warn';
+const SOFT_IMPACT = 'เนื้อหาที่สร้างด้วย JavaScript จะไม่ถูก AI crawler ที่ไม่ประมวลผล JavaScript มองเห็น (เช่น GPTBot, ClaudeBot, PerplexityBot) แม้ Googlebot จะเห็นหลัง render — จึงควรตรวจสอบและพิจารณาทำ SSR/SSG';
+const titleOf = (c) => isSoft(c) ? stripEmoji(c.title) : stripEmoji(EXEC[c.id]?.t || c.title);
+const foundOf = (c) => isSoft(c) ? factualLead(c.detail) : (EXEC[c.id]?.f || factualLead(c.detail) || 'ตรวจพบประเด็นที่ควรได้รับการพิจารณา');
+const impactOf = (c) => isSoft(c) ? SOFT_IMPACT : (EXEC[c.id]?.i || CAT_EXEC[c.category]?.i || 'มีผลต่อประสิทธิภาพด้าน SEO โดยรวมของเว็บไซต์');
+const recOf = (c) => isSoft(c) ? (stripEmoji(c.recommendation) || 'ทำ SSR/SSG ให้เนื้อหาอยู่ใน HTML ดิบ') : (EXEC[c.id]?.r || CAT_EXEC[c.category]?.r || stripEmoji(c.recommendation) || 'ดำเนินการปรับปรุงตามแนวทางมาตรฐาน');
 
 export function renderExecReport(audit, brand = {}) {
   const host = audit.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
