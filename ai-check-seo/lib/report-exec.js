@@ -213,9 +213,14 @@ export function renderExecReport(audit, brand = {}) {
     ${foot()}
   </section>`;
 
-  // ── ลำดับความสำคัญ (เรียงจาก fail ที่ severity สูงสุด) ──
-  const sevOrder = { high: 0, med: 1, low: 2 };
-  const sortBySev = (arr) => [...arr].sort((x, y) => (sevOrder[x.severity] ?? 3) - (sevOrder[y.severity] ?? 3));
+  // ── ลำดับความสำคัญที่ "แสดง" = severity ปรับด้วยสถานะ ──
+  // warn ยังไม่ถึงขั้นต้องแก้ทันที จึงลดระดับลงหนึ่งขั้น → ป้าย "สูง" จะมีเฉพาะ fail (ที่อยู่ใน "ต้องดำเนินการแก้ไข")
+  // เคส title สำคัญระดับ high แต่ render แล้วมี = warn → แสดง "ปานกลาง" ให้ตรงกับส่วน "ควรปรับปรุง" ไม่ขัดกันเอง
+  const SEV_KEYS = ['high', 'med', 'low'];
+  const effRank = (c) => Math.min((c.severity === 'high' ? 0 : c.severity === 'med' ? 1 : 2) + (c.status === 'warn' ? 1 : 0), 2);
+  const effSevKey = (c) => SEV_KEYS[effRank(c)];
+  const effSevTH = (c) => SEV_TH[effSevKey(c)];
+  const sortBySev = (arr) => [...arr].sort((x, y) => effRank(x) - effRank(y));
   const topItems = sortBySev(fails).slice(0, 5);
   const prioritySlide = topItems.length ? `
   <section class="slide">
@@ -223,7 +228,7 @@ export function renderExecReport(audit, brand = {}) {
     <h2>ประเด็นที่ควรดำเนินการเป็นลำดับแรก</h2>
     <p class="lede">ประเด็นต่อไปนี้คัดเลือกจากระดับผลกระทบสูงสุด เพื่อให้เกิดผลลัพธ์ต่อการจัดอันดับและธุรกิจอย่างมีนัยสำคัญเมื่อดำเนินการแก้ไข</p>
     <ol class="prio">
-      ${topItems.map(c => `<li><b>${esc(titleOf(c))}</b> <span class="psev">(ระดับความสำคัญ: ${SEV_TH[c.severity] || 'ปานกลาง'})</span><br><span class="pdesc">${esc(impactOf(c))}</span></li>`).join('')}
+      ${topItems.map(c => `<li><b>${esc(titleOf(c))}</b> <span class="psev">(ระดับความสำคัญ: ${effSevTH(c) || 'ปานกลาง'})</span><br><span class="pdesc">${esc(impactOf(c))}</span></li>`).join('')}
     </ol>
     ${foot()}
   </section>` : '';
@@ -235,7 +240,7 @@ export function renderExecReport(audit, brand = {}) {
     <div class="icard ${c.status}">
       <div class="ic-head">
         <div class="ic-title">${esc(titleOf(c))}</div>
-        <div class="ic-badges"><span class="sev sev-${c.severity || 'med'}">ระดับความสำคัญ: ${SEV_TH[c.severity] || 'ปานกลาง'}</span></div>
+        <div class="ic-badges"><span class="sev sev-${effSevKey(c) || 'med'}">ระดับความสำคัญ: ${effSevTH(c) || 'ปานกลาง'}</span></div>
       </div>
       <div class="ic-row"><span class="lbl">สิ่งที่ตรวจพบ</span><span class="val">${esc(foundOf(c))}${cnt ? ` (ตรวจพบ ${cnt} หน้า)` : ''}</span></div>
       <div class="ic-row"><span class="lbl">ผลกระทบ</span><span class="val">${esc(impactOf(c))}</span></div>
