@@ -37,7 +37,7 @@ export function runGeoChecks(site) {
     }
     checks.push(blocked.length
       ? mk('geo-bot-access', 'high', 'fail', 'robots.txt บล็อก AI bots',
-        `บล็อก: ${blocked.map(b => `${b.ua} (${b.who})`).join(' · ')} — เนื้อหาจะไม่ถูกอ้างถึง/แนะนำใน AI answers เลย`,
+        `บล็อก: ${blocked.map(b => `${b.ua} (${b.who})`).join(' · ')} — ทำให้เนื้อหามีโอกาสน้อยที่จะถูกอ้างถึงหรือแนะนำใน AI answers`,
         'ถ้าอยากให้แบรนด์ปรากฏใน ChatGPT/Perplexity/AI Overview ให้อนุญาต bot เหล่านี้ (อย่างน้อย OAI-SearchBot, PerplexityBot, ClaudeBot)', [], true)
       : mk('geo-bot-access', 'high', 'pass', 'AI bots เข้าถึงได้ทั้งหมด',
         `${allowed.length} AI crawler หลักเข้าได้: ${allowed.map(b => b.ua).join(', ')}`));
@@ -71,8 +71,8 @@ export function runGeoChecks(site) {
   }));
   checks.push((ldTypes.has('FAQPage') || ldTypes.has('QAPage'))
     ? mk('geo-faq-schema', 'med', 'pass', 'มี FAQ/QA schema', 'AI engines ดึง Q&A ที่มี schema ไปตอบได้ตรงที่สุด')
-    : mk('geo-faq-schema', 'med', 'fail', 'ไม่มี FAQ schema เลย',
-      'คำถาม-คำตอบที่มี FAQPage schema คือ format ที่ AI Overview และ ChatGPT ชอบดึงไปตอบที่สุด — ตอนนี้เว็บไม่มีสักหน้า',
+    : mk('geo-faq-schema', 'med', 'fail', 'ยังไม่มี FAQ schema',
+      'คำถาม-คำตอบที่มี FAQPage schema คือ format ที่ AI Overview และ ChatGPT ดึงไปตอบได้ดี — ตอนนี้ยังไม่พบในเว็บ',
       'เพิ่ม FAQ section + FAQPage schema ในหน้าบริการหลักทุกหน้า (Auto-Fix สร้าง template ให้)', [], true));
 
   // ── 5. Q&A content blocks (heading เป็นคำถาม) ──
@@ -81,7 +81,7 @@ export function runGeoChecks(site) {
   checks.push(qaPages.length
     ? mk('geo-qa-content', 'med', 'pass', 'มีเนื้อหาแบบถาม-ตอบ', `${qaPages.length}/${pages.length} หน้ามี heading เชิงคำถาม — โครงสร้างที่ AI ดึงคำตอบง่าย`)
     : mk('geo-qa-content', 'med', 'warn', 'ไม่มีเนื้อหาโครงสร้างถาม-ตอบ',
-      'AI engines สกัด "คำตอบตรงๆ ใต้คำถาม" ได้ดีที่สุด — เว็บนี้ไม่มี heading เชิงคำถามเลย (เช่น "นักลงทุนสัมพันธ์คืออะไร")',
+      'AI engines สกัด "คำตอบตรงๆ ใต้คำถาม" ได้ดี — เว็บนี้ยังไม่มี heading เชิงคำถาม (เช่น "นักลงทุนสัมพันธ์คืออะไร")',
       'เพิ่มหัวข้อเชิงคำถาม + คำตอบกระชับ 2–3 ประโยคแรกใต้หัวข้อ', [], true));
 
   // ── 6. E-E-A-T signals ──

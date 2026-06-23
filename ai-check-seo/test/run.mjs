@@ -253,6 +253,24 @@ console.log('▸ title 3-state: raw มี=PASS · JS/SPA สร้าง=WARNIN
 }
 console.log('');
 
+// ── h1 / desc 3-state: SPA ที่ raw ไม่มีแต่ JS สร้างให้ = WARNING ไม่ใช่ FAIL ──
+console.log('▸ h1 / desc 3-state: SPA (raw ไม่มี แต่ render มี) = WARNING');
+{
+  const base = pageFromFixture('decorative-alt.html', 'https://example.com/');
+  const st = (over, id) => Object.fromEntries(runChecks(healthySite({ ...base, ...over }, {})).checks.map(c => [c.id, c.status]))[id];
+  // h1
+  let g = st({ headings: [{ tag: 'h2', text: 'x' }], renderedH1: ['ShareInvestor'] }, 'h1-missing');
+  assert(g === 'warn', 'h1 JS-only → warn', `ได้ ${g}`); console.log(`    ${g === 'warn' ? '✅' : '❌'} h1 raw-ไม่มี+render-มี → ${g}`);
+  g = st({ headings: [{ tag: 'h2', text: 'x' }], renderedH1: [] }, 'h1-missing');
+  assert(g === 'fail', 'h1 truly missing → fail', `ได้ ${g}`); console.log(`    ${g === 'fail' ? '✅' : '❌'} h1 ไม่มีทั้ง raw+render → ${g}`);
+  // desc
+  g = st({ metas: {}, renderedDescription: 'คำอธิบายจาก JS' }, 'desc-missing');
+  assert(g === 'warn', 'desc JS-only → warn', `ได้ ${g}`); console.log(`    ${g === 'warn' ? '✅' : '❌'} desc raw-ไม่มี+render-มี → ${g}`);
+  g = st({ metas: {}, renderedDescription: '' }, 'desc-missing');
+  assert(g === 'fail', 'desc truly missing → fail', `ได้ ${g}`); console.log(`    ${g === 'fail' ? '✅' : '❌'} desc ไม่มีทั้ง raw+render → ${g}`);
+}
+console.log('');
+
 // ── Byte-level decode test: windows-874 (ต้นเหตุ richsport.co.th) ────────
 console.log('▸ decode byte-level: windows-874 → ข้อความไทยต้องไม่เพี้ยน');
 {

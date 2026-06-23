@@ -70,7 +70,7 @@ export function runChecks(site) {
   const home = okPages.find(p => { try { return new URL(p.url).pathname === '/'; } catch { return false; } }) || okPages[0];
 
   if (!okPages.length) {
-    checks.push(mk('no-pages', 'index', 'high', 'fail', 'เข้าถึงหน้าเว็บไม่ได้เลย',
+    checks.push(mk('no-pages', 'index', 'high', 'fail', 'เข้าถึงหน้าเว็บไม่ได้',
       `crawl แล้วไม่พบหน้า HTML ที่ตอบ 200 เลย (พบ ${site.pages.length} URL, ข้อผิดพลาด ${site.fetchErrors.length} รายการ)`,
       'ตรวจสอบว่าเว็บออนไลน์อยู่ และไม่ได้บล็อก bot ทั้งหมด'));
     return { checks, categories: CATS, pagesAnalyzed: 0 };
@@ -108,10 +108,16 @@ export function runChecks(site) {
         'หน้าที่เป็นคนละเรื่อง: เขียน title เฉพาะของแต่ละหน้า · หน้าที่ต่างกันแค่ query param (เช่น ?page=, ?year=): ใส่ canonical ชี้หน้าหลัก หรือ noindex แทนการเขียน title ใหม่', dupT.flatMap(([, v]) => v), true)
       : mk('title-duplicate', 'onpage', 'high', 'pass', 'ไม่มี title ซ้ำ', 'แต่ละหน้ามี title ไม่ซ้ำกัน'));
 
-    const noDesc = okPages.filter(p => !p.metas['description']);
-    checks.push(noDesc.length
-      ? mk('desc-missing', 'onpage', 'med', 'fail', 'หน้าที่ไม่มี meta description', `${noDesc.length}/${okPages.length} หน้าไม่มี — Google จะตัดข้อความจากหน้ามาแสดงเอง คุมข้อความขายไม่ได้`, 'เขียน description 80–160 ตัวอักษร มี call-to-action', pageList(noDesc), true)
-      : mk('desc-missing', 'onpage', 'med', 'pass', 'ทุกหน้ามี meta description', 'ครบทุกหน้า'));
+    // desc 3-state เหมือน title: raw มี = PASS · JS/SPA สร้าง = WARNING · ไม่มีทั้ง raw+render = FAIL
+    const rawNoDesc = okPages.filter(p => !p.metas['description']);
+    const descTrulyNo = rawNoDesc.filter(p => !p.renderedDescription);
+    const descJsOnly = rawNoDesc.filter(p => p.renderedDescription);
+    if (descTrulyNo.length)
+      checks.push(mk('desc-missing', 'onpage', 'med', 'fail', 'หน้าที่ไม่มี meta description', `${descTrulyNo.length}/${okPages.length} หน้าไม่มีทั้งใน HTML ดิบและหลัง render — Search Engine จะตัดข้อความจากหน้ามาแสดงเอง คุมข้อความสรุปได้ยาก`, 'เขียน description 80–160 ตัวอักษร มี call-to-action', pageList(descTrulyNo), true));
+    else if (descJsOnly.length)
+      checks.push(mk('desc-missing', 'onpage', 'med', 'warn', 'meta description มาจาก JavaScript (ไม่อยู่ใน HTML ดิบ)', `${descJsOnly.length} หน้าไม่มี description ใน HTML ดิบ แต่พบหลัง render — เว็บเป็น SPA · Googlebot เห็นหลัง render แต่ AI bot ที่ไม่รัน JS จะไม่เห็น`, 'ทำ SSR/SSG ให้ meta description อยู่ใน HTML ดิบ', pageList(descJsOnly), true));
+    else
+      checks.push(mk('desc-missing', 'onpage', 'med', 'pass', 'ทุกหน้ามี meta description', 'ครบทุกหน้าใน HTML ดิบ'));
 
     const badDesc = okPages.filter(p => { const d = p.metas['description']; return d && (d.length > 170 || d.length < 50); });
     if (badDesc.length) checks.push(mk('desc-length', 'onpage', 'low', 'warn', 'ความยาว meta description ไม่เหมาะสม', `${badDesc.length} หน้าสั้นกว่า 50 หรือยาวกว่า 170 ตัวอักษร`, 'ช่วงที่เหมาะสม: 80–160 ตัวอักษร', pageList(badDesc), true));
@@ -121,10 +127,16 @@ export function runChecks(site) {
     const dupD = [...descMap.entries()].filter(([, v]) => v.length > 1);
     if (dupD.length) checks.push(mk('desc-duplicate', 'onpage', 'med', 'warn', 'meta description ซ้ำกัน', `${dupD.length} ชุดซ้ำกันหลายหน้า`, 'เขียนเฉพาะแต่ละหน้า', dupD.flatMap(([, v]) => v), true));
 
-    const noH1 = okPages.filter(p => !p.headings.some(h => h.tag === 'h1'));
-    checks.push(noH1.length
-      ? mk('h1-missing', 'onpage', 'high', 'fail', 'หน้าที่ไม่มี H1', `${noH1.length}/${okPages.length} หน้าไม่มี H1 ใน HTML${noH1.some(p => p.emptyRoot) ? ' (บางหน้าเป็น SPA shell — H1 ถูก render ด้วย JS เท่านั้น)' : ''}`, 'ทุกหน้าต้องมี H1 เดียว ใส่คีย์เวิร์ดหลัก และต้องอยู่ใน HTML ดิบ', pageList(noH1), true)
-      : mk('h1-missing', 'onpage', 'high', 'pass', 'ทุกหน้ามี H1', 'ครบทุกหน้า'));
+    // h1 3-state เหมือน title: raw มี = PASS · JS/SPA สร้าง = WARNING · ไม่มีทั้ง raw+render = FAIL
+    const rawNoH1 = okPages.filter(p => !p.headings.some(h => h.tag === 'h1'));
+    const h1TrulyNo = rawNoH1.filter(p => !(p.renderedH1 && p.renderedH1.length));
+    const h1JsOnly = rawNoH1.filter(p => p.renderedH1 && p.renderedH1.length);
+    if (h1TrulyNo.length)
+      checks.push(mk('h1-missing', 'onpage', 'high', 'fail', 'หน้าที่ไม่มี H1', `${h1TrulyNo.length}/${okPages.length} หน้าไม่มี H1 ทั้งใน HTML ดิบและหลัง render`, 'ทุกหน้าควรมี H1 เดียว ใส่คีย์เวิร์ดหลัก และอยู่ใน HTML ดิบ', pageList(h1TrulyNo), true));
+    else if (h1JsOnly.length)
+      checks.push(mk('h1-missing', 'onpage', 'high', 'warn', 'H1 มาจาก JavaScript (ไม่อยู่ใน HTML ดิบ)', `${h1JsOnly.length} หน้าไม่มี H1 ใน HTML ดิบ แต่พบหลัง render — เว็บเป็น SPA · Googlebot เห็นหลัง render แต่ AI bot ที่ไม่รัน JS จะไม่เห็น`, 'ทำ SSR/SSG ให้ H1 อยู่ใน HTML ดิบ', pageList(h1JsOnly), true));
+    else
+      checks.push(mk('h1-missing', 'onpage', 'high', 'pass', 'ทุกหน้ามี H1', 'ครบทุกหน้าใน HTML ดิบ'));
 
     // H1 ซ่อนด้วย CSS — inline style (raw) หรือ computed style (Playwright)
     const hiddenH1Pages = okPages.filter(p => (p.hiddenH1 || 0) + (p.renderedH1Hidden || 0) > 0);
@@ -206,7 +218,7 @@ export function runChecks(site) {
         }
       }
       if (bigBlocks.length) checks.push(mk('robots-blocks-section', 'index', 'high', 'fail', 'robots.txt บล็อก section สำคัญ',
-        `พบการบล็อก: ${bigBlocks.join(' · ')} — ถ้าเป็น section ภาษา/เนื้อหาหลัก เท่ากับมองไม่เห็นใน Google (เคสเดียวกับ /th/ ของ ShareInvestor)`,
+        `พบการบล็อก: ${bigBlocks.join(' · ')} — หากเป็น section ภาษา/เนื้อหาหลัก หน้าเหล่านั้นจะไม่ถูกจัดเก็บใน Google`,
         'ตรวจว่าตั้งใจบล็อกจริงไหม ถ้าไม่ ให้เอาออก', [], true));
       checks.push(r.sitemaps.length
         ? mk('robots-sitemap', 'index', 'low', 'pass', 'robots.txt อ้างถึง sitemap', r.sitemaps.join(', '))
@@ -265,7 +277,7 @@ export function runChecks(site) {
     const isGone = (s) => s === 404 || s === 410;
     const errGone = site.pages.filter(p => isGone(p.status));
     const errSoft = site.pages.filter(p => p.status >= 400 && !isGone(p.status));
-    if (errGone.length) checks.push(mk('error-pages', 'index', 'high', 'fail', 'หน้าที่หายจริง (404/410)', `${errGone.length} URL ตอบ ${[...new Set(errGone.map(p => p.status))].join(', ')} — หน้าหายจริง ถ้าเป็นหน้าหลัก/หน้าบริการ ร้ายแรงมาก (เคส CloudFront 404 ของ ShareInvestor)`, 'แก้ origin/CDN ให้ตอบ 200 หรือ redirect ไปหน้าที่ถูกต้อง', errGone.map(p => `${p.url} → ${p.status}`)));
+    if (errGone.length) checks.push(mk('error-pages', 'index', 'high', 'fail', 'หน้าที่หายจริง (404/410)', `${errGone.length} URL ตอบ ${[...new Set(errGone.map(p => p.status))].join(', ')} — หน้าเหล่านี้หายจริง หากเป็นหน้าหลักหรือหน้าบริการจะกระทบต่อการมองเห็นค่อนข้างมาก`, 'แก้ origin/CDN ให้ตอบ 200 หรือ redirect ไปหน้าที่ถูกต้อง', errGone.map(p => `${p.url} → ${p.status}`)));
     if (errSoft.length) checks.push(mk('crawl-blocked', 'index', 'med', 'info', 'บางหน้าตรวจไม่ติดตอน crawl (อาจชั่วคราว/บล็อกบอท)', `${errSoft.length} URL ตอบ ${[...new Set(errSoft.map(p => p.status))].join(', ')} — เช่น 429 (เซิร์ฟเวอร์จำกัด rate เพราะตรวจถี่) / 403 (บล็อกบอท) / 5xx (เซิร์ฟเวอร์ error ชั่วคราว) · ไม่กระทบคะแนนเพราะหน้าจริงอาจปกติ ควรตรวจซ้ำเพื่อยืนยัน`, 'ถ้าตรวจซ้ำแล้วยัง error = ปัญหาจริงต้องแก้ · ถ้า 429 = ปกติ (เซิร์ฟเวอร์กันบอทถี่)', errSoft.map(p => `${p.url} → ${p.status}`)));
 
     if (site.notFoundHandling && !site.notFoundHandling.ok)
@@ -304,11 +316,11 @@ export function runChecks(site) {
   {
     const withLd = okPages.filter(p => p.jsonLd.length);
     checks.push(withLd.length === 0
-      ? mk('jsonld-missing', 'schema', 'high', 'fail', 'ไม่มี Structured Data (JSON-LD) เลย', `0/${okPages.length} หน้า — เสีย rich results และ AI engines ไม่มีข้อมูล structured ให้ดึง`, 'เพิ่ม Organization, WebSite, BreadcrumbList และ Service/FAQ schema', [], true)
+      ? mk('jsonld-missing', 'schema', 'high', 'fail', 'ไม่มี Structured Data (JSON-LD) ใน HTML ดิบ', `0/${okPages.length} หน้า — เสียโอกาส rich results และ AI engines ไม่มีข้อมูลแบบมีโครงสร้างให้ดึง (หากเว็บเป็น SPA และสร้าง schema ด้วย JS ก็ยังควรย้ายมาไว้ใน HTML ดิบ เพราะ AI bot ไม่รัน JS)`, 'เพิ่ม Organization, WebSite, BreadcrumbList และ Service/FAQ schema', [], true)
       : mk('jsonld-missing', 'schema', 'high', withLd.length < okPages.length * 0.5 ? 'warn' : 'pass', 'Structured Data (JSON-LD)', `${withLd.length}/${okPages.length} หน้ามี JSON-LD`, withLd.length < okPages.length ? 'เพิ่มให้ครบทุกหน้า' : '', pageList(okPages.filter(p => !p.jsonLd.length)), true));
 
     const badLd = okPages.filter(p => p.jsonLd.some(j => !j.ok));
-    if (badLd.length) checks.push(mk('jsonld-invalid', 'schema', 'high', 'fail', 'JSON-LD พังหรือ parse ไม่ได้', `${badLd.length} หน้ามี JSON-LD ที่ JSON ไม่ valid — Google ทิ้งทั้งก้อน`, 'ตรวจ syntax ใน Rich Results Test', pageList(badLd), true));
+    if (badLd.length) checks.push(mk('jsonld-invalid', 'schema', 'high', 'fail', 'JSON-LD รูปแบบไม่ถูกต้อง (parse ไม่ได้)', `${badLd.length} หน้ามี JSON-LD ที่ไวยากรณ์ JSON ไม่สมบูรณ์ — Search Engine จะไม่นำ structured data ก้อนนั้นไปใช้`, 'ตรวจ syntax ด้วย Rich Results Test', pageList(badLd), true));
 
     const ldTypes = new Set();
     okPages.forEach(p => p.jsonLd.forEach(j => {
@@ -478,8 +490,8 @@ export function runChecks(site) {
     const fw = home ? Object.entries(home.frameworkMarkers || {}).filter(([, v]) => v).map(([k]) => k) : [];
     if (spa.length) {
       checks.push(mk('spa-shell', 'rendering', 'high', 'fail', 'หน้าเว็บเป็น SPA เปลือกเปล่า (client-side render เท่านั้น)',
-        `${spa.length}/${okPages.length} หน้ามี root container ว่างใน HTML ดิบ${fw.length ? ` (framework: ${fw.join(', ')})` : ''} — เนื้อหา, H1, ลิงก์ ทั้งหมดมองไม่เห็นโดย crawler รอบแรกของ Google และ AI bot ทุกตัว (GPTBot, ClaudeBot, PerplexityBot ไม่ render JS) นี่คือปัญหาเดียวกับที่ทำให้ ShareInvestor มี 6 keywords ขณะคู่แข่งมี 760`,
-        'เปิด SSR (Nuxt: ssr:true / Next: ใช้ server components) หรือ pre-render เป็น static HTML — สำคัญที่สุดในรายงานนี้', pageList(spa)));
+        `${spa.length}/${okPages.length} หน้ามี root container ว่างใน HTML ดิบ${fw.length ? ` (framework: ${fw.join(', ')})` : ''} — เนื้อหา, H1, ลิงก์ จึงมองไม่เห็นโดย crawler รอบแรกของ Google และ AI bot (GPTBot, ClaudeBot, PerplexityBot ไม่ render JS) · เนื้อหาที่อยู่หลัง JS เท่านั้นจึงเสี่ยงไม่ถูกจัดเก็บและไม่ถูกอ้างอิงใน AI`,
+        'เปิด SSR (Nuxt: ssr:true / Next: ใช้ server components) หรือ pre-render เป็น static HTML — เป็นประเด็นสำคัญลำดับต้นของรายงานนี้', pageList(spa)));
     } else if (fw.length) {
       checks.push(mk('spa-shell', 'rendering', 'high', 'pass', 'ใช้ JS framework แต่ render ฝั่ง server แล้ว', `พบ ${fw.join(', ')} แต่เนื้อหาอยู่ใน HTML ดิบครบ — ดีมาก`));
     } else {
