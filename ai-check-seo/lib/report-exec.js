@@ -411,7 +411,8 @@ ${brandColor ? `<style>:root{--gold:${esc(brandColor)};--goldtx:${esc(brandColor
       <button onclick="exportThemed('premium')">แบบพรีเมียม<small>ปกหรู + โลโก้มุมขวาบน</small></button>
     </div>
   </div>
-  <button onclick="window.print()">บันทึกเป็น PDF</button>
+  <button onclick="var b=this;b.disabled=true;b.textContent='กำลังสร้าง PDF…';var u=location.pathname.replace(/\/+$/,'')+'/pdf'+location.search;var f=document.createElement('iframe');f.style.display='none';f.src=u;document.body.appendChild(f);setTimeout(function(){b.disabled=false;b.textContent='ดาวน์โหลด PDF';},15000);">ดาวน์โหลด PDF</button>
+  <button onclick="window.print()" style="background:transparent;border:1px solid var(--gold);box-shadow:none" title="พิมพ์ผ่านเบราว์เซอร์">พิมพ์</button>
 </div>
 <div id="cover-standard">${cover}</div>
 <div id="cover-premium">${coverPremium}</div>
