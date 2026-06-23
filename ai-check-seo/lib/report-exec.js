@@ -273,7 +273,7 @@ export function renderExecReport(audit, brand = {}) {
     <h2>รายการที่ดำเนินการได้ตามมาตรฐานแล้ว</h2>
     <p class="lede">เว็บไซต์ผ่านเกณฑ์การประเมินจำนวน ${passes.length} รายการ ซึ่งถือเป็นรากฐานที่ดีสำหรับการต่อยอด</p>
     <div class="goodgrid">
-      ${passes.slice(0, 30).map(c => `<div class="goodi"><span class="dot"></span><span>${esc(titleOf(c))}</span></div>`).join('')}
+      ${passes.slice(0, 30).map(c => `<div class="goodi"><span class="dot"></span><span>${esc(stripEmoji(c.title))}</span></div>`).join('')}
     </div>
     ${passes.length > 30 ? `<p class="note">และอีก ${passes.length - 30} รายการที่ผ่านเกณฑ์</p>` : ''}
     ${foot()}
