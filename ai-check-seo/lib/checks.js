@@ -34,7 +34,7 @@ const EVIDENCE_FN = {
   'h1-missing': (p) => `ตรวจ HTML แล้วพบแท็ก <h1> จำนวน ${h1Count(p)} รายการ`,
   'h1-multiple': (p) => `พบแท็ก <h1> จำนวน ${h1Count(p)} รายการ (ควรมี 1)`,
   'h1-duplicate': (p) => { const h1 = (p.headings || []).find(h => h.tag === 'h1'); return h1 ? `ข้อความ H1: "${trunc(h1.text, 60)}"` : 'พบ H1 ซ้ำกับหน้าอื่น'; },
-  'title-missing': (p) => `แท็ก <title> ${p.title ? `= "${trunc(p.title, 60)}"` : 'ว่างเปล่าหรือไม่มี'}`,
+  'title-missing': (p) => p.title ? `แท็ก <title> = "${trunc(p.title, 60)}"` : (p.renderedTitle || p.metas?.['title'] ? `Raw HTML ไม่มี <title> · พบจาก JS/SPA: "${trunc(p.renderedTitle || p.metas?.['title'], 50)}"` : 'ไม่พบ <title> ทั้งใน raw และหลัง render'),
   'title-length': (p) => `ความยาว <title> = ${(p.title || '').length} ตัวอักษร: "${trunc(p.title, 60)}"`,
   'title-duplicate': (p) => `ข้อความ <title>: "${trunc(p.title, 60)}"`,
   'desc-missing': (p) => 'ไม่พบ <meta name="description"> ในหน้า',
@@ -78,10 +78,18 @@ export function runChecks(site) {
 
   // ════════ 1. META & CONTENT ════════
   {
-    const noTitle = okPages.filter(p => !p.title);
-    checks.push(noTitle.length
-      ? mk('title-missing', 'onpage', 'high', 'fail', 'หน้าที่ไม่มี <title>', `${noTitle.length} หน้าไม่มี title tag เลย — Google จะเดาเอง`, 'ใส่ title ไม่เกิน 60 ตัวอักษร มีคีย์เวิร์ดหลักของหน้านั้น', pageList(noTitle), true)
-      : mk('title-missing', 'onpage', 'high', 'pass', 'ทุกหน้ามี <title>', `ตรวจ ${okPages.length} หน้า มี title ครบ`));
+    // title 3-state: raw มี <title> = PASS · raw ไม่มีแต่ JS/SPA สร้างให้ (มี renderedTitle หรือ meta title) = WARNING
+    // (Googlebot เห็นหลัง render แต่ AI bot ที่ไม่รัน JS จะไม่เห็น) · ไม่มีทั้ง raw และ rendered = FAIL จริง
+    const rawNoTitle = okPages.filter(p => !p.title);
+    const softTitle = (p) => p.renderedTitle || p.metas?.['title'];
+    const trulyNo = rawNoTitle.filter(p => !softTitle(p));     // ไม่มีทั้ง raw และ rendered/meta → ไม่มีจริง
+    const jsOnly = rawNoTitle.filter(p => softTitle(p));        // raw ไม่มี แต่มาจาก JS/SPA → AI bot ไม่เห็น
+    if (trulyNo.length)
+      checks.push(mk('title-missing', 'onpage', 'high', 'fail', 'หน้าที่ไม่มี <title>', `${trulyNo.length} หน้าไม่มี <title> ทั้งใน HTML ดิบและหลัง render — Search Engine ต้องเดาชื่อหน้าเอง`, 'ใส่ <title> ไม่เกิน 60 ตัวอักษร มีคีย์เวิร์ดหลักของหน้านั้น', pageList(trulyNo), true));
+    else if (jsOnly.length)
+      checks.push(mk('title-missing', 'onpage', 'high', 'warn', '<title> มาจาก JavaScript (ไม่อยู่ใน HTML ดิบ)', `${jsOnly.length} หน้าไม่มี <title> ใน HTML ดิบ แต่พบหลัง render (เช่น "${trunc(jsOnly[0].renderedTitle || jsOnly[0].metas?.['title'] || '', 50)}") — เว็บเป็น SPA/CSR · Googlebot เห็นหลัง render แต่ AI bot ที่ไม่รัน JS (GPTBot/ClaudeBot/PerplexityBot) จะไม่เห็น`, 'ทำ SSR/SSG ให้ <title> อยู่ใน HTML ดิบตั้งแต่แรก เพื่อให้ทั้ง Google และ AI bot เห็น', pageList(jsOnly), true));
+    else
+      checks.push(mk('title-missing', 'onpage', 'high', 'pass', 'ทุกหน้ามี <title>', `ตรวจ ${okPages.length} หน้า มี <title> ครบใน HTML ดิบ`));
 
     const longT = okPages.filter(p => p.title && p.title.length > 60);
     const shortT = okPages.filter(p => p.title && p.title.length > 0 && p.title.length < 15);
