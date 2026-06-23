@@ -411,7 +411,7 @@ ${brandColor ? `<style>:root{--gold:${esc(brandColor)};--goldtx:${esc(brandColor
       <button onclick="exportThemed('premium')">แบบพรีเมียม<small>ปกหรู + โลโก้มุมขวาบน</small></button>
     </div>
   </div>
-  <button onclick="var b=this;b.disabled=true;b.textContent='กำลังสร้าง PDF…';var u=location.pathname.replace(/\/+$/,'')+'/pdf'+location.search;var f=document.createElement('iframe');f.style.display='none';f.src=u;document.body.appendChild(f);setTimeout(function(){b.disabled=false;b.textContent='ดาวน์โหลด PDF (16:9)';},15000);" title="ไฟล์ PDF สไลด์แนวนอน 16:9 — เหมือนสไลด์ PowerPoint ส่งลูกค้าได้เลย">ดาวน์โหลด PDF (16:9)</button>
+  <button onclick="(async(b)=>{b.disabled=true;var o=b.textContent;b.textContent='กำลังสร้าง PDF…';try{var u=location.pathname.replace(/\/+$/,'')+'/pdf'+location.search;var r=await fetch(u);if(!r.ok)throw new Error(r.status);var bl=await r.blob();var a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download=(location.pathname.split('/').pop()||'report')+'-exec.pdf';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}catch(e){alert('สร้าง PDF ไม่สำเร็จ ('+e.message+') — ลองใหม่อีกครั้ง');}b.disabled=false;b.textContent=o;})(this)" title="ไฟล์ PDF สไลด์แนวนอน 16:9 — เหมือนสไลด์ PowerPoint ส่งลูกค้าได้เลย">ดาวน์โหลด PDF (16:9)</button>
   <button onclick="window.print()" style="background:transparent;border:1px solid var(--gold);box-shadow:none" title="พิมพ์ผ่านเบราว์เซอร์ หรือ Save as PDF เอง">พิมพ์</button>
 </div>
 <div id="cover-standard">${cover}</div>
