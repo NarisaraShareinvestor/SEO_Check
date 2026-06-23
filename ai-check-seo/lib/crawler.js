@@ -848,9 +848,20 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
   const isSpa = rawHtmlPages.length > 0 && rawHtmlPages.filter(p => p.emptyRoot).length >= rawHtmlPages.length * 0.5;
   if (isSpa) {
     onProgress('ตรวจพบ SPA (เนื้อหา/ลิงก์ render ด้วย JS) — กำลัง crawl ด้วย headless Chrome เพื่อหาหน้าให้ครบ...');
-    const rc = await renderedCrawl(startUrl, site.sitemapUrls, { maxPages, onProgress })
+    const doRender = () => renderedCrawl(startUrl, site.sitemapUrls, { maxPages, onProgress })
       .catch(e => ({ available: false, reason: String(e?.message || e), pages: [] }));
-    const rcValid = (rc.pages || []).filter(p => p.title !== undefined && p.status === 200);
+    const validOf = (rc) => (rc.pages || []).filter(p => p.title !== undefined && p.status === 200);
+    let rc = await doRender();
+    let rcValid = validOf(rc);
+    // รอบแรก render ไม่สำเร็จ/ได้น้อยกว่า raw (มัก rate-limit/launch fail ชั่วคราว → early-abort)
+    // → รอแล้วลองใหม่ 1 ครั้ง กัน audit degraded เหลือ shell เปล่าไม่กี่หน้าแล้วถูกให้คะแนนหลอกตา
+    if (!(rc.available && rcValid.length > rawHtmlPages.length)) {
+      onProgress('Rendered crawl รอบแรกได้ไม่ครบ (อาจโดน rate-limit ชั่วคราว) — รอ 6 วิแล้วลองใหม่...');
+      await new Promise(r => setTimeout(r, 6000));
+      const rc2 = await doRender();
+      const rc2Valid = validOf(rc2);
+      if (rc2.available && rc2Valid.length > rcValid.length) { rc = rc2; rcValid = rc2Valid; }
+    }
     if (rc.available && rcValid.length > rawHtmlPages.length) {
       // เจอหน้ามากกว่าเดิม → ใช้ชุด rendered (page data ยังเป็น raw shell คง spa-shell/render-diff)
       site.pages = rc.pages;
@@ -859,6 +870,8 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
       onProgress(`Rendered crawl เจอ ${rcValid.length} หน้า (เดิม ${rawHtmlPages.length})`);
     } else {
       site.renderedCrawl = false;
+      // SPA แต่ render ไม่ได้ทั้ง 2 รอบ → raw เป็น shell เปล่า ผลไม่สมบูรณ์ (mark ไว้ให้รายงาน/delta รู้)
+      site.renderFailedSpa = rawHtmlPages.every(p => p.emptyRoot);
       site.renderedCrawlReason = rc.reason || 'no-extra-pages'; // ต่อตรงไม่ได้ (geo-block?) → คง raw
     }
   }

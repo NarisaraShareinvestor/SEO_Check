@@ -84,8 +84,13 @@ function diffAudits(prev, curr) {
   const isBad = (st) => st === 'fail' || st === 'warn';
   const fixed = [], regressed = [], newIssues = [], explained = [];
   const prevPages = prev.pagesAnalyzed || 0, currPages = curr.pagesAnalyzed || 0;
-  const scopeGrew = currPages >= prevPages + 3;   // ตรวจหน้าเพิ่มอย่างมีนัย → อาจเจอปัญหาที่มีอยู่แล้วแต่ครั้งก่อนตรวจไม่ถึง
-  const scopeShrank = currPages <= prevPages - 3;
+  // ตรวจหน้าไม่เท่ากันอย่างมีนัย → ผลรายหน้าเทียบกันไม่ได้ (ทั้ง 2 ทาง): มากขึ้น=เจอปัญหาเดิมที่เพิ่งตรวจถึง · น้อยลง=ตรวจไม่ครบ
+  const scopeThresh = Math.max(4, prevPages * 0.2);
+  const scopeChanged = Math.abs(currPages - prevPages) > scopeThresh;
+  const scopeGrew = scopeChanged && currPages > prevPages;
+  const scopeShrank = scopeChanged && currPages < prevPages;
+  // หน้าหายเกินครึ่ง หรือ SPA ที่ render ไม่สำเร็จ = crawl degraded (ได้แค่ shell เปล่า) → ผลไม่สมบูรณ์ เตือนดังๆ
+  const degraded = (prevPages >= 8 && currPages < prevPages * 0.5) || !!curr.renderFailedSpa;
   const engineChanged = (prev.engineVersion || 0) !== (curr.engineVersion || 0);
   const exp = (c, from, to, reason) => explained.push({ id: c.id, title: c.title, from, to, reason });
 
@@ -94,7 +99,7 @@ function diffAudits(prev, curr) {
     if (!p) { // ── check ใหม่ (ไม่มีใน prev) ──
       if (!isBad(c.status)) continue;
       if (UNSTABLE_CHECKS.has(c.id)) exp(c, '—', c.status, 'unstable');
-      else if (scopeGrew) exp(c, '—', c.status, 'scope');      // เพิ่งตรวจถึง ไม่ใช่ปัญหาใหม่
+      else if (scopeChanged) exp(c, '—', c.status, 'scope');   // เพิ่งตรวจถึง/ตรวจไม่ครบ ไม่ใช่ปัญหาใหม่จริง
       else if (engineChanged) exp(c, '—', c.status, 'engine');
       else newIssues.push({ id: c.id, title: c.title, from: '—', to: c.status });
       continue;
@@ -105,8 +110,10 @@ function diffAudits(prev, curr) {
     const worsened = (!wasBad && nowBad) || (p.status === 'warn' && c.status === 'fail');
     if (!improved && !worsened) continue;
     if (UNSTABLE_CHECKS.has(c.id)) { exp(c, p.status, c.status, 'unstable'); continue; }
-    if (improved) { if (scopeShrank) exp(c, p.status, c.status, 'scope'); else fixed.push({ id: c.id, title: c.title, from: p.status, to: c.status }); }
-    else { if (scopeGrew) exp(c, p.status, c.status, 'scope'); else regressed.push({ id: c.id, title: c.title, from: p.status, to: c.status }); }
+    // ตรวจหน้าไม่เท่ากัน → การเปลี่ยนรายหน้าเชื่อไม่ได้ (ทั้งดีขึ้น/แย่ลง) → เข้า explained ไม่นับเป็นจริง
+    if (scopeChanged) { exp(c, p.status, c.status, 'scope'); continue; }
+    if (improved) fixed.push({ id: c.id, title: c.title, from: p.status, to: c.status });
+    else regressed.push({ id: c.id, title: c.title, from: p.status, to: c.status });
   }
   const catDeltas = {};
   for (const k of new Set([...Object.keys(curr.score.categoryScores), ...Object.keys(prev.score.categoryScores)]))
@@ -115,7 +122,7 @@ function diffAudits(prev, curr) {
     prevId: prev.id, prevDate: prev.createdAt, prevScore: prev.score.overall,
     currScore: curr.score.overall, scoreDelta: curr.score.overall - prev.score.overall,
     fixed, regressed, newIssues, explained, categoryDeltas: catDeltas,
-    scope: { prevPages, currPages, grew: scopeGrew, shrank: scopeShrank }, engineChanged,
+    scope: { prevPages, currPages, grew: scopeGrew, shrank: scopeShrank, degraded }, engineChanged,
   };
 }
 
@@ -219,6 +226,8 @@ async function runAudit(job, url, maxPages, competitorUrl) {
       sitemapUrls: site.sitemapUrls.length,
       brokenLinks: site.brokenLinks,
       renderedAvailable: !!site.rendered?.available,
+      renderFailedSpa: !!site.renderFailedSpa, // SPA แต่ render ไม่สำเร็จ → ได้แค่ shell เปล่า ผลไม่สมบูรณ์
+      isSpa: !!site.renderedCrawl || !!site.renderFailedSpa,
       socials: site.socials || [], logo: site.logo || '', // sameAs/logo จริงสำหรับ schema/E-E-A-T
       score, checks: allChecks, categories: CAT_LABELS,
       aiAvailable: aiAvailable(),

@@ -191,6 +191,11 @@ function render(audit) {
     </div>`).join('');
 
   renderVerify(audit);
+  // SPA ที่ render ไม่สำเร็จ → ได้แค่โครงเปล่า ผลไม่สะท้อนของจริง เตือนดังๆ (แม้ไม่มี audit ครั้งก่อนเทียบ)
+  if (audit.renderFailedSpa) {
+    const vb = $('#verifyBox');
+    if (vb) vb.insertAdjacentHTML('afterbegin', `<div class="card" style="border-left:4px solid #b91c1c;background:#fef2f2;margin-bottom:12px"><b style="color:#b91c1c">🛑 ผลตรวจไม่สมบูรณ์</b> <span style="font-size:13px;color:var(--mut)">เว็บนี้เป็น SPA (เนื้อหา render ด้วย JS) แต่ครั้งนี้ render ไม่สำเร็จ (อาจโดน rate-limit/timeout) — ได้แค่ ${audit.pagesAnalyzed} หน้าโครงเปล่า คะแนนจึงไม่สะท้อนของจริง <b>กรุณาตรวจใหม่อีกครั้ง</b></span></div>`);
+  }
   renderDelta(audit);
   renderAi(audit.analysis);
   renderChecks(audit, 'issues');
@@ -248,7 +253,8 @@ function renderDelta(audit) {
         ${chip('pass', 'แก้สำเร็จจริง ' + (d.fixed || []).length + ' ข้อ')}
         ${badReal ? chip('fail', 'แย่ลงจริง ' + badReal + ' ข้อ') : chip('gray', 'ไม่มีปัญหาใหม่จริง')}
       </div>
-      ${d.scoreDelta !== 0 && !real.length && exp.length ? `<div style="font-size:12.5px;color:#a16207;background:#fffbeb;border:1px solid #fde68a;padding:7px 11px;border-radius:7px;margin-top:8px">⚠️ คะแนนต่าง ${Math.abs(d.scoreDelta)} แต้ม มาจากผลตรวจที่ไม่เสถียร/ตรวจไม่เท่ากัน (${exp.map(e => esc(stripEmoji(e.title))).join(', ')}) — <b>ไม่ใช่เว็บเปลี่ยนจริง</b></div>` : ''}
+      ${d.scope?.degraded ? `<div style="font-size:12.5px;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;padding:8px 11px;border-radius:7px;margin-top:8px">🛑 ครั้งนี้ตรวจได้แค่ <b>${d.scope.currPages} หน้า</b> (ปกติ ${d.scope.prevPages} หน้า) — น่าจะ render ไม่สำเร็จ/โดน rate-limit <b>ผลไม่สมบูรณ์ ควรตรวจใหม่</b> · การเปลี่ยนแปลงด้านล่างมาจากตรวจไม่ครบ ไม่ใช่เว็บแย่ลง</div>` : ''}
+      ${!d.scope?.degraded && d.scoreDelta !== 0 && !real.length && exp.length ? `<div style="font-size:12.5px;color:#a16207;background:#fffbeb;border:1px solid #fde68a;padding:7px 11px;border-radius:7px;margin-top:8px">⚠️ คะแนนต่าง ${Math.abs(d.scoreDelta)} แต้ม มาจากผลตรวจที่ไม่เสถียร/ตรวจไม่เท่ากัน (${exp.map(e => esc(stripEmoji(e.title))).join(', ')}) — <b>ไม่ใช่เว็บเปลี่ยนจริง</b></div>` : ''}
       ${(d.fixed || []).length ? `<div style="margin-top:8px"><div style="font-size:12px;font-weight:600;color:#16a34a">✓ แก้สำเร็จจริง</div>${d.fixed.map(e => line(e, '#16a34a')).join('')}</div>` : ''}
       ${badReal ? `<div style="margin-top:8px"><div style="font-size:12px;font-weight:600;color:var(--red)">✗ แย่ลง/ปัญหาใหม่จริง</div>${[...d.regressed, ...d.newIssues].map(e => line(e, 'var(--red)')).join('')}</div>` : ''}
       ${!real.length && !exp.length ? `<div style="font-size:12.5px;color:var(--mut);margin-top:8px">ไม่มีอะไรเปลี่ยนแปลง</div>` : ''}
