@@ -344,7 +344,7 @@ ${MAKER_CSS}
 ${brandColor ? `<style>:root{--gold:${esc(brandColor)};--goldtx:${esc(brandColor)}}</style>` : ''}
 </head>
 <body>
-<div class="toolbar"><button onclick="exportPPTX('SEO-Audit-${esc(host)}', this)">บันทึกเป็น PowerPoint</button><button onclick="window.print()">บันทึกเป็น PDF</button></div>
+<div class="toolbar"><button onclick="exportPPTX('SEO-Audit-${esc(host)}', this)">บันทึกเป็น PowerPoint</button><button onclick="downloadExecPdf(this)" title="ไฟล์ PDF แนวนอน A4 — สร้างฝั่งเซิร์ฟเวอร์ เป็นแนวนอนทุกครั้ง">บันทึกเป็น PDF</button></div>
 ${cover}
 ${execSlide}
 ${divider(1, 'ผลตรวจ Technical SEO', 'Health check จากการ crawl จริง · หลักฐาน rendered crawl · Core Web Vitals วัดโดย Google')}
