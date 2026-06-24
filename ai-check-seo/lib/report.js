@@ -337,7 +337,7 @@ table,.findbox,.cols,.vsline,.cwvrow,.alert,.okbox,.refs{margin-bottom:18px}
   .toolbar{display:none}
   .slide{margin:0;box-shadow:none;page-break-after:always;width:100%;min-height:100vh}
   th,.chip,.circ,.dark,.bstat,.qwin{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  @page{size:A4 landscape;margin:0}
+  @page{size:297mm 210mm;margin:0}
 }
 ${MAKER_CSS}
 </style>
