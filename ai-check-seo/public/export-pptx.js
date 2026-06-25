@@ -18,9 +18,14 @@
       var res = await fetch(p + '/pdf' + location.search);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       var blob = await res.blob();
+      // ชื่อไฟล์มาจากเซิร์ฟเวอร์ (Content-Disposition) = <ชื่อเว็บ>-<ปุ่ม>.pdf เช่น www.thailand.go.th-dev.pdf
+      var fname = (p.split('/').pop() || 'report') + '.pdf';
+      var cd = res.headers.get('Content-Disposition') || '';
+      var m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+      if (m) fname = decodeURIComponent(m[1]);
       var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = (p.split('/').pop() || 'report') + '-exec.pdf';
+      a.download = fname;
       document.body.appendChild(a);
       a.click();
       a.remove();

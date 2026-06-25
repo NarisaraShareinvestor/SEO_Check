@@ -578,7 +578,7 @@ app.get('/report/:id/pdf', async (req, res) => {
     const pdf = await page.pdf({ printBackground: true, preferCSSPageSize: true });
     const host = (audit.url || 'report').replace(/^https?:\/\//, '').replace(/\/$/, '').replace(/[^a-z0-9.-]/gi, '_');
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="seo-deck-${host}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${host}-dev.pdf"`);
     res.send(pdf);
   } catch (e) {
     res.status(500).send('สร้าง PDF ไม่สำเร็จ: ' + String(e.message || e));
@@ -599,7 +599,7 @@ app.get('/report-sale/:id', (req, res) => {
 });
 
 // helper: render รายงาน HTML → PDF แนวนอนฝั่งเซิร์ฟเวอร์ (preferCSSPageSize ใช้ @page ของรายงาน → แนวนอนทุกครั้ง)
-async function streamReportPdf(req, res, basePath, filePrefix) {
+async function streamReportPdf(req, res, basePath, suffix) {
   const audit = jobs.get(req.params.id)?.result || loadAudit(req.params.id);
   if (!audit) return res.status(404).send('ไม่พบรายงานนี้');
   let pw;
@@ -614,7 +614,7 @@ async function streamReportPdf(req, res, basePath, filePrefix) {
     const pdf = await page.pdf({ printBackground: true, preferCSSPageSize: true });
     const host = (audit.url || 'report').replace(/^https?:\/\//, '').replace(/\/$/, '').replace(/[^a-z0-9.-]/gi, '_');
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${filePrefix}-${host}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${host}-${suffix}.pdf"`);
     res.send(pdf);
   } catch (e) {
     res.status(500).send('สร้าง PDF ไม่สำเร็จ: ' + String(e.message || e));
@@ -622,7 +622,7 @@ async function streamReportPdf(req, res, basePath, filePrefix) {
 }
 
 // PDF แนวนอนของรายงานเซลส์ (เหมือน Deck/exec — สร้างฝั่งเซิร์ฟเวอร์ ไม่พึ่ง browser print ที่อาจได้แนวตั้ง)
-app.get('/report-sale/:id/pdf', (req, res) => streamReportPdf(req, res, 'report-sale', 'seo-sale'));
+app.get('/report-sale/:id/pdf', (req, res) => streamReportPdf(req, res, 'report-sale', 'sale'));
 
 // ส่ง Action Items เข้า ClickUp (เฟส 1 — กดเองจากแดชบอร์ด) · ?dryRun=1 = ดูแผนงานก่อนไม่ยิงจริง
 app.post('/api/clickup/:id', async (req, res) => {
@@ -676,7 +676,7 @@ app.get('/report-exec/:id/pdf', async (req, res) => {
     const pdf = await page.pdf({ printBackground: true, preferCSSPageSize: true });
     const host = (audit.url || 'report').replace(/^https?:\/\//, '').replace(/\/$/, '').replace(/[^a-z0-9.-]/gi, '_');
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="seo-exec-${host}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${host}-exec.pdf"`);
     res.send(pdf);
   } catch (e) {
     res.status(500).send('สร้าง PDF ไม่สำเร็จ: ' + String(e.message || e));
@@ -697,7 +697,7 @@ app.get('/report-qa/:id', (req, res) => {
 });
 
 // PDF แนวนอนของคู่มือ Q&A (สร้างฝั่งเซิร์ฟเวอร์ → แนวนอนทุกครั้ง)
-app.get('/report-qa/:id/pdf', (req, res) => streamReportPdf(req, res, 'report-qa', 'seo-qa'));
+app.get('/report-qa/:id/pdf', (req, res) => streamReportPdf(req, res, 'report-qa', 'qa'));
 
 // รายงานรูปแบบ Presentation (สไลด์ 16:9 เลื่อนทีละหน้า เต็มจอได้)
 app.get('/present/:id', (req, res) => {
