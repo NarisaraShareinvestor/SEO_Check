@@ -405,7 +405,6 @@ ${brandColor ? `<style>:root{--gold:${esc(brandColor)};--goldtx:${esc(brandColor
 <body>
 <div class="toolbar">
   <button onclick="downloadExecPdf(this)" title="ไฟล์ PDF สไลด์แนวนอน 16:9 — ส่งลูกค้าได้เลย">ดาวน์โหลด PDF (16:9)</button>
-  <button onclick="window.print()" style="background:transparent;border:1px solid var(--gold);box-shadow:none" title="พิมพ์ผ่านเบราว์เซอร์ หรือ Save as PDF เอง">พิมพ์</button>
 </div>
 <div id="cover-standard">${cover}</div>
 <div id="cover-premium">${coverPremium}</div>
