@@ -248,7 +248,8 @@ export function renderReport(audit, brand = {}) {
 --red:#e74c5e;--amber:#f0a92e;--teal:#19b394}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Inter','Noto Sans Thai',sans-serif;background:#dfe5ee;color:var(--ink);line-height:1.6;font-size:14px;-webkit-font-smoothing:antialiased}
-.slide{width:1188px;min-height:840px;background:#fff;margin:28px auto;padding:60px 72px 26px;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(14,34,64,.28)}
+/* ขนาดสไลด์ = หน้า A4 landscape จริงที่ 96dpi (297mm×210mm = 1122px×793px) → เห็นบนจอตรงกับ PDF (WYSIWYG) */
+.slide{width:1122px;min-height:793px;background:#fff;margin:28px auto;padding:48px 64px 22px;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(14,34,64,.28)}
 .slide.dark{background:var(--navy);color:#fff}
 .kick{font-size:12px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--goldtx);margin-bottom:14px}
 .dark .kick{color:var(--gold)}
@@ -335,7 +336,7 @@ table,.findbox,.cols,.vsline,.cwvrow,.alert,.okbox,.refs{margin-bottom:18px}
 @media print{
   body{background:#fff}
   .toolbar{display:none}
-  .slide{margin:0;box-shadow:none;page-break-after:always;width:100%;min-height:100vh}
+  .slide{margin:0;box-shadow:none;page-break-after:always;width:1122px;height:793px;overflow:hidden}
   th,.chip,.circ,.dark,.bstat,.qwin{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   @page{size:297mm 210mm;margin:0}
 }
@@ -362,6 +363,70 @@ ${methodSlide}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <script src="/export-pptx.js"></script>
+<script>
+/* Auto-paginate: สไลด์ที่เนื้อหา (ตาราง) ล้นเกินความสูงหน้า → ย้ายแถวส่วนเกินไปสไลด์ต่อเนื่อง แล้วไล่เลขหน้าใหม่
+   ทำให้ 1 สไลด์ = 1 หน้า PDF เสมอ ไม่มีภาพถูกตัด / เลขหน้าไม่เพี้ยน */
+(function () {
+  function pageHeight() {
+    var s = document.querySelector('.slide');
+    if (!s) return 793;
+    var mh = parseFloat(getComputedStyle(s).minHeight) || 793;
+    return mh; // = หน้า A4 landscape (793px @96dpi)
+  }
+  function paginate() {
+    var PAGE_H = pageHeight();
+    var TOL = 6; // px เผื่อปัดเศษ
+    var queue = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var guard = 0;
+    while (queue.length && guard++ < 400) {
+      var cur = queue.shift();
+      if (cur.offsetHeight <= PAGE_H + TOL) continue;
+      var tbl = cur.querySelector('table');
+      if (!tbl || tbl.rows.length <= 2) continue; // แยกได้เฉพาะสไลด์ที่มีตาราง (เหลือ header + อย่างน้อย 1 แถว)
+
+      // สร้างสไลด์ต่อเนื่อง: เก็บเฉพาะ kick / หัวข้อ / ตาราง (header) / footer
+      var cont = cur.cloneNode(true);
+      Array.prototype.slice.call(cont.children).forEach(function (ch) {
+        if (!ch.matches('.kick, h1, h2, table, footer, .goldstrip')) ch.remove();
+      });
+      var heading = cont.querySelector('h2, h1');
+      if (heading && !/\\(ต่อ\\)/.test(heading.textContent)) heading.append(' (ต่อ)');
+      var contTbl = cont.querySelector('table');
+      Array.prototype.slice.call(contTbl.rows).slice(1).forEach(function (r) { r.remove(); }); // เหลือแถว header
+      cur.after(cont);
+
+      // ย้ายแถวท้าย ๆ จาก cur → cont จนกว่า cur จะพอดีหน้า (คงลำดับแถวเดิม)
+      var moved = [];
+      var g2 = 0;
+      while (cur.offsetHeight > PAGE_H + TOL && cur.querySelectorAll('table tr').length > 2 && g2++ < 200) {
+        var rows = cur.querySelector('table').rows;
+        var last = rows[rows.length - 1];
+        moved.unshift(last);
+        last.remove();
+      }
+      moved.forEach(function (r) { contTbl.appendChild(r); });
+
+      queue.unshift(cont); // cont อาจยังล้น → วนแยกต่อ
+    }
+    renumber();
+  }
+  function renumber() {
+    var foots = Array.prototype.slice.call(document.querySelectorAll('.slide footer'));
+    var total = foots.length;
+    foots.forEach(function (f, i) {
+      var spans = f.querySelectorAll('span');
+      var pg = spans[spans.length - 1];
+      if (pg && /\\d+\\s*\\/\\s*\\d+/.test(pg.textContent)) pg.textContent = (i + 1) + ' / ' + total;
+    });
+  }
+  function ready(fn) {
+    var run = function () { (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(fn); };
+    if (document.readyState === 'complete') run();
+    else window.addEventListener('load', run);
+  }
+  ready(paginate);
+})();
+</script>
 ${watermarkScript()}
 </body>
 </html>`;

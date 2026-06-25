@@ -370,7 +370,7 @@ h2 .pgof{font-size:15px;font-weight:600;color:var(--mut)}
 .ic-row .lbl{flex:0 0 116px;font-weight:800;color:var(--navy);font-size:12.5px}
 .ic-row .val{flex:1;color:#33455f}
 /* จุดแข็ง */
-.goodgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 30px}
+.goodgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 26px}
 .goodi{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#33455f;padding:6px 0;border-bottom:1px solid #f0f3f8}
 .goodi .dot{flex-shrink:0;width:8px;height:8px;border-radius:50%;background:var(--teal);margin-top:6px}
 /* แผนงาน */
