@@ -676,7 +676,7 @@ app.get('/report-exec/:id/pdf', async (req, res) => {
     const pdf = await page.pdf({ printBackground: true, preferCSSPageSize: true });
     const host = (audit.url || 'report').replace(/^https?:\/\//, '').replace(/\/$/, '').replace(/[^a-z0-9.-]/gi, '_');
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${host}-exec.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${host}-ceo.pdf"`);
     res.send(pdf);
   } catch (e) {
     res.status(500).send('สร้าง PDF ไม่สำเร็จ: ' + String(e.message || e));
