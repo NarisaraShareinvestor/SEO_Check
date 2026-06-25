@@ -159,7 +159,7 @@
       <div class="shead"><div class="num">04</div><div><h2>Frontend</h2><div class="sub">SPA แบบ vanilla — ไม่มี build step ไม่พึ่ง framework</div></div></div>
       <div class="grid g2">
         <div class="cell"><div class="k">index.html + app.js</div><h3>Single-page app</h3><p>แถบเมนูด้านข้าง (ตรวจเว็บ · ประวัติ · คุณภาพการตรวจ · Dashboard · หลักการให้คะแนน) สลับมุมมองด้วย JS · เรียก API แล้ว poll สถานะจนตรวจเสร็จ · เรนเดอร์ผล/กราฟ/ตารางคุณภาพ</p></div>
-        <div class="cell"><div class="k">รายงาน (server-rendered)</div><h3>HTML ที่พิมพ์/ส่งออกได้</h3><p>รายงานสร้างฝั่งเซิร์ฟเวอร์เป็น HTML สไลด์ 16:9 · ดาวน์โหลด PDF (headless Chrome) หรือ PowerPoint (.pptx) · รองรับ white-label (โลโก้/สีแบรนด์)</p></div>
+        <div class="cell"><div class="k">รายงาน (server-rendered)</div><h3>HTML ที่พิมพ์/ส่งออกได้</h3><p>รายงานสร้างฝั่งเซิร์ฟเวอร์เป็น HTML สไลด์ 16:9 · ดาวน์โหลด PDF (headless Chrome) · รองรับ white-label (โลโก้/สีแบรนด์)</p></div>
       </div>
       <div class="note">เลือกใช้ vanilla JS โดยตั้งใจ — ไม่มีขั้นตอน build, deploy ง่าย, โหลดเร็ว และไม่มี dependency frontend ให้ดูแล</div>
     </section>
@@ -188,7 +188,6 @@
         <span class="tag"><b>Playwright</b> / Chromium (render SPA + สร้าง PDF)</span>
         <span class="tag"><b>OpenAI API</b> (วิเคราะห์เชิงคุณภาพ)</span>
         <span class="tag"><b>Google PageSpeed / Lighthouse</b> (ตรวจทาน + CWV)</span>
-        <span class="tag"><b>pptxgenjs + html2canvas</b> (export PowerPoint)</span>
         <span class="tag"><b>VPS + pm2 + nginx</b> (deploy)</span>
       </div>
       <div class="note">เก็บผลเป็นไฟล์ JSON (ไม่ต้องมีฐานข้อมูล) — เบา ตรวจสอบย้อนกลับได้ และทุกการตรวจเป็นหลักฐานในตัวเอง · deploy ด้วย git → ดึงลง VPS → pm2 restart</div>

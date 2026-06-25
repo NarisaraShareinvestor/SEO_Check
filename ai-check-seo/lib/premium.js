@@ -110,11 +110,4 @@ body.theme-premium #cover-premium{display:flex}
 .pc-foot-l{display:inline-flex;align-items:center;gap:7px}
 .pc-foot-ic{width:14px;height:14px;color:#8fa3c2}.pc-foot-ic svg{width:100%;height:100%;display:block}
 .pc-foot b{color:var(--gold);font-weight:700}
-@media print{.cover-premium,.pc-stat,.pc-num,.pc-hero,.si-o,.pc-foot b{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
-/* ปุ่มเลือกแบบ PowerPoint */
-.ppt-menu{position:relative;display:inline-block}
-.ppt-pop{position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 30px rgba(14,34,64,.25);padding:6px;display:none;min-width:220px;z-index:20}
-.ppt-menu.open .ppt-pop{display:block}
-.ppt-pop button{display:block;width:100%;text-align:left;background:none;border:none;color:var(--ink);font-family:inherit;font-size:13px;font-weight:600;padding:9px 12px;border-radius:7px;cursor:pointer}
-.ppt-pop button:hover{background:var(--paper)}
-.ppt-pop button small{display:block;font-weight:500;color:var(--mut);font-size:11px;margin-top:2px}`;
+@media print{.cover-premium,.pc-stat,.pc-num,.pc-hero,.si-o,.pc-foot b{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;

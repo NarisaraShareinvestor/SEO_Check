@@ -1,5 +1,5 @@
 // แบรนด์ผู้จัดทำ (ShareInvestor Thailand) — โลโก้ watermark จางๆ หลังเนื้อหา + ลิขสิทธิ์ใน footer
-// อ่านโลโก้เป็น base64 data URI ครั้งเดียว (inline) เพื่อให้แสดงครบทั้งตอน print เป็น PDF และ html2canvas → PowerPoint
+// อ่านโลโก้เป็น base64 data URI ครั้งเดียว (inline) เพื่อให้แสดงครบตอน print เป็น PDF
 import { readFileSync } from 'fs';
 
 const toDataUri = (rel) => { try { return 'data:image/png;base64,' + readFileSync(new URL(rel, import.meta.url)).toString('base64'); } catch { return ''; } };
@@ -28,7 +28,7 @@ footer{align-items:center}
 @media print{.wm,.wm-corner{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
 
 // สคริปต์ฝัง watermark ลงทุกสไลด์ "พื้นขาว" (ข้ามสไลด์เข้ม/ปก) — รันตอนโหลด
-// ฝังทั้ง .wm (กลาง) และ .wm-corner (มุม) ไว้ทุกสไลด์ แล้วโชว์ตาม theme ด้วย CSS → ติดทั้ง print และ html2canvas
+// ฝังทั้ง .wm (กลาง) และ .wm-corner (มุม) ไว้ทุกสไลด์ แล้วโชว์ตาม theme ด้วย CSS → ติดตอน print เป็น PDF
 export const watermarkScript = () => MAKER_LOGO
   ? `<script>(function(){var M=${JSON.stringify(MAKER_LOGO)},C=${JSON.stringify(CORNER_LOGO)};document.querySelectorAll('.slide:not(.dark):not(.cover):not(.cover-premium)').forEach(function(s){var i=document.createElement('img');i.className='wm';i.src=M;i.alt='';s.insertBefore(i,s.firstChild);if(C){var j=document.createElement('img');j.className='wm-corner';j.src=C;j.alt='';s.insertBefore(j,s.firstChild);}});})();</script>`
   : '';

@@ -404,14 +404,7 @@ ${brandColor ? `<style>:root{--gold:${esc(brandColor)};--goldtx:${esc(brandColor
 </head>
 <body>
 <div class="toolbar">
-  <div class="ppt-menu" id="pptMenu">
-    <button onclick="togglePptMenu(event)" title="ดาวน์โหลดไฟล์ .pptx (16:9) เปิด/แก้ใน PowerPoint ได้">ไฟล์ PowerPoint (.pptx) ▾</button>
-    <div class="ppt-pop">
-      <button onclick="exportThemed('standard')">แบบมาตรฐาน<small>โลโก้ลายน้ำกลางหน้า · ปกเรียบ</small></button>
-      <button onclick="exportThemed('premium')">แบบพรีเมียม<small>ปกหรู + โลโก้มุมขวาบน</small></button>
-    </div>
-  </div>
-  <button onclick="downloadExecPdf(this)" title="ไฟล์ PDF สไลด์แนวนอน 16:9 — เหมือนสไลด์ PowerPoint ส่งลูกค้าได้เลย">ดาวน์โหลด PDF (16:9)</button>
+  <button onclick="downloadExecPdf(this)" title="ไฟล์ PDF สไลด์แนวนอน 16:9 — ส่งลูกค้าได้เลย">ดาวน์โหลด PDF (16:9)</button>
   <button onclick="window.print()" style="background:transparent;border:1px solid var(--gold);box-shadow:none" title="พิมพ์ผ่านเบราว์เซอร์ หรือ Save as PDF เอง">พิมพ์</button>
 </div>
 <div id="cover-standard">${cover}</div>
@@ -428,22 +421,10 @@ ${(geoFails.length || geoWarns.length) ? divider(4, 'ความพร้อม
 ${issueSlides([...geoFails, ...geoWarns], 'ความพร้อมต่อระบบค้นหายุค AI', 'ความพร้อมต่อระบบค้นหายุค AI (GEO)', 'ประเด็นต่อไปนี้มีผลต่อการที่ระบบ AI จะนำเนื้อหาของเว็บไซต์ไปใช้อ้างอิงและตอบคำถามแก่ผู้ใช้งาน')}
 ${goodSlide}
 ${closeSlide}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <script src="/export-pptx.js"></script>
 <script>
-  var HOST = ${JSON.stringify(host)};
+  // ?theme=premium → ดู/พิมพ์ PDF เป็นแบบพรีเมียมได้
   if (new URLSearchParams(location.search).get('theme') === 'premium') document.body.classList.add('theme-premium');
-  function togglePptMenu(e){ e.stopPropagation(); document.getElementById('pptMenu').classList.toggle('open'); }
-  document.addEventListener('click', function(){ var m=document.getElementById('pptMenu'); if(m) m.classList.remove('open'); });
-  async function exportThemed(theme){
-    var m=document.getElementById('pptMenu'); if(m) m.classList.remove('open');
-    var wasPremium = document.body.classList.contains('theme-premium');
-    document.body.classList.toggle('theme-premium', theme==='premium');
-    await new Promise(function(r){ requestAnimationFrame(function(){ requestAnimationFrame(r); }); });
-    await window.exportPPTX('SEO-ผู้บริหาร-' + HOST + (theme==='premium'?'-premium':''), m ? m.firstElementChild : null);
-    document.body.classList.toggle('theme-premium', wasPremium);
-  }
 </script>
 ${watermarkScript()}
 </body>
