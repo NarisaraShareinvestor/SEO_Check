@@ -598,6 +598,32 @@ app.get('/report-sale/:id', (req, res) => {
   res.type('html').send(renderSalesReport(audit, brand));
 });
 
+// helper: render รายงาน HTML → PDF แนวนอนฝั่งเซิร์ฟเวอร์ (preferCSSPageSize ใช้ @page ของรายงาน → แนวนอนทุกครั้ง)
+async function streamReportPdf(req, res, basePath, filePrefix) {
+  const audit = jobs.get(req.params.id)?.result || loadAudit(req.params.id);
+  if (!audit) return res.status(404).send('ไม่พบรายงานนี้');
+  let pw;
+  try { pw = await import('playwright'); } catch { return res.status(503).send('PDF export ยังไม่พร้อม (ไม่มี Chromium บนเซิร์ฟเวอร์)'); }
+  let browser;
+  try {
+    browser = await pw.chromium.launch({ headless: true });
+    const page = await (await browser.newContext()).newPage();
+    const qs = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : ''; // ส่ง brand query ต่อ
+    await page.goto(`http://127.0.0.1:${PORT}/${basePath}/${encodeURIComponent(req.params.id)}${qs}`, { waitUntil: 'networkidle', timeout: 45000 });
+    await page.evaluate(() => document.fonts.ready).catch(() => {});
+    const pdf = await page.pdf({ printBackground: true, preferCSSPageSize: true });
+    const host = (audit.url || 'report').replace(/^https?:\/\//, '').replace(/\/$/, '').replace(/[^a-z0-9.-]/gi, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filePrefix}-${host}.pdf"`);
+    res.send(pdf);
+  } catch (e) {
+    res.status(500).send('สร้าง PDF ไม่สำเร็จ: ' + String(e.message || e));
+  } finally { try { await browser?.close(); } catch {} }
+}
+
+// PDF แนวนอนของรายงานเซลส์ (เหมือน Deck/exec — สร้างฝั่งเซิร์ฟเวอร์ ไม่พึ่ง browser print ที่อาจได้แนวตั้ง)
+app.get('/report-sale/:id/pdf', (req, res) => streamReportPdf(req, res, 'report-sale', 'seo-sale'));
+
 // ส่ง Action Items เข้า ClickUp (เฟส 1 — กดเองจากแดชบอร์ด) · ?dryRun=1 = ดูแผนงานก่อนไม่ยิงจริง
 app.post('/api/clickup/:id', async (req, res) => {
   const audit = jobs.get(req.params.id)?.result || loadAudit(req.params.id);
@@ -669,6 +695,9 @@ app.get('/report-qa/:id', (req, res) => {
   };
   res.type('html').send(renderSalesQA(audit, brand));
 });
+
+// PDF แนวนอนของคู่มือ Q&A (สร้างฝั่งเซิร์ฟเวอร์ → แนวนอนทุกครั้ง)
+app.get('/report-qa/:id/pdf', (req, res) => streamReportPdf(req, res, 'report-qa', 'seo-qa'));
 
 // รายงานรูปแบบ Presentation (สไลด์ 16:9 เลื่อนทีละหน้า เต็มจอได้)
 app.get('/present/:id', (req, res) => {
