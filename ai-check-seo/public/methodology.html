@@ -143,9 +143,26 @@
   .pnote .x{color:var(--hi);font-weight:700}
   .pnote .ok{color:var(--ok);font-weight:700}
   @media(max-width:600px){.pnode{flex-direction:column;gap:6px}.pnode .pk{width:auto}}
+  .lede{font-size:15.5px;line-height:1.74;color:#3a4658;max-width:760px;margin:-6px 0 24px;border-left:3px solid var(--blue);padding-left:16px}
+  .lede b{color:var(--ink);font-weight:700}
+  /* SEM note rows */
+  .pnote .prow{display:flex;gap:13px;align-items:flex-start;padding:9px 0}
+  .pnote .prow+.prow{border-top:1px solid var(--line2)}
+  .pnote .tag{flex:none;font-size:11px;font-weight:700;letter-spacing:.02em;padding:3px 11px;border-radius:20px;margin-top:1px;white-space:nowrap}
+  .pnote .tag-no{background:#fbeae8;color:var(--hi)}
+  .pnote .tag-yes{background:#e7f4ec;color:var(--ok)}
+  .pnote .prow > div{flex:1;color:var(--ink);line-height:1.62}
+  @media(max-width:520px){.pnote .prow{flex-direction:column;gap:6px}}
+  /* embedded in app (iframe) → fill the frame, drop the floating-card look */
+  html.embed{background:#fff}
+  .embed body{background:#fff}
+  .embed .page{max-width:none;margin:0;box-shadow:none}
+  .embed .pad{max-width:1180px;margin:0 auto}
+  .embed .cover{padding-left:max(40px,calc((100% - 1180px)/2 + 40px));padding-right:max(40px,calc((100% - 1180px)/2 + 40px))}
 </style>
 </head>
 <body>
+<script>if(window.self!==window.top)document.documentElement.classList.add('embed');</script>
 <div class="page">
 
   <!-- COVER -->
@@ -161,6 +178,8 @@
     <!-- 01 SCOPE TREE -->
     <section>
       <div class="shead"><div class="num">01</div><div class="tt"><h2>เราตรวจอะไรบ้าง</h2><div class="sub">แผนผังขอบเขตการตรวจวัด — SEO · GEO และจุดที่อยู่นอกขอบเขต (SEM)</div></div></div>
+
+      <p class="lede">พูดให้เข้าใจง่ายที่สุด งานของเราเหมือนการ <b>ตรวจสุขภาพเว็บไซต์</b> อย่างละเอียด — ดูว่าเว็บของคุณพร้อมให้คนเจอบน Google แค่ไหน (SEO) และพร้อมให้ AI อย่าง ChatGPT หยิบไปพูดถึงแค่ไหน (GEO) แผนผังด้านล่างคือทุกเรื่องที่เราเข้าไปดูให้ จัดเป็น 3 กลุ่มใหญ่</p>
 
       <div class="tree">
         <!-- root -->
@@ -183,49 +202,49 @@
           <div class="pbody">
             <div class="pnode">
               <div class="pk"><div class="knm">Indexability</div><div class="kw">น้ำหนัก 20</div></div>
-              <div class="pv"><div class="pd">เข้า Google / AI ได้ไหม — กฎพื้นฐานของการถูกจัดทำดัชนี</div>
+              <div class="pv"><div class="pd">เว็บของคุณ “ถูกเห็น” โดย Google และ AI หรือเปล่า — ด่านแรกสุด ถ้าตรงนี้พลาด หน้าอื่นดีแค่ไหนก็ไม่โผล่ในผลค้นหา</div>
                 <div class="chips"><span class="chip"><span class="sq s-hi"></span>noindex</span><span class="chip"><span class="sq s-hi"></span>canonical</span><span class="chip"><span class="sq s-hi"></span>robots.txt</span><span class="chip"><span class="sq s-me"></span>XML sitemap</span><span class="chip"><span class="sq s-me"></span>redirect chain</span><span class="chip"><span class="sq s-me"></span>hreflang</span><span class="chip"><span class="sq s-hi"></span>404/410</span></div>
               </div>
             </div>
             <div class="pnode">
               <div class="pk"><div class="knm">Meta &amp; เนื้อหา</div><div class="kw">น้ำหนัก 18</div></div>
-              <div class="pv"><div class="pd">ป้ายบอกหน้า + คุณภาพคอนเทนต์ที่ Google ใช้แสดงผล</div>
+              <div class="pv"><div class="pd">ชื่อหน้าและคำอธิบายที่ไปโชว์บนหน้าผลค้นหา รวมถึงว่าเนื้อหาในหน้าครบและสื่อความชัดพอไหม</div>
                 <div class="chips"><span class="chip"><span class="sq s-hi"></span>title</span><span class="chip"><span class="sq s-hi"></span>h1</span><span class="chip"><span class="sq s-me"></span>meta description</span><span class="chip"><span class="sq s-hi"></span>viewport (มือถือ)</span><span class="chip"><span class="sq s-me"></span>thin content</span><span class="chip"><span class="sq s-lo"></span>heading order</span></div>
               </div>
             </div>
             <div class="pnode">
               <div class="pk"><div class="knm">Structured Data</div><div class="kw">น้ำหนัก 12</div></div>
-              <div class="pv"><div class="pd">schema ให้ Google &amp; AI เข้าใจความหมายของหน้า</div>
+              <div class="pv"><div class="pd">โค้ดเบื้องหลังที่บอก Google และ AI ว่าหน้านี้คืออะไร (สินค้า บทความ ร้านค้า รีวิว) ช่วยให้แสดงผลเด่นและถูกต้องขึ้น</div>
                 <div class="chips"><span class="chip"><span class="sq s-hi"></span>JSON-LD</span><span class="chip"><span class="sq s-me"></span>schema.org</span><span class="chip"><span class="sq s-me"></span>Open Graph</span><span class="chip"><span class="sq s-lo"></span>breadcrumb</span></div>
               </div>
             </div>
             <div class="pnode">
               <div class="pk"><div class="knm">JS Rendering</div><div class="kw">น้ำหนัก 12</div></div>
-              <div class="pv"><div class="pd">บอทเห็นเนื้อหาไหม — เทียบ HTML ดิบกับหน้า render จริง (two-wave)</div>
+              <div class="pv"><div class="pd">บางเว็บแสดงเนื้อหาด้วยสคริปต์ เราตรวจว่าบอทของ Google และ AI มองเห็นเนื้อหาจริงเหมือนที่คนเห็นหรือเปล่า</div>
                 <div class="chips"><span class="chip"><span class="sq s-hi"></span>SPA shell</span><span class="chip"><span class="sq s-hi"></span>render diff (raw≠rendered)</span><span class="chip"><span class="sq s-lo"></span>noscript</span></div>
               </div>
             </div>
             <div class="pnode">
               <div class="pk"><div class="knm">Core Web Vitals</div><div class="kw">น้ำหนัก 10</div></div>
-              <div class="pv"><div class="pd">มาตรฐาน UX/ความเร็ว: โหลดไว ตอบสนองคลิก เลย์เอาต์เสถียร</div>
+              <div class="pv"><div class="pd">ประสบการณ์ใช้งานจริง — หน้าโหลดเร็ว กดแล้วตอบสนองทันใจ และเลย์เอาต์ไม่ขยับกระตุกตอนโหลด</div>
                 <div class="chips"><span class="chip"><span class="sq s-me"></span>TTFB</span><span class="chip"><span class="sq s-me"></span>LCP / CLS / INP</span><span class="chip"><span class="sq s-me"></span>compression</span><span class="chip"><span class="sq s-me"></span>render-blocking</span></div>
               </div>
             </div>
             <div class="pnode">
               <div class="pk"><div class="knm">ลิงก์</div><div class="kw">น้ำหนัก 8</div></div>
-              <div class="pv"><div class="pd">โครงข่ายลิงก์ที่ส่งต่ออำนาจหน้าและให้บอทเดินตาม</div>
+              <div class="pv"><div class="pd">ลิงก์ภายในเว็บที่พาทั้งคนและบอทเดินไปหน้าอื่นได้ทั่วถึง และไม่มีลิงก์เสียที่กดแล้วเจอหน้า 404</div>
                 <div class="chips"><span class="chip"><span class="sq s-hi"></span>broken links</span><span class="chip"><span class="sq s-me"></span>internal links</span><span class="chip"><span class="sq s-me"></span>orphan pages</span><span class="chip"><span class="sq s-lo"></span>anchor text</span></div>
               </div>
             </div>
             <div class="pnode">
               <div class="pk"><div class="knm">รูปภาพ</div><div class="kw">น้ำหนัก 5</div></div>
-              <div class="pv"><div class="pd">การเข้าถึงรูป + ผลต่อ CLS</div>
+              <div class="pv"><div class="pd">รูปภาพมีคำอธิบายให้ Google และผู้พิการทางสายตาเข้าใจ และกำหนดขนาดไว้ไม่ให้หน้ากระตุกตอนรูปโหลด</div>
                 <div class="chips"><span class="chip"><span class="sq s-me"></span>alt text</span><span class="chip"><span class="sq s-lo"></span>lazy loading</span><span class="chip"><span class="sq s-lo"></span>width/height</span></div>
               </div>
             </div>
             <div class="pnode">
               <div class="pk"><div class="knm">ความปลอดภัย</div><div class="kw">น้ำหนัก 5</div></div>
-              <div class="pv"><div class="pd">HTTPS เป็นสัญญาณอันดับของ Google</div>
+              <div class="pv"><div class="pd">เว็บล็อกกุญแจ (HTTPS) ปลอดภัยจริงไหม — เป็นสัญญาณความน่าเชื่อถือที่ Google ใช้จัดอันดับ</div>
                 <div class="chips"><span class="chip"><span class="sq s-hi"></span>HTTPS</span><span class="chip"><span class="sq s-hi"></span>SSL chain</span><span class="chip"><span class="sq s-me"></span>mixed content</span><span class="chip"><span class="sq s-lo"></span>security headers</span></div>
               </div>
             </div>
@@ -246,25 +265,25 @@
           <div class="pbody">
             <div class="pnode">
               <div class="pk"><div class="knm">AI Crawler Access</div></div>
-              <div class="pv"><div class="pd">robots.txt อนุญาตให้บอท AI เข้าถึงเนื้อหาหรือไม่ (ตรวจตามชื่อบอตจริง)</div>
+              <div class="pv"><div class="pd">เว็บคุณเปิดให้บอทของ ChatGPT, Claude และ Perplexity เข้ามาอ่านไหม — ถ้าเผลอปิดไว้ AI ก็เอาเว็บคุณไปพูดถึงไม่ได้เลย</div>
                 <div class="chips"><span class="chip"><span class="sq s-hi"></span>GPTBot</span><span class="chip"><span class="sq s-hi"></span>ClaudeBot</span><span class="chip"><span class="sq s-hi"></span>PerplexityBot</span><span class="chip"><span class="sq s-hi"></span>SPA risk (AI มองไม่เห็น)</span></div>
               </div>
             </div>
             <div class="pnode">
               <div class="pk"><div class="knm">Citation &amp; Fact</div></div>
-              <div class="pv"><div class="pd">โครงสร้างเนื้อหาที่ AI ดึงไปอ้างอิงได้ง่าย</div>
+              <div class="pv"><div class="pd">เนื้อหาจัดรูปแบบให้ AI หยิบไปตอบผู้ใช้ได้ง่าย เช่น มีคำถาม-คำตอบชัดเจน ตัวเลขและข้อเท็จจริงที่อ้างอิงได้</div>
                 <div class="chips"><span class="chip"><span class="sq s-me"></span>FAQ schema</span><span class="chip"><span class="sq s-me"></span>เนื้อหาถาม-ตอบ</span><span class="chip"><span class="sq s-me"></span>citability</span></div>
               </div>
             </div>
             <div class="pnode">
               <div class="pk"><div class="knm">Entity &amp; E-E-A-T</div></div>
-              <div class="pv"><div class="pd">AI ระบุตัวตนแบรนด์ได้ + สัญญาณความน่าเชื่อถือ (Experience · Expertise · Authority · Trust)</div>
+              <div class="pv"><div class="pd">AI รู้จักและเรียกชื่อแบรนด์คุณได้ถูก พร้อมสัญญาณว่าน่าเชื่อถือ — มีประสบการณ์จริง เชี่ยวชาญ และโปร่งใส (E-E-A-T)</div>
                 <div class="chips"><span class="chip"><span class="sq s-me"></span>entity recognition</span><span class="chip"><span class="sq s-me"></span>E-E-A-T</span><span class="chip"><span class="sq s-me"></span>หน้าความน่าเชื่อถือ</span></div>
               </div>
             </div>
             <div class="pnode">
               <div class="pk"><div class="knm">LLM Readability</div><div class="kw">LLMO</div></div>
-              <div class="pv"><div class="pd">เนื้อหาอยู่ในรูปที่ AI Search ดึงไปใช้ได้ — ไม่พึ่ง JavaScript ล้วน</div>
+              <div class="pv"><div class="pd">เนื้อหาอยู่ในรูปแบบที่ AI อ่านได้ทันที ไม่ซ่อนอยู่หลังสคริปต์ที่ AI ส่วนใหญ่เปิดไม่ได้</div>
                 <div class="chips"><span class="chip"><span class="sq s-lo"></span>llms.txt</span><span class="chip"><span class="sq s-hi"></span>เนื้อหาใน HTML ดิบ</span></div>
               </div>
             </div>
@@ -283,8 +302,8 @@
             <div class="pw">นอกขอบเขต</div>
           </div>
           <div class="pnote">
-            <span class="x">✗ ระบบเราไม่ครอบคลุม</span> — เราตรวจ <b>“หน้าเว็บจริง”</b> ที่ไม่ต้องจ่ายเงิน. ตัวชี้วัดของ SEM เช่น Quality Score · CTR · CPC · ROAS ต้องดึงจาก <b>Google Ads + GA4</b> ซึ่งเป็นข้อมูลภายในบัญชีโฆษณา ไม่สามารถวัดจากการ crawl หน้าเว็บได้<br>
-            <span class="ok">✓ จุดที่เกี่ยวข้อง</span> — <b>Landing Page Experience</b> (1 ใน 3 ปัจจัยของ Quality Score) คือความเร็ว + เนื้อหา + ความพร้อมมือถือ ซึ่งระบบเรา <b>ตรวจให้แล้ว</b> ในหมวด SEO ด้านบน
+            <div class="prow"><span class="tag tag-no">ไม่ได้ตรวจ</span><div>เราวิเคราะห์เฉพาะ <b>หน้าเว็บจริง</b> ที่เปิดดูได้โดยไม่ต้องเสียเงินโฆษณา ส่วนตัวเลขของการยิงแอด เช่น คะแนนคุณภาพ (Quality Score), อัตราคนคลิก (CTR), ราคาต่อคลิก (CPC) และผลตอบแทนค่าโฆษณา (ROAS) เป็นข้อมูลที่อยู่ในบัญชี Google Ads และ Google Analytics ของแต่ละธุรกิจ จึงดูจากการเปิดหน้าเว็บภายนอกไม่ได้</div></div>
+            <div class="prow"><span class="tag tag-yes">ตรวจให้แล้ว</span><div>แต่สิ่งที่ Google ใช้คิดราคาโฆษณาอย่างหนึ่งคือ <b>คุณภาพของหน้าปลายทาง</b> (โหลดเร็ว เนื้อหาตรงปก และเปิดบนมือถือได้ดี) ส่วนนี้อยู่ในหมวด SEO ด้านบนที่เราตรวจให้ครบแล้ว ดังนั้นแม้เราจะไม่แตะระบบโฆษณา ผลตรวจของเราก็ช่วยให้ค่าโฆษณาถูกลงได้ทางอ้อม</div></div>
           </div>
         </div>
       </div>
