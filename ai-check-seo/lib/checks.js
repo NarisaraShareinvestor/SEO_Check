@@ -253,7 +253,7 @@ export function runChecks(site) {
     }
 
     const noindexed = okPages.filter(p => /noindex/i.test(p.metas['robots'] || '') || /noindex/i.test(p.headers?.['x-robots-tag'] || ''));
-    if (noindexed.length) checks.push(mk('noindex', 'index', 'high', 'warn', 'หน้าที่ติด noindex', `${noindexed.length} หน้ามี meta robots หรือ X-Robots-Tag เป็น noindex — จะไม่ขึ้น Google`, 'ตรวจว่าตั้งใจไหม ถ้าเป็นหน้าสำคัญให้เอาออก', pageList(noindexed)));
+    if (noindexed.length) checks.push(mk('noindex', 'index', 'high', 'warn', 'หน้าที่ติด noindex', `${noindexed.length} หน้ามี meta robots หรือ X-Robots-Tag เป็น noindex — หน้าเหล่านี้จะไม่ถูกจัดทำดัชนีใน Google (ถ้าตั้งใจ เช่น หน้า thank-you / staging / ผลค้นหาภายใน ถือว่าปกติ)`, 'ตรวจว่าตั้งใจไหม ถ้าเป็นหน้าสำคัญให้เอา noindex ออก', pageList(noindexed)));
 
     // robots meta directive ที่ไม่ valid หรือ deprecated (เช่น "nodiy", "noodp", "noydir")
     const VALID_ROBOTS = new Set(['index','noindex','follow','nofollow','none','all','noarchive','nosnippet','notranslate','noimageindex','nocache','indexifembedded','max-snippet','max-image-preview','max-video-preview','unavailable_after']);
@@ -281,7 +281,7 @@ export function runChecks(site) {
 
     const noCanonical = okPages.filter(p => !p.canonical);
     checks.push(noCanonical.length
-      ? mk('canonical-missing', 'index', 'high', 'fail', 'หน้าที่ไม่มี canonical tag', `${noCanonical.length}/${okPages.length} หน้า — เสี่ยง duplicate content (เช่น /, /home, ?param ถูก index แยกกัน)`, 'ใส่ <link rel="canonical"> ทุกหน้า ชี้ URL หลักของตัวเอง', pageList(noCanonical), true)
+      ? mk('canonical-missing', 'index', 'high', 'fail', 'หน้าที่ไม่มี canonical tag', `${noCanonical.length}/${okPages.length} หน้า — Google จะถือว่าแต่ละหน้าเป็น canonical ของตัวเองโดยปริยาย แต่การใส่ให้ชัดช่วยกัน duplicate เมื่อมี query param/trailing slash/หน้าซ้ำเข้ามา index แยกกัน`, 'ใส่ <link rel="canonical"> ทุกหน้า ชี้ URL หลักของตัวเอง', pageList(noCanonical), true)
       : mk('canonical-missing', 'index', 'high', 'pass', 'canonical tag ครบ', 'ทุกหน้ามี canonical'));
 
     const chains = okPages.filter(p => (p.redirectChain || []).length > 1);
@@ -332,7 +332,7 @@ export function runChecks(site) {
     const withLd = okPages.filter(p => p.jsonLd.length);
     checks.push(withLd.length === 0
       ? mk('jsonld-missing', 'schema', 'high', 'fail', 'ไม่มี Structured Data (JSON-LD) ใน HTML ดิบ', `0/${okPages.length} หน้า — เสียโอกาส rich results และ AI engines ไม่มีข้อมูลแบบมีโครงสร้างให้ดึง (หากเว็บเป็น SPA และสร้าง schema ด้วย JS ก็ยังควรย้ายมาไว้ใน HTML ดิบ เพราะ AI bot ไม่รัน JS)`, 'เพิ่ม Organization, WebSite, BreadcrumbList และ Service/FAQ schema', [], true)
-      : mk('jsonld-missing', 'schema', 'high', withLd.length < okPages.length * 0.5 ? 'warn' : 'pass', 'Structured Data (JSON-LD)', `${withLd.length}/${okPages.length} หน้ามี JSON-LD`, withLd.length < okPages.length ? 'เพิ่มให้ครบทุกหน้า' : '', pageList(okPages.filter(p => !p.jsonLd.length)), true));
+      : mk('jsonld-missing', 'schema', 'high', withLd.length < okPages.length * 0.9 ? 'warn' : 'pass', 'Structured Data (JSON-LD)', `${withLd.length}/${okPages.length} หน้ามี JSON-LD`, withLd.length < okPages.length ? 'เพิ่มให้ครบทุกหน้า indexable' : '', pageList(okPages.filter(p => !p.jsonLd.length)), true));
 
     const badLd = okPages.filter(p => p.jsonLd.some(j => !j.ok));
     if (badLd.length) checks.push(mk('jsonld-invalid', 'schema', 'high', 'fail', 'JSON-LD รูปแบบไม่ถูกต้อง (parse ไม่ได้)', `${badLd.length} หน้ามี JSON-LD ที่ไวยากรณ์ JSON ไม่สมบูรณ์ — Search Engine จะไม่นำ structured data ก้อนนั้นไปใช้`, 'ตรวจ syntax ด้วย Rich Results Test', pageList(badLd), true));
@@ -345,7 +345,7 @@ export function runChecks(site) {
     }));
     checks.push(ldTypes.has('Organization') || ldTypes.has('LocalBusiness') || ldTypes.has('Corporation')
       ? mk('schema-org', 'schema', 'med', 'pass', 'มี Organization schema', `พบ types: ${[...ldTypes].slice(0, 10).join(', ')}`)
-      : mk('schema-org', 'schema', 'med', 'fail', 'ไม่มี Organization/LocalBusiness schema', `ไม่พบใน ${okPages.length} หน้าที่ตรวจ — Google และ AI engines ไม่รู้ว่าธุรกิจนี้คือใคร อยู่ที่ไหน (กระทบ Knowledge Panel) · ปกติใส่ครั้งเดียวใน template/หน้าแรกก็ครอบคลุมทั้งเว็บ`, 'เพิ่ม Organization schema พร้อม logo, address, sameAs (social links)', okPages.map(p => p.url), true));
+      : mk('schema-org', 'schema', 'med', 'fail', 'ไม่มี Organization/LocalBusiness schema', `ไม่พบใน ${okPages.length} หน้าที่ตรวจ — ช่วยให้ Google/AI ระบุได้ชัดขึ้นว่าธุรกิจนี้คือใคร อยู่ที่ไหน (กระทบโอกาสได้ Knowledge Panel) · แก้ครั้งเดียวที่ template/หน้าแรกก็ครอบคลุมทั้งเว็บ`, 'เพิ่ม Organization schema พร้อม logo, address, sameAs (social links)', home ? [home.url] : okPages.slice(0, 1).map(p => p.url), true));
     checks.push(ldTypes.has('BreadcrumbList')
       ? mk('schema-breadcrumb', 'schema', 'low', 'pass', 'มี BreadcrumbList schema', '')
       : mk('schema-breadcrumb', 'schema', 'low', 'warn', 'ไม่มี BreadcrumbList schema', 'breadcrumb ใน SERP ช่วย CTR', 'เพิ่ม BreadcrumbList ทุกหน้า', [], true));
@@ -474,7 +474,7 @@ export function runChecks(site) {
 
     const noCompress = okPages.filter(p => !p.headers['content-encoding']);
     if (noCompress.length === okPages.length && okPages.length > 0)
-      checks.push(mk('compression', 'performance', 'med', 'warn', 'ไม่ได้เปิด compression', 'ไม่พบ gzip/brotli ใน response — HTML/CSS/JS โหลดช้ากว่าที่ควร 60–80%', 'เปิด brotli หรือ gzip ที่ web server/CDN', [], true));
+      checks.push(mk('compression', 'performance', 'med', 'warn', 'ไม่ได้เปิด compression', 'ไม่พบ header content-encoding (gzip/brotli) ในทุกหน้าที่ตรวจ — การเปิด compression ช่วยลดขนาดที่ต้องดาวน์โหลดและทำให้หน้าโหลดเร็วขึ้น (บางกรณี header อาจถูก proxy/CDN ตัด — ตรวจยืนยันที่ฝั่ง origin)', 'เปิด brotli หรือ gzip ที่ web server/CDN', [], true));
     else checks.push(mk('compression', 'performance', 'med', 'pass', 'เปิด compression แล้ว', `ใช้ ${[...new Set(okPages.map(p => p.headers['content-encoding']).filter(Boolean))].join(', ')}`));
 
     const slow = okPages.filter(p => p.elapsed > 3000);
@@ -505,8 +505,8 @@ export function runChecks(site) {
     const fw = home ? Object.entries(home.frameworkMarkers || {}).filter(([, v]) => v).map(([k]) => k) : [];
     if (spa.length) {
       checks.push(mk('spa-shell', 'rendering', 'high', 'fail', 'หน้าเว็บเป็น SPA เปลือกเปล่า (client-side render เท่านั้น)',
-        `${spa.length}/${okPages.length} หน้ามี root container ว่างใน HTML ดิบ${fw.length ? ` (framework: ${fw.join(', ')})` : ''} — เนื้อหา, H1, ลิงก์ จึงมองไม่เห็นโดย crawler รอบแรกของ Google และ AI bot (GPTBot, ClaudeBot, PerplexityBot ไม่ render JS) · เนื้อหาที่อยู่หลัง JS เท่านั้นจึงเสี่ยงไม่ถูกจัดเก็บและไม่ถูกอ้างอิงใน AI`,
-        'เปิด SSR (Nuxt: ssr:true / Next: ใช้ server components) หรือ pre-render เป็น static HTML — เป็นประเด็นสำคัญลำดับต้นของรายงานนี้', pageList(spa)));
+        `${spa.length}/${okPages.length} หน้ามี root container ว่างใน HTML ดิบ${fw.length ? ` (framework: ${fw.join(', ')})` : ''} — เนื้อหา, H1, ลิงก์ ไม่อยู่ใน HTML ดิบ · Googlebot ยัง render ได้ในรอบสอง (ช้ากว่าและไม่เสถียรเท่า) แต่ AI bot (GPTBot, ClaudeBot, PerplexityBot) ปัจจุบันไม่รัน JS จึงมีแนวโน้มสูงที่จะเห็นเนื้อหาไม่ครบ`,
+        'เปิด SSR (Nuxt: ssr:true / Next: ใช้ server components) หรือ pre-render เป็น static HTML — ช่วยทั้ง AI search และความเสถียรของการ index ฝั่ง Google', pageList(spa)));
     } else if (fw.length) {
       checks.push(mk('spa-shell', 'rendering', 'high', 'pass', 'ใช้ JS framework แต่ render ฝั่ง server แล้ว', `พบ ${fw.join(', ')} แต่เนื้อหาอยู่ใน HTML ดิบครบ — ดีมาก`));
     } else {
@@ -583,10 +583,12 @@ export function runChecks(site) {
     if (emptyH.length) checks.push(mk('empty-headings', 'onpage', 'low', 'warn', 'มี heading ว่างเปล่า', `${emptyH.length} หน้ามี h1–h6 ที่ไม่มีข้อความ — มักเกิดจาก template`, 'ลบ heading เปล่าหรือใส่ข้อความ', pageList(emptyH)));
 
     // URL hygiene
+    // เน้นเฉพาะที่กระทบ SEO จริง: ตัวพิมพ์ใหญ่ใน path หรือ URL ยาวผิดปกติ
+    // (ตัด underscore + parameter เยอะ ออก — เป็นเรื่องปกติ/ถูกต้องตามใช้งาน ไม่ใช่ปัญหา SEO)
     const badUrl = okPages.filter(p => {
-      try { const u = new URL(p.url); return /[A-Z]/.test(u.pathname) || /_/.test(u.pathname) || u.pathname.length > 115 || [...u.searchParams].length > 2; } catch { return false; }
+      try { const u = new URL(p.url); return /[A-Z]/.test(u.pathname) || u.pathname.length > 115; } catch { return false; }
     });
-    if (badUrl.length) checks.push(mk('url-hygiene', 'onpage', 'low', 'warn', 'URL ไม่เป็นมิตรกับ SEO', `${badUrl.length} หน้ามีตัวพิมพ์ใหญ่ / underscore / ยาวเกิน / parameter เยอะ`, 'ใช้ตัวพิมพ์เล็ก คั่นด้วย hyphen สั้นกระชับ', pageList(badUrl)));
+    if (badUrl.length) checks.push(mk('url-hygiene', 'onpage', 'low', 'warn', 'URL ไม่เป็นมิตรกับ SEO', `${badUrl.length} หน้ามีตัวพิมพ์ใหญ่ใน path หรือ URL ยาวเกินไป`, 'ใช้ตัวพิมพ์เล็ก คั่นด้วย hyphen สั้นกระชับ', pageList(badUrl)));
 
     // trailing slash duplicates
     const pathSet = new Map(okPages.map(p => { try { const u = new URL(p.url); return [u.origin + u.pathname, p.url]; } catch { return [p.url, p.url]; } }));
@@ -654,9 +656,14 @@ export function runChecks(site) {
       const definiteFail = (v) => v.status >= 500 || (v.status === 0 && /ENOTFOUND|getaddrinfo|ECONNREFUSED|ERR_TLS|CERT|SELF_SIGNED|UNABLE_TO_|DEPTH_ZERO|altname/i.test(v.error || ''));
       const trulyDead = site.variants.filter(definiteFail);
       const shaky = site.variants.filter(v => v.status === 0 && !definiteFail(v)); // timeout/unknown = ตรวจไม่ติดชั่วคราว ไม่ฟันธง
-      if (live.length) checks.push(mk('host-variants', 'index', 'high', 'fail', 'โดเมนหลายเวอร์ชันตอบ 200 พร้อมกัน',
-        `${live.map(v => v.variant).join(', ')} ไม่ redirect มาที่ ${site.origin} — Google มองเป็นคนละเว็บ แบ่งคะแนนกันเอง`,
-        'ตั้ง 301 redirect ทุก variant (http/https, www/non-www) มาที่เวอร์ชันหลักเดียว', live.map(v => `${v.variant} → ${v.finalOrigin} (${v.status})`)));
+      // ถ้าหน้าส่วนใหญ่มี rel=canonical อยู่แล้ว Google มักรวม host variants ให้ (canonical ชี้โดเมนหลัก) → ลดเป็น warn ไม่ฟันธง "แบ่งคะแนน"
+      const wellCanon = okPages.length && okPages.filter(p => p.canonical).length >= okPages.length * 0.8;
+      if (live.length) checks.push(mk('host-variants', 'index', wellCanon ? 'med' : 'high', wellCanon ? 'warn' : 'fail',
+        wellCanon ? 'โดเมนหลายเวอร์ชันตอบ 200 (มี canonical ช่วยรวมอยู่)' : 'โดเมนหลายเวอร์ชันตอบ 200 พร้อมกัน',
+        `${live.map(v => v.variant).join(', ')} ไม่ได้ 301 มาที่ ${site.origin}` + (wellCanon
+          ? ` — แต่หน้าส่วนใหญ่มี rel=canonical อยู่แล้ว ถ้า canonical ชี้โดเมนหลักถูกต้องและ variant ส่ง canonical เดียวกัน Google มักรวมให้ (ควรยืนยัน) — วิธีชัวร์สุดยังคือ 301`
+          : ` — ถ้าไม่มี 301 หรือ canonical ที่ถูกต้อง Google อาจมองเป็นคนละเว็บและแบ่งสัญญาณกันเอง`),
+        'ตั้ง 301 redirect ทุก variant (http/https, www/non-www) มาที่เวอร์ชันหลักเดียว (ชัดเจนสุด) หรืออย่างน้อยต้องมี rel=canonical ชี้โดเมนหลักทุกหน้า', live.map(v => `${v.variant} → ${v.finalOrigin} (${v.status})`)));
       else if (trulyDead.length) checks.push(mk('host-variants', 'index', 'med', 'warn', 'บาง variant ของโดเมนเข้าไม่ได้',
         `${trulyDead.map(v => v.variant).join(', ')} เข้าไม่ได้ (DNS/certificate/server error) — ผู้ใช้ที่พิมพ์ www (หรือไม่พิมพ์) จะเข้าเว็บไม่ได้`,
         'ชี้ DNS + certificate ให้ครบทุก variant แล้ว 301 มาที่หลัก', trulyDead.map(v => `${v.variant} (${v.status || v.error || 'error'})`)));

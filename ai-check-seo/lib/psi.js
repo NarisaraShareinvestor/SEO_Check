@@ -81,8 +81,8 @@ export function buildPsiChecks(psi) {
 
   // คะแนน Lighthouse Performance
   checks.push(mk('cwv-score', 'high', psi.perfScore >= 80 ? 'pass' : psi.perfScore >= 50 ? 'warn' : 'fail',
-    `Lighthouse Performance: ${psi.perfScore}/100 (มือถือ)`,
-    `วัดจริงโดย Google PageSpeed — LCP ${fmt(psi.lab.lcpMs)}, TBT ${fmt(psi.lab.tbtMs)}, CLS ${psi.lab.cls?.toFixed(3) ?? '–'}, TTFB ${fmt(psi.lab.ttfbMs)}`,
+    `Lighthouse Performance: ${psi.perfScore}/100 (มือถือ · ทดสอบในแล็บ)`,
+    `ทดสอบในแล็บโดย Google Lighthouse (จำลองมือถือ รันครั้งเดียว — ค่าผันผวนได้หลายแต้มต่อรอบ ใช้วินิจฉัย ไม่ใช่ค่าจัดอันดับ) — LCP ${fmt(psi.lab.lcpMs)}, TBT ${fmt(psi.lab.tbtMs)} (lab proxy ของ INP ไม่ใช่ Core Web Vital โดยตรง), CLS ${psi.lab.cls?.toFixed(3) ?? '–'}, TTFB ${fmt(psi.lab.ttfbMs)} · Core Web Vitals ที่ Google ใช้จัดอันดับจริงดูจาก field data (CrUX) ด้านล่าง`,
     psi.topOpportunities?.length ? 'จุดที่ลดเวลาได้มากสุด: ' + psi.topOpportunities.map(o => `${o.title} (~${fmt(o.savingMs)})`).join(' · ') : ''));
 
   // Field data (ผู้ใช้จริงจาก CrUX) — มีเฉพาะเว็บที่ traffic พอ

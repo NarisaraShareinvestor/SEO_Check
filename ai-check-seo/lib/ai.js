@@ -178,7 +178,12 @@ ${JSON.stringify(issues, null, 1)}
   "quickWins": ["สิ่งที่แก้ได้ใน 1 วันแล้วเห็นผล 2-4 ข้อ"],
   "strategicAdvice": "คำแนะนำเชิงกลยุทธ์ 2-3 ประโยค มองไกลกว่าการแก้บั๊ก เช่น content/GEO opportunity"
 }
-topPriorities เอาแค่ 5-7 ข้อที่สำคัญจริง เรียงตาม impact ต่อธุรกิจ`;
+topPriorities เอาแค่ 5-7 ข้อที่สำคัญจริง เรียงตาม impact ต่อธุรกิจ
+
+ข้อบังคับความถูกต้อง (สำคัญมาก):
+- อธิบายผลกระทบเชิงคุณภาพเท่านั้น ห้ามแต่งตัวเลข %, จำนวน traffic, อันดับ, ยอดขาย หรือรายได้ ที่ไม่ได้อยู่ในข้อมูลที่ให้มา
+- อ้างอิงเฉพาะปัญหาที่อยู่ในรายการที่ให้ ห้ามสร้าง checkId หรือปัญหาใหม่ที่ไม่มีในข้อมูล
+- ใช้ถ้อยคำตามระดับความมั่นใจ (เช่น "อาจกระทบ", "มีแนวโน้ม") อย่าฟันธงผลลัพธ์ที่พิสูจน์ไม่ได้`;
 
   try {
     const text = await callLLM(system, user, 3500);
@@ -217,7 +222,8 @@ export async function aiCompare(ours, theirs) {
 {
   "summary": "สรุป 3-4 ประโยค: ใครเหนือกว่าโดยรวม เราแพ้หนักสุดตรงไหน และจุดที่เราได้เปรียบ",
   "battlePlan": ["แผนแซง 3-5 ข้อ เรียงตามผลลัพธ์ต่อการแซงอันดับ แต่ละข้อสั้น กระชับ ลงมือได้เลย"]
-}`;
+}
+ข้อบังคับ: อ้างอิงเฉพาะคะแนน/หมวดที่ให้มาเท่านั้น ห้ามแต่งตัวเลข traffic/อันดับ/ส่วนแบ่งตลาด หรือ % ที่ไม่มีในข้อมูล`;
   try {
     const text = await callLLM(system, user, 1500);
     return { source: 'ai', ...extractJson(text) };
@@ -238,6 +244,17 @@ function templateCompare(ours, theirs) {
   };
 }
 
+// safety net: ตัดตัวเลขสัมบูรณ์/% ที่ AI อาจหลุดแต่งในแถว projection ที่ไม่ใช่ "คะแนน SEO" (เมตริกที่ไม่มี baseline จริง)
+function sanitizeGrowthProjections(plan) {
+  const rows = plan?.projections?.rows;
+  if (Array.isArray(rows)) for (const r of rows) {
+    if (!r || /คะแนน\s*SEO|SEO\s*รวม|score/i.test(r.metric || '')) continue;
+    for (const k of ['now', 'm3', 'm6', 'm12'])
+      if (typeof r[k] === 'string' && /\d{3,}|\d+\s*%|\d[,.]\d{3}/.test(r[k])) r[k] = 'ทิศทางเชิงคุณภาพ (ต้องมี baseline จริง)';
+  }
+  return plan;
+}
+
 // แผนเติบโต: keyword เป้าหมาย + projection 3/6/12 เดือน + workstreams (พลังให้สไลด์เชิงกลยุทธ์)
 export async function aiGrowthPlan(audit) {
   const topics = (audit.pages || []).slice(0, 8).map(p => p.title || p.h1).filter(Boolean);
@@ -254,22 +271,23 @@ ${comp ? `คู่แข่ง: ${comp.theirs.url} คะแนน ${comp.their
     {"keyword": "คีย์เวิร์ดเป้าหมายภาษาไทย/อังกฤษตาม intent ธุรกิจนี้", "intent": "Informational|Commercial|Transactional|Brand", "rationale": "ทำไมควรชิง สั้นๆ", "difficulty": "ง่าย|ปานกลาง|ยาก"}
   ],
   "projections": {
-    "note": "สมมติฐานสั้นๆ ว่าประมาณการนี้ตั้งอยู่บนอะไร",
+    "note": "ระบุชัดว่านี่คือแนวโน้มเชิงทิศทาง ไม่ใช่ตัวเลขรับประกัน และต้องมี baseline จริง (Search Console/GA4) เพื่อวัดผลจริง",
     "rows": [
-      {"metric": "คะแนน SEO รวม", "now": "${audit.score.overall}", "m3": "...", "m6": "...", "m12": "..."},
-      {"metric": "อันดับคีย์เวิร์ดที่ติด (ประมาณ)", "now": "...", "m3": "...", "m6": "...", "m12": "..."},
-      {"metric": "การถูกอ้างถึงบน AI (AI Overview/ChatGPT)", "now": "...", "m3": "...", "m6": "...", "m12": "..."},
-      {"metric": "ทราฟฟิก organic (แนวโน้ม)", "now": "...", "m3": "...", "m6": "...", "m12": "..."}
+      {"metric": "คะแนน SEO รวม (จากระบบนี้)", "now": "${audit.score.overall}", "m3": "ช่วงคะแนนเป้าหมาย", "m6": "ช่วงคะแนนเป้าหมาย", "m12": "ช่วงคะแนนเป้าหมาย"},
+      {"metric": "อันดับคีย์เวิร์ดที่ติด", "now": "ต้องมี baseline", "m3": "ทิศทางเชิงคุณภาพ", "m6": "ทิศทางเชิงคุณภาพ", "m12": "ทิศทางเชิงคุณภาพ"},
+      {"metric": "การถูกอ้างถึงบน AI (AI Overview/ChatGPT)", "now": "ต้องมี baseline", "m3": "ทิศทางเชิงคุณภาพ", "m6": "ทิศทางเชิงคุณภาพ", "m12": "ทิศทางเชิงคุณภาพ"},
+      {"metric": "ทราฟฟิก organic (แนวโน้ม)", "now": "ต้องมี baseline", "m3": "ทิศทางเชิงคุณภาพ", "m6": "ทิศทางเชิงคุณภาพ", "m12": "ทิศทางเชิงคุณภาพ"}
     ]
   },
   "workstreams": [
     {"n": "01", "title": "ชื่อ workstream", "detail": "ทำอะไร สั้นๆ"}
   ]
 }
-keywordTargets เอา 6-9 ตัว · workstreams เอา 6 ตัว · projections ต้องสมจริง อนุรักษ์นิยม`;
+keywordTargets เอา 6-9 ตัว · workstreams เอา 6 ตัว
+ข้อบังคับ: เฉพาะ "คะแนน SEO รวม" เท่านั้นที่ระบุเป็นตัวเลข/ช่วงได้ (เพราะมี baseline จากระบบ) · เมตริกอันดับ/AI/ทราฟฟิก ห้ามแต่งตัวเลขสัมบูรณ์หรือ % เด็ดขาด ให้ใช้ทิศทางเชิงคุณภาพ (เช่น "ค่อยๆ ดีขึ้น", "เพิ่มชัดเจนถ้าทำต่อเนื่อง") และย้ำว่าต้องเชื่อมต่อ Search Console/GA4 เพื่อวัดจริง`;
   try {
     const text = await callLLM(system, user, 2500, premiumModel());
-    return { source: 'ai', ...extractJson(text) };
+    return { source: 'ai', ...sanitizeGrowthProjections(extractJson(text)) };
   } catch (e) {
     return { source: 'template', ...templateGrowth(audit) };
   }
@@ -309,8 +327,8 @@ export async function aiGenerateHeadFix(html, url, issues, brand) {
 - title 30-60 ตัวอักษร ขึ้นต้นคีย์เวิร์ดหลัก ลงท้ายแบรนด์ ภาษาเดียวกับเนื้อหา
 - metaDescription 80-160 ตัวอักษร ประโยคธรรมชาติ มีเหตุผลให้คลิก
 - canonical absolute URL ชี้ตัวเอง ตัด query/tracking ออก
-- og ครบ (title/description/image absolute/url), twitterCard = summary_large_image
-- jsonLd: array ของ schema.org object ที่ JSON.parse ผ่าน — อย่างน้อย Organization (name,url,logo) + WebSite; ถ้าหน้ามีถาม-ตอบใส่ FAQPage; ห้ามแต่งข้อเท็จจริง (เบอร์/ที่อยู่/ราคา) ที่ไม่มีในหน้า
+- og ครบ (title/description/image absolute/url), twitterCard = summary_large_image · og.image ใช้เฉพาะ URL รูปที่ปรากฏใน HTML ต้นฉบับจริงเท่านั้น ถ้าไม่พบให้คืน "" (ห้ามแต่ง path เช่น /og-image.jpg ที่อาจไม่มีอยู่)
+- jsonLd: array ของ schema.org object ที่ JSON.parse ผ่าน — อย่างน้อย Organization (name,url,logo) + WebSite; ถ้าหน้ามีถาม-ตอบใส่ FAQPage; ห้ามแต่งข้อเท็จจริง (เบอร์/ที่อยู่/ราคา/logo URL) ที่ไม่มีในหน้า — logo ใช้เฉพาะ URL ที่พบจริง ถ้าไม่มีให้ละเว้น field นั้น
 - imageAlts: map จาก "ส่วนหนึ่งของ src (เช่นชื่อไฟล์)" → alt บรรยายรูปจริง เลือกเฉพาะรูปเนื้อหาสำคัญ (ข้ามไอคอน/รูปตกแต่ง) ไม่เกิน 15 รายการ
 - lang = รหัสภาษาเนื้อหาจริง (เช่น th)
 
@@ -345,6 +363,8 @@ export async function aiGenerateFixedPage(html, url, issues, brand) {
 
 กติกาเหล็ก:
 - คงเนื้อหา ข้อความ โครงสร้าง และ asset เดิมไว้ทั้งหมด ห้ามตัดทิ้ง ห้ามแต่งข้อเท็จจริงใหม่ (เบอร์โทร ที่อยู่ ราคา ห้ามมโน)
+- asset URL (og:image, logo): ใช้เฉพาะที่ปรากฏใน HTML ต้นฉบับจริง — ถ้าไม่พบ ให้คง tag เดิมไว้หรือใส่ค่าว่าง ห้ามแต่ง path เช่น /og-image.jpg, /logo.png ที่อาจไม่มีอยู่จริง (ทำให้รูปแชร์/โลโก้พัง)
+- HTML ต้นฉบับอาจถูกตัดท้าย (ส่งมาไม่ครบทั้งไฟล์) — แก้เฉพาะส่วนที่เห็นจริง อย่าสรุป/ลบเนื้อหาที่อาจอยู่ในส่วนที่ถูกตัด
 - ห้ามใส่ noindex, ห้ามเปลี่ยน URL ของลิงก์/รูปเดิม
 - ใส่ comment <!-- FIXED: ... --> ตรงทุกจุดที่แก้ (ยกเว้นในก้อน JSON-LD — วาง comment ก่อนเปิด tag แทน)
 - ตอบกลับเป็น HTML ล้วนทั้งไฟล์ ห้ามมีคำอธิบายนอก HTML ห้ามใช้ markdown code fence`;
@@ -385,9 +405,10 @@ ${JSON.stringify(items, null, 1)}
       source: 'template', error: String(e.message || e),
       pages: items.map(p => ({
         url: p.url,
-        title: p.h1 ? `${p.h1.slice(0, 45)} | ${brand}` : `(ต้องเขียนเอง — ไม่มี H1 ให้อ้างอิง)`,
-        description: p.contentSample ? p.contentSample.slice(0, 150) : '(ต้องเขียนเอง)',
-        reason: 'สร้างจาก H1/เนื้อหาอัตโนมัติ (ไม่มี AI key)',
+        title: p.h1 ? `${p.h1.slice(0, 55).trim()}${brand ? ` | ${brand}` : ''}`.slice(0, 60) : '(ร่าง — ไม่มี H1 ให้อ้างอิง ต้องเขียนเอง)',
+        // ใช้ description เดิมถ้ามีจริง · ถ้าไม่มี ไม่ตัดเนื้อหากลางประโยคมาใช้ (ให้เป็น TODO ชัดเจน)
+        description: (p.currentDesc && p.currentDesc !== '(ไม่มี)') ? p.currentDesc : 'TODO: เขียน meta description 80-160 ตัวอักษร (มี benefit + CTA — อย่าใช้ข้อความตัดกลางประโยค)',
+        reason: 'ร่างจาก H1 อัตโนมัติ (ไม่มี AI key) — ต้องตรวจ/เกลาก่อนใช้จริง',
       })),
     };
   }

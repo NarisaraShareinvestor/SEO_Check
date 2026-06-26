@@ -6,6 +6,23 @@ function mk(id, severity, status, title, detail, recommendation = '', pages = []
   return { id, category: 'geo', severity, status, title, detail, recommendation, pages: pages.slice(0, 50), affectedCount: pages.length, fixable };
 }
 
+// ตรวจว่า JSON-LD มี property ที่มีค่าจริง (ไม่ใช่ค่าว่าง) — เลี่ยง false positive จาก substring match
+// เช่น JSON.stringify().includes('"author"') ที่จับ "author":"" หรือคำในฟิลด์อื่นก็เป็น true
+function jsonLdHasProp(data, prop) {
+  let found = false;
+  const valid = v => Array.isArray(v) ? v.length > 0 : (typeof v === 'object' ? v != null && Object.keys(v).length > 0 : v != null && String(v).trim() !== '');
+  const walk = d => {
+    if (found || d == null) return;
+    if (Array.isArray(d)) return d.forEach(walk);
+    if (typeof d === 'object') {
+      if (Object.prototype.hasOwnProperty.call(d, prop) && valid(d[prop])) { found = true; return; }
+      for (const k in d) walk(d[k]);
+    }
+  };
+  walk(data);
+  return found;
+}
+
 const AI_BOTS = [
   { ua: 'GPTBot', who: 'OpenAI / ChatGPT (เทรนโมเดล + เก็บข้อมูล)' },
   { ua: 'OAI-SearchBot', who: 'ChatGPT Search (ผลค้นหาเรียลไทม์)' },
@@ -31,33 +48,44 @@ export function runGeoChecks(site) {
 
   // ── 1. AI bot access ผ่าน robots.txt ──
   if (site.robots) {
+    // ทดสอบทั้ง '/' และ path เนื้อหาจริงที่ crawl เจอ — กันเคส Allow: / แต่ Disallow section (เช่น /th/, /blog/)
+    const samplePaths = [...new Set(['/', ...pages.map(p => { try { return new URL(p.url).pathname || '/'; } catch { return '/'; } })])].slice(0, 25);
     const blocked = [], allowed = [];
     for (const bot of AI_BOTS) {
-      (robotsAllows(site.robots, bot.ua, '/') ? allowed : blocked).push(bot);
+      const blockedPaths = samplePaths.filter(path => !robotsAllows(site.robots, bot.ua, path));
+      if (blockedPaths.length) blocked.push({ ...bot, paths: blockedPaths }); else allowed.push(bot);
     }
-    checks.push(blocked.length
-      ? mk('geo-bot-access', 'high', 'fail', 'robots.txt บล็อก AI bots',
-        `บล็อก: ${blocked.map(b => `${b.ua} (${b.who})`).join(' · ')} — ทำให้เนื้อหามีโอกาสน้อยที่จะถูกอ้างถึงหรือแนะนำใน AI answers`,
-        'ถ้าอยากให้แบรนด์ปรากฏใน ChatGPT/Perplexity/AI Overview ให้อนุญาต bot เหล่านี้ (อย่างน้อย OAI-SearchBot, PerplexityBot, ClaudeBot)', [], true)
-      : mk('geo-bot-access', 'high', 'pass', 'AI bots เข้าถึงได้ทั้งหมด',
-        `${allowed.length} AI crawler หลักเข้าได้: ${allowed.map(b => b.ua).join(', ')}`));
+    const rootBlocked = blocked.filter(b => b.paths.includes('/'));   // โดนทั้งเว็บ
+    const sectionOnly = blocked.filter(b => !b.paths.includes('/'));  // โดนเฉพาะบาง section
+    if (blocked.length) {
+      const desc = blocked.map(b => b.paths.includes('/')
+        ? `${b.ua} (ทั้งเว็บ)`
+        : `${b.ua} (เฉพาะ ${[...new Set(b.paths)].slice(0, 3).join(', ')})`).join(' · ');
+      checks.push(mk('geo-bot-access', rootBlocked.length ? 'high' : 'med', rootBlocked.length ? 'fail' : 'warn',
+        rootBlocked.length ? 'robots.txt บล็อก AI bots' : 'robots.txt บล็อก AI bots จากบาง section',
+        `บล็อก: ${desc} — AI crawler เหล่านี้ถูกห้ามตาม robots.txt จึงมีโอกาสน้อยลงที่เนื้อหา${rootBlocked.length ? '' : 'ในส่วนนั้น'}จะถูกอ้างถึงใน AI answers`,
+        'ถ้าอยากให้แบรนด์ปรากฏใน ChatGPT/Perplexity/AI Overview ให้อนุญาต bot เหล่านี้ (อย่างน้อย OAI-SearchBot, PerplexityBot, ClaudeBot) ในทุก path ที่เป็นเนื้อหาหลัก', [], true));
+    } else {
+      checks.push(mk('geo-bot-access', 'high', 'pass', 'AI bots เข้าถึงได้ทั้งหมด',
+        `${allowed.length} AI crawler หลักเข้าได้ทุก path ที่ตรวจ: ${allowed.map(b => b.ua).join(', ')}`));
+    }
   } else {
     checks.push(mk('geo-bot-access', 'med', 'warn', 'ไม่มี robots.txt — AI bots เข้าได้แต่ไม่มีไกด์', 'ควรมี robots.txt ที่อนุญาต AI bot อย่างชัดเจน + ระบุ sitemap', '', [], true));
   }
 
   // ── 2. llms.txt ──
   checks.push(site.llmsTxt
-    ? mk('geo-llms-txt', 'low', 'pass', 'มี llms.txt แล้ว', 'ไฟล์ llms.txt ช่วย AI เข้าใจโครงสร้างและเนื้อหาสำคัญของเว็บ — นำหน้าคู่แข่ง 99%')
+    ? mk('geo-llms-txt', 'low', 'pass', 'มี llms.txt แล้ว', 'ไฟล์ llms.txt ช่วยสรุปโครงสร้าง/เนื้อหาสำคัญให้ LLM (เป็น convention ใหม่ — มีไว้ดีกว่าไม่มี)')
     : mk('geo-llms-txt', 'low', 'warn', 'ยังไม่มี llms.txt',
-      'llms.txt คือมาตรฐานใหม่ (เหมือน robots.txt สำหรับ LLM) — สรุปว่าเว็บคุณคือใคร มีหน้าสำคัญอะไร ให้ AI ดึงไปใช้ถูกต้อง เว็บไทยแทบไม่มีใครทำ = โอกาสนำคู่แข่ง',
+      'llms.txt เป็น convention ที่เสนอใหม่ (เหมือน robots.txt สำหรับ LLM) — สรุปว่าเว็บคุณคือใคร มีหน้าสำคัญอะไร · หมายเหตุ: AI engine รายใหญ่ยังไม่ยืนยันว่ารองรับอย่างเป็นทางการ แต่ต้นทุนทำต่ำและไม่มี downside',
       'สร้าง /llms.txt (ระบบ Auto-Fix สร้างให้ได้)', [], true));
 
   // ── 3. SPA = AI มองไม่เห็น ──
   const spaPages = pages.filter(p => p.emptyRoot);
   if (spaPages.length) {
-    checks.push(mk('geo-spa-risk', 'high', 'fail', 'AI engines มองไม่เห็นเนื้อหา (JS-only rendering)',
-      `${spaPages.length} หน้าเป็น SPA shell — GPTBot, ClaudeBot, PerplexityBot **ไม่ render JavaScript** ต่างจาก Googlebot — สำหรับ AI search เว็บนี้คือหน้าว่าง`,
-      'นี่คือเหตุผลอันดับ 1 ที่แบรนด์ไม่ถูก ChatGPT อ้างถึง — ต้องทำ SSR/pre-render', spaPages.map(p => p.url)));
+    checks.push(mk('geo-spa-risk', 'high', 'fail', 'เนื้อหาพึ่งพา JavaScript — AI crawler มีแนวโน้มอ่านไม่ครบ',
+      `${spaPages.length} หน้าส่ง HTML ดิบมาเป็น shell ว่าง (เนื้อหา render ด้วย JS) — AI crawler หลัก (GPTBot, ClaudeBot, PerplexityBot) ปัจจุบัน**ไม่รัน JavaScript** จึงมีแนวโน้มสูงที่จะเห็นเนื้อหาไม่ครบ · ส่วน Googlebot ยัง render ได้ในรอบสอง (ช้ากว่าและไม่เสถียรเท่า raw HTML)`,
+      'ทำ SSR/pre-render ให้เนื้อหาหลักอยู่ใน HTML ดิบ — ช่วยทั้ง AI search และความเสถียรของการ index ฝั่ง Google', spaPages.map(p => p.url)));
   } else {
     checks.push(mk('geo-spa-risk', 'high', 'pass', 'เนื้อหาอ่านได้โดย AI bots', 'เนื้อหาอยู่ใน HTML ดิบ — AI crawler ทุกตัวอ่านได้ทันที'));
   }
@@ -71,9 +99,9 @@ export function runGeoChecks(site) {
   }));
   checks.push((ldTypes.has('FAQPage') || ldTypes.has('QAPage'))
     ? mk('geo-faq-schema', 'med', 'pass', 'มี FAQ/QA schema', 'AI engines ดึง Q&A ที่มี schema ไปตอบได้ตรงที่สุด')
-    : mk('geo-faq-schema', 'med', 'fail', 'ยังไม่มี FAQ schema',
-      `ไม่พบ FAQPage/QAPage schema ใน ${pages.length} หน้าที่ตรวจ — เป็น format ที่ AI Overview และ ChatGPT ดึงไปตอบได้ดี`,
-      'เพิ่ม FAQ section + FAQPage schema ในหน้าบริการหลัก (ไม่จำเป็นทุกหน้า) — Auto-Fix สร้าง template ให้', pages.map(p => p.url), true));
+    : mk('geo-faq-schema', 'med', 'warn', 'ยังไม่มี FAQ schema',
+      `ไม่พบ FAQPage/QAPage schema ใน ${pages.length} หน้าที่ตรวจ — เป็น format ที่ AI Overview และ ChatGPT ดึงไปตอบได้ดี (เป็นส่วนเสริม ไม่ใช่สิ่งจำเป็นพื้นฐาน)`,
+      'เพิ่ม FAQPage schema เฉพาะหน้าที่มีคำถาม-คำตอบจริงเท่านั้น — หมายเหตุ: ตั้งแต่ปี 2023 Google จำกัด FAQ rich result เฉพาะเว็บภาครัฐ/สุขภาพ และการมาร์กอัป Q&A ปลอมผิดแนวทางอาจโดน manual action จึงห้ามใส่ schema กับเนื้อหาที่ไม่ใช่ Q&A จริง', pages.map(p => p.url), true));
 
   // ── 5. Q&A content blocks (heading เป็นคำถาม) ──
   const qWords = /(\?|คืออะไร|คือ\s|ทำไม|อย่างไร|ยังไง|เท่าไหร่|ที่ไหน|เมื่อไหร่|^(what|how|why|when|where|who)\b)/i;
@@ -84,26 +112,22 @@ export function runGeoChecks(site) {
       'AI engines สกัด "คำตอบตรงๆ ใต้คำถาม" ได้ดี — เว็บนี้ยังไม่มี heading เชิงคำถาม (เช่น "นักลงทุนสัมพันธ์คืออะไร")',
       'เพิ่มหัวข้อเชิงคำถาม + คำตอบกระชับ 2–3 ประโยคแรกใต้หัวข้อ', [], true));
 
-  // ── 6. E-E-A-T signals ──
+  // ── 6. สัญญาณความน่าเชื่อถือที่ "อ่านได้ด้วยเครื่อง" (machine-readable trust signals) ──
+  // หมายเหตุ: E-E-A-T เป็นกรอบแนวคิดของ Google ไม่ใช่ tag ที่ตรวจตรงๆ ได้ — เราตรวจเฉพาะ
+  // สัญญาณ structured ที่ช่วยให้เครื่องเชื่อมโยง (author/date/sameAs) จึงรายงานตามนั้น ไม่ตัดสินว่า "E-E-A-T อ่อน"
+  const authorOf = p => !!(p.metas['author'] || ldTypes.has('Person') || p.jsonLd.some(j => j.ok && jsonLdHasProp(j.data, 'author')));
+  const dateOf = p => !!(p.metas['article:published_time'] || p.jsonLd.some(j => j.ok && (jsonLdHasProp(j.data, 'datePublished') || jsonLdHasProp(j.data, 'dateModified'))));
   const eat = [];
-  const hasAuthor = pages.some(p => p.metas['author'] || ldTypes.has('Person') || p.jsonLd.some(j => j.ok && JSON.stringify(j.data).includes('"author"')));
-  if (!hasAuthor) eat.push('ไม่มีข้อมูลผู้เขียน (author meta/schema)');
-  const hasDates = pages.some(p => p.metas['article:published_time'] || p.jsonLd.some(j => j.ok && /datePublished|dateModified/.test(JSON.stringify(j.data))));
-  if (!hasDates) eat.push('ไม่มีวันที่เผยแพร่/อัปเดต (datePublished)');
-  let sameAs = false;
-  pages.forEach(p => p.jsonLd.forEach(j => { if (j.ok && /"sameAs"/.test(JSON.stringify(j.data))) sameAs = true; }));
+  if (!pages.some(authorOf)) eat.push('ไม่มีข้อมูลผู้เขียน (author meta/schema)');
+  if (!pages.some(dateOf)) eat.push('ไม่มีวันที่เผยแพร่/อัปเดต (datePublished)');
+  const sameAs = pages.some(p => p.jsonLd.some(j => j.ok && jsonLdHasProp(j.data, 'sameAs')));
   if (!sameAs) eat.push('Organization ไม่มี sameAs ลิงก์ไป social/Wikipedia (สัญญาณ entity)');
-  // list หน้าที่ขาดสัญญาณรายหน้า (author/วันที่) — sameAs เป็นระดับเว็บ ไม่ list รายหน้า
-  const eatMissingPages = pages.filter(p => {
-    const a = p.metas['author'] || p.jsonLd.some(j => j.ok && JSON.stringify(j.data).includes('"author"'));
-    const d = p.metas['article:published_time'] || p.jsonLd.some(j => j.ok && /datePublished|dateModified/.test(JSON.stringify(j.data)));
-    return !a || !d;
-  }).map(p => p.url);
+  const eatMissingPages = pages.filter(p => !authorOf(p) || !dateOf(p)).map(p => p.url);
   checks.push(eat.length
-    ? mk('geo-eeat', 'med', eat.length >= 2 ? 'fail' : 'warn', 'สัญญาณ E-E-A-T ไม่ครบ',
-      eat.join(' · ') + ' — AI engines ใช้สัญญาณเหล่านี้ตัดสินว่าควรเชื่อและอ้างถึงเว็บไหน',
-      'เพิ่ม author bio + วันที่ + Organization.sameAs (Auto-Fix ช่วยสร้าง schema ได้)', eatMissingPages, true)
-    : mk('geo-eeat', 'med', 'pass', 'สัญญาณ E-E-A-T ครบ', 'มี author, dates และ entity links'));
+    ? mk('geo-eeat', 'med', 'warn', 'สัญญาณความน่าเชื่อถือที่อ่านได้ด้วยเครื่องไม่ครบ',
+      eat.join(' · ') + ' — เป็นสัญญาณ structured ที่ช่วยให้ Google/AI เชื่อมโยงผู้เขียน/แบรนด์ได้ชัดขึ้น (ตัวเสริม ไม่ใช่ตัวตัดสิน E-E-A-T โดยตรง)',
+      'เพิ่ม author byline + วันที่ + Organization.sameAs (Auto-Fix ช่วยสร้าง schema ได้)', eatMissingPages, true)
+    : mk('geo-eeat', 'med', 'pass', 'สัญญาณความน่าเชื่อถือครบ', 'มี author, dates และ entity links (sameAs)'));
 
   // ── 7. Citation-worthy content ──
   const hasData = pages.filter(p => p.hasTables || p.listCount >= 3);
@@ -136,11 +160,11 @@ export function runGeoChecks(site) {
     const brandInTitle = home.title && home.title.length > 0;
     const orgSchema = ldTypes.has('Organization') || ldTypes.has('LocalBusiness');
     if (!orgSchema)
-      checks.push(mk('geo-entity', 'high', 'fail', 'AI ไม่รู้ว่าแบรนด์นี้คือใคร (ไม่มี entity data)',
-        'ไม่มี Organization schema — เมื่อมีคนถาม AI ถึงธุรกิจประเภทนี้ AI ไม่มีข้อมูล structured ของแบรนด์ให้เชื่อมโยง จะไปอ้างเว็บอื่นแทน',
-        'เพิ่ม Organization schema เต็มรูปแบบ: name, logo, description, address, sameAs', [], true));
+      checks.push(mk('geo-entity', 'med', 'warn', 'ยังไม่มี Organization schema (entity ของแบรนด์)',
+        'ไม่พบ Organization/LocalBusiness schema — AI ยังเข้าใจแบรนด์ได้จากข้อความ/ลิงก์ภายนอก/knowledge graph แต่ schema เป็นสัญญาณ structured ที่ช่วยให้เชื่อมโยง entity ได้ชัดและถูกต้องขึ้น (ตัวเสริม ไม่ใช่เงื่อนไขบังคับ)',
+        'เพิ่ม Organization schema: name, logo, description, address, sameAs — ช่วยให้ AI/Google ระบุแบรนด์ได้แม่นขึ้น', [], true));
     else
-      checks.push(mk('geo-entity', 'high', 'pass', 'มี entity data ของแบรนด์', 'Organization schema พร้อมให้ AI เชื่อมโยงแบรนด์'));
+      checks.push(mk('geo-entity', 'med', 'pass', 'มี entity data ของแบรนด์', 'Organization schema พร้อมให้ AI/Google เชื่อมโยงแบรนด์'));
   }
 
   return { checks };

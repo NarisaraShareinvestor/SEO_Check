@@ -292,18 +292,33 @@ Deploy: ถ้าใช้ CDN/CloudFront ต้องชี้ origin ไปท
 
   // ── 10. hreflang ──
   if (failedIds.has('hreflang')) {
-    const thPages = pages.filter(p => /\/th\//.test(p.url)).slice(0, 5);
-    const enPages = pages.filter(p => /\/en\//.test(p.url)).slice(0, 5);
+    const thPages = pages.filter(p => /(\/th\/|[?&](lang|language)=th)/i.test(p.url)).slice(0, 5);
+    const enPages = pages.filter(p => /(\/en\/|[?&](lang|language)=en)/i.test(p.url)).slice(0, 5);
     if (thPages.length || enPages.length) {
+      let content;
+      if (thPages.length && enPages.length) {
+        // มีทั้งสองภาษาจริง → ใช้ URL จริงที่ crawl เจอ (ไม่แต่ง path ที่อาจ 404)
+        const th = (thPages[0].finalUrl || thPages[0].url), en = (enPages[0].finalUrl || enPages[0].url);
+        content = `<!-- ตัวอย่างจาก URL จริงที่พบตอน crawl — แต่ละหน้าต้องอ้างถึง "คู่แปลของหน้านั้นเอง" ให้ครบ + อ้างถึงตัวเองด้วย -->
+<link rel="alternate" hreflang="th" href="${esc(th)}">
+<link rel="alternate" hreflang="en" href="${esc(en)}">
+<link rel="alternate" hreflang="x-default" href="${esc(en)}">`;
+      } else {
+        // เจอภาษาเดียว → ไม่แต่ง URL อีกภาษา (ป้องกัน hreflang ชี้หน้า 404 ซึ่งทำ Google ทิ้งทั้ง cluster)
+        const found = thPages.length ? 'ภาษาไทย' : 'ภาษาอังกฤษ';
+        content = `<!-- crawl เจอเฉพาะหน้า${found} จึงยังจับคู่ภาษาอัตโนมัติไม่ได้
+     ⚠️ ใส่ hreflang เฉพาะเมื่อมี "หน้าคู่แปลจริงที่ return 200" เท่านั้น — ถ้าชี้ไปหน้าที่ไม่มีอยู่ Google จะไม่สนใจทั้ง cluster
+     แทนที่ค่าด้านล่างด้วย URL จริงของแต่ละหน้า: -->
+<link rel="alternate" hreflang="th" href="URL_หน้าภาษาไทยจริงของหน้านี้">
+<link rel="alternate" hreflang="en" href="URL_หน้าภาษาอังกฤษจริงของหน้านี้">
+<link rel="alternate" hreflang="x-default" href="URL_เริ่มต้นจริง">`;
+      }
       fixes.push({
         id: 'fix-hreflang', forCheck: 'hreflang', filename: 'hreflang-tags.html', language: 'html',
         title: 'hreflang tags สำหรับเว็บหลายภาษา',
-        description: 'ตัวอย่างจาก URL จริงที่พบ — ทุกหน้าต้องอ้างถึงกันครบทุกภาษา + x-default',
-        howTo: 'วางใน <head> ของทุกหน้า (แก้ URL ให้ตรงคู่ภาษาของหน้านั้น)',
-        content: `<!-- ตัวอย่างสำหรับหน้าแรก — ทำซ้ำทุกหน้าที่มี 2 ภาษา -->
-<link rel="alternate" hreflang="th" href="${origin}/th/">
-<link rel="alternate" hreflang="en" href="${origin}/en/">
-<link rel="alternate" hreflang="x-default" href="${origin}/">`,
+        description: 'อ้างอิงจาก URL จริงที่พบ — ทุก URL ต้องมีอยู่จริง (200) และทุกหน้าใน cluster ต้องอ้างถึงกันแบบสองทาง + x-default',
+        howTo: 'วางใน <head> ของแต่ละหน้า โดยแก้ให้ตรง "คู่ภาษาของหน้านั้น" — ห้ามชี้ไปหน้าที่ไม่มีอยู่จริง',
+        content,
       });
     }
   }
@@ -330,7 +345,10 @@ Deploy: ถ้าใช้ CDN/CloudFront ต้องชี้ origin ไปท
     if (!fixes.some(f => f.id === 'fix-page')) {
       // Fallback ไม่มี AI key: สร้าง <head> ฉบับสมบูรณ์จากข้อมูลที่ crawl ได้
       const title = home.title || `${brand} — TODO: ใส่ title 30-60 ตัวอักษร`;
-      const desc = home.metas?.['description'] || (home.textSample || '').slice(0, 150) || 'TODO: meta description 80-160 ตัวอักษร';
+      const desc = home.metas?.['description'] || 'TODO: ใส่ meta description 80-160 ตัวอักษร (ห้ามใช้ข้อความตัดกลางประโยค)';
+      // ใช้รูป/โลโก้จริงที่ crawl เจอ ถ้าไม่มีให้เป็น TODO ชัดเจน — ไม่ hardcode path ที่อาจ 404
+      const ogImage = home.metas?.['og:image'] || (home.images || []).map(i => i.src).find(s => /^https?:\/\//.test(s || '')) || 'TODO: URL รูปแชร์โซเชียล (1200×630, ต้องมีอยู่จริง)';
+      const logoUrl = audit.logo || site.logo || home.favicon || 'TODO: URL โลโก้จริง (เช่น /assets/logo.png ที่มีอยู่จริง)';
       fixes.unshift({
         id: 'fix-page', forCheck: 'head ของหน้าแรก', filename: 'head.fixed.html', language: 'html',
         title: 'ส่วน <head> ฉบับแก้ครบของหน้าแรก (ใส่ AI key เพื่อให้แก้ทั้งหน้า)',
@@ -347,7 +365,7 @@ Deploy: ถ้าใช้ CDN/CloudFront ต้องชี้ origin ไปท
   <meta property="og:type" content="website">
   <meta property="og:title" content="${esc(title)}">
   <meta property="og:description" content="${esc(desc)}">
-  <meta property="og:image" content="${origin}/og-image.jpg">
+  <meta property="og:image" content="${esc(ogImage)}">
   <meta property="og:url" content="${esc(home.finalUrl || home.url)}">
   <meta name="twitter:card" content="summary_large_image">
 
@@ -357,7 +375,7 @@ Deploy: ถ้าใช้ CDN/CloudFront ต้องชี้ origin ไปท
     "@type": "Organization",
     "name": "${esc(brand)}",
     "url": "${origin}/",
-    "logo": "${origin}/logo.png"
+    "logo": "${esc(logoUrl)}"
   }
   </script>
 </head>`,
