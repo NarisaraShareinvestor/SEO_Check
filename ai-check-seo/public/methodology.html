@@ -108,6 +108,41 @@
   .foot{padding:26px 0 4px;font-size:11.5px;color:var(--mut);text-align:center}
   .foot .b{font-family:var(--serif);color:var(--ink);font-size:13px}
   a{color:var(--blue)}
+  /* scope tree */
+  .tree{--seo:#1b4dd8;--geo:#7c3aed;--sem:#94a3b8}
+  .troot{background:var(--navy);color:#fff;border-radius:4px;padding:16px 22px;text-align:center}
+  .troot .tt{font-family:var(--serif);font-size:clamp(16px,2.6vw,20px);font-weight:700}
+  .troot .ts{font-size:12.5px;color:#aebfe0;margin-top:5px}
+  .troot .ts b{color:#fff;font-weight:700}
+  .tstem{width:2px;height:20px;background:var(--line);margin:0 auto}
+  .pillar{border:1px solid var(--line);border-radius:4px;border-top:3px solid var(--clr,var(--blue));margin-bottom:16px;overflow:hidden}
+  .pillar.seo{--clr:var(--seo)} .pillar.geo{--clr:var(--geo)} .pillar.sem{--clr:var(--sem)}
+  .pillar.sem{opacity:.92;background:var(--faint)}
+  .ph{display:flex;align-items:flex-start;gap:14px;padding:15px 20px;border-bottom:1px solid var(--line2)}
+  .ph .pn{flex:none;width:34px;height:34px;border-radius:7px;background:var(--clr,var(--blue));color:#fff;font-family:var(--serif);font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center}
+  .ph .pmain{flex:1;min-width:0}
+  .ph .pt{font-family:var(--serif);font-size:18px;font-weight:700;line-height:1.2}
+  .ph .pt span{font-family:var(--sans);font-size:12px;font-weight:600;color:var(--clr,var(--blue));letter-spacing:.02em}
+  .ph .pg{font-size:12.5px;color:var(--mut);margin-top:3px}
+  .ph .pw{flex:none;align-self:center;font-size:11px;font-weight:700;color:var(--navy);background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 12px;text-align:center;white-space:nowrap}
+  .pbody{padding:8px 20px 16px}
+  .pnode{display:flex;gap:13px;padding:11px 0;border-bottom:1px dashed var(--line2)}
+  .pnode:last-child{border-bottom:0}
+  .pnode .pk{flex:none;width:150px}
+  .pnode .pk .knm{font-weight:700;font-size:13.5px}
+  .pnode .pk .kw{font-size:11px;color:var(--mut)}
+  .pnode .pv{flex:1;min-width:0}
+  .pnode .pv .pd{font-size:12.5px;color:var(--mut);margin-bottom:6px}
+  .pnode .pv .chips{padding:0;gap:5px}
+  .pnode .pv .chip{font-size:11.5px;padding:2px 8px}
+  .ptools{display:flex;gap:11px;align-items:flex-start;margin:13px 20px 16px;padding:11px 14px;background:#fff;border:1px solid var(--line);border-left:3px solid var(--clr,var(--blue));border-radius:3px;font-size:12.5px}
+  .ptools .tlab{flex:none;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--clr,var(--blue));padding-top:2px}
+  .ptools .tval{flex:1;color:var(--ink)}
+  .ptools .tval b{font-weight:700}
+  .pnote{margin:13px 20px 16px;padding:12px 15px;background:#fff;border:1px dashed var(--line);border-radius:3px;font-size:12.8px;color:var(--ink)}
+  .pnote .x{color:var(--hi);font-weight:700}
+  .pnote .ok{color:var(--ok);font-weight:700}
+  @media(max-width:600px){.pnode{flex-direction:column;gap:6px}.pnode .pk{width:auto}}
 </style>
 </head>
 <body>
@@ -123,9 +158,143 @@
 
   <div class="pad">
 
-    <!-- 01 DIAGRAM -->
+    <!-- 01 SCOPE TREE -->
     <section>
-      <div class="shead"><div class="num">01</div><div class="tt"><h2>ภาพรวมวิธีการวัด</h2><div class="sub">จากการเก็บข้อมูลถึงคะแนนและการตรวจทาน</div></div></div>
+      <div class="shead"><div class="num">01</div><div class="tt"><h2>เราตรวจอะไรบ้าง</h2><div class="sub">แผนผังขอบเขตการตรวจวัด — SEO · GEO และจุดที่อยู่นอกขอบเขต (SEM)</div></div></div>
+
+      <div class="tree">
+        <!-- root -->
+        <div class="troot">
+          <div class="tt">AI SEO Audit Pro — มาตรฐานการตรวจวัด</div>
+          <div class="ts"><b>9 หมวด</b> · ~75 จุดตรวจ · ให้คะแนน <b>0–100</b> · ครอบคลุม <b>SEO</b> (ออร์แกนิก) + <b>GEO</b> (AI Search)</div>
+        </div>
+        <div class="tstem"></div>
+
+        <!-- PILLAR 1 — SEO -->
+        <div class="pillar seo">
+          <div class="ph">
+            <div class="pn">1</div>
+            <div class="pmain">
+              <div class="pt">SEO <span>· Search Engine Optimization</span></div>
+              <div class="pg">เป้าหมาย: เพิ่ม Visibility บน Google แบบออร์แกนิก — 8 หมวด</div>
+            </div>
+            <div class="pw">~80 / 100<br>คะแนน</div>
+          </div>
+          <div class="pbody">
+            <div class="pnode">
+              <div class="pk"><div class="knm">Indexability</div><div class="kw">น้ำหนัก 20</div></div>
+              <div class="pv"><div class="pd">เข้า Google / AI ได้ไหม — กฎพื้นฐานของการถูกจัดทำดัชนี</div>
+                <div class="chips"><span class="chip"><span class="sq s-hi"></span>noindex</span><span class="chip"><span class="sq s-hi"></span>canonical</span><span class="chip"><span class="sq s-hi"></span>robots.txt</span><span class="chip"><span class="sq s-me"></span>XML sitemap</span><span class="chip"><span class="sq s-me"></span>redirect chain</span><span class="chip"><span class="sq s-me"></span>hreflang</span><span class="chip"><span class="sq s-hi"></span>404/410</span></div>
+              </div>
+            </div>
+            <div class="pnode">
+              <div class="pk"><div class="knm">Meta &amp; เนื้อหา</div><div class="kw">น้ำหนัก 18</div></div>
+              <div class="pv"><div class="pd">ป้ายบอกหน้า + คุณภาพคอนเทนต์ที่ Google ใช้แสดงผล</div>
+                <div class="chips"><span class="chip"><span class="sq s-hi"></span>title</span><span class="chip"><span class="sq s-hi"></span>h1</span><span class="chip"><span class="sq s-me"></span>meta description</span><span class="chip"><span class="sq s-hi"></span>viewport (มือถือ)</span><span class="chip"><span class="sq s-me"></span>thin content</span><span class="chip"><span class="sq s-lo"></span>heading order</span></div>
+              </div>
+            </div>
+            <div class="pnode">
+              <div class="pk"><div class="knm">Structured Data</div><div class="kw">น้ำหนัก 12</div></div>
+              <div class="pv"><div class="pd">schema ให้ Google &amp; AI เข้าใจความหมายของหน้า</div>
+                <div class="chips"><span class="chip"><span class="sq s-hi"></span>JSON-LD</span><span class="chip"><span class="sq s-me"></span>schema.org</span><span class="chip"><span class="sq s-me"></span>Open Graph</span><span class="chip"><span class="sq s-lo"></span>breadcrumb</span></div>
+              </div>
+            </div>
+            <div class="pnode">
+              <div class="pk"><div class="knm">JS Rendering</div><div class="kw">น้ำหนัก 12</div></div>
+              <div class="pv"><div class="pd">บอทเห็นเนื้อหาไหม — เทียบ HTML ดิบกับหน้า render จริง (two-wave)</div>
+                <div class="chips"><span class="chip"><span class="sq s-hi"></span>SPA shell</span><span class="chip"><span class="sq s-hi"></span>render diff (raw≠rendered)</span><span class="chip"><span class="sq s-lo"></span>noscript</span></div>
+              </div>
+            </div>
+            <div class="pnode">
+              <div class="pk"><div class="knm">Core Web Vitals</div><div class="kw">น้ำหนัก 10</div></div>
+              <div class="pv"><div class="pd">มาตรฐาน UX/ความเร็ว: โหลดไว ตอบสนองคลิก เลย์เอาต์เสถียร</div>
+                <div class="chips"><span class="chip"><span class="sq s-me"></span>TTFB</span><span class="chip"><span class="sq s-me"></span>LCP / CLS / INP</span><span class="chip"><span class="sq s-me"></span>compression</span><span class="chip"><span class="sq s-me"></span>render-blocking</span></div>
+              </div>
+            </div>
+            <div class="pnode">
+              <div class="pk"><div class="knm">ลิงก์</div><div class="kw">น้ำหนัก 8</div></div>
+              <div class="pv"><div class="pd">โครงข่ายลิงก์ที่ส่งต่ออำนาจหน้าและให้บอทเดินตาม</div>
+                <div class="chips"><span class="chip"><span class="sq s-hi"></span>broken links</span><span class="chip"><span class="sq s-me"></span>internal links</span><span class="chip"><span class="sq s-me"></span>orphan pages</span><span class="chip"><span class="sq s-lo"></span>anchor text</span></div>
+              </div>
+            </div>
+            <div class="pnode">
+              <div class="pk"><div class="knm">รูปภาพ</div><div class="kw">น้ำหนัก 5</div></div>
+              <div class="pv"><div class="pd">การเข้าถึงรูป + ผลต่อ CLS</div>
+                <div class="chips"><span class="chip"><span class="sq s-me"></span>alt text</span><span class="chip"><span class="sq s-lo"></span>lazy loading</span><span class="chip"><span class="sq s-lo"></span>width/height</span></div>
+              </div>
+            </div>
+            <div class="pnode">
+              <div class="pk"><div class="knm">ความปลอดภัย</div><div class="kw">น้ำหนัก 5</div></div>
+              <div class="pv"><div class="pd">HTTPS เป็นสัญญาณอันดับของ Google</div>
+                <div class="chips"><span class="chip"><span class="sq s-hi"></span>HTTPS</span><span class="chip"><span class="sq s-hi"></span>SSL chain</span><span class="chip"><span class="sq s-me"></span>mixed content</span><span class="chip"><span class="sq s-lo"></span>security headers</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="ptools"><div class="tlab">วิธีตรวจของเรา</div><div class="tval"><b>Deterministic crawler</b> อ่าน HTML ดิบ + <b>headless Chrome</b> เปิดหน้า render จริง → ยืนยันผลด้วย <b>Google Lighthouse / PageSpeed Insights</b> เป็นเกณฑ์อิสระ</div></div>
+        </div>
+
+        <!-- PILLAR 2 — GEO -->
+        <div class="pillar geo">
+          <div class="ph">
+            <div class="pn">2</div>
+            <div class="pmain">
+              <div class="pt">GEO <span>· Generative Engine Optimization</span></div>
+              <div class="pg">เป้าหมาย: เพิ่มโอกาสถูก AI (ChatGPT · Gemini · Perplexity) อ้างอิง</div>
+            </div>
+            <div class="pw">10 / 100<br>+ ทับซ้อน</div>
+          </div>
+          <div class="pbody">
+            <div class="pnode">
+              <div class="pk"><div class="knm">AI Crawler Access</div></div>
+              <div class="pv"><div class="pd">robots.txt อนุญาตให้บอท AI เข้าถึงเนื้อหาหรือไม่ (ตรวจตามชื่อบอตจริง)</div>
+                <div class="chips"><span class="chip"><span class="sq s-hi"></span>GPTBot</span><span class="chip"><span class="sq s-hi"></span>ClaudeBot</span><span class="chip"><span class="sq s-hi"></span>PerplexityBot</span><span class="chip"><span class="sq s-hi"></span>SPA risk (AI มองไม่เห็น)</span></div>
+              </div>
+            </div>
+            <div class="pnode">
+              <div class="pk"><div class="knm">Citation &amp; Fact</div></div>
+              <div class="pv"><div class="pd">โครงสร้างเนื้อหาที่ AI ดึงไปอ้างอิงได้ง่าย</div>
+                <div class="chips"><span class="chip"><span class="sq s-me"></span>FAQ schema</span><span class="chip"><span class="sq s-me"></span>เนื้อหาถาม-ตอบ</span><span class="chip"><span class="sq s-me"></span>citability</span></div>
+              </div>
+            </div>
+            <div class="pnode">
+              <div class="pk"><div class="knm">Entity &amp; E-E-A-T</div></div>
+              <div class="pv"><div class="pd">AI ระบุตัวตนแบรนด์ได้ + สัญญาณความน่าเชื่อถือ (Experience · Expertise · Authority · Trust)</div>
+                <div class="chips"><span class="chip"><span class="sq s-me"></span>entity recognition</span><span class="chip"><span class="sq s-me"></span>E-E-A-T</span><span class="chip"><span class="sq s-me"></span>หน้าความน่าเชื่อถือ</span></div>
+              </div>
+            </div>
+            <div class="pnode">
+              <div class="pk"><div class="knm">LLM Readability</div><div class="kw">LLMO</div></div>
+              <div class="pv"><div class="pd">เนื้อหาอยู่ในรูปที่ AI Search ดึงไปใช้ได้ — ไม่พึ่ง JavaScript ล้วน</div>
+                <div class="chips"><span class="chip"><span class="sq s-lo"></span>llms.txt</span><span class="chip"><span class="sq s-hi"></span>เนื้อหาใน HTML ดิบ</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="ptools"><div class="tlab">วิธีตรวจของเรา</div><div class="tval"><b>robots.txt parser</b> (ตามชื่อบอต AI จริง) + ตรวจโครงสร้างเนื้อหา + <b>AI assessment</b> เชิงคุณภาพ — <b>ไม่ได้</b> query ChatGPT/Claude โดยตรง วัดที่ "ความพร้อมของหน้า" ไม่ใช่อันดับภายใน AI</div></div>
+        </div>
+
+        <!-- PILLAR 3 — SEM (out of scope) -->
+        <div class="pillar sem">
+          <div class="ph">
+            <div class="pn">3</div>
+            <div class="pmain">
+              <div class="pt">SEM / Paid <span>· Search Engine Marketing (PPC)</span></div>
+              <div class="pg">เป้าหมาย: ซื้อพื้นที่โฆษณา (Paid Visibility) ให้แสดงผลทันที</div>
+            </div>
+            <div class="pw">นอกขอบเขต</div>
+          </div>
+          <div class="pnote">
+            <span class="x">✗ ระบบเราไม่ครอบคลุม</span> — เราตรวจ <b>“หน้าเว็บจริง”</b> ที่ไม่ต้องจ่ายเงิน. ตัวชี้วัดของ SEM เช่น Quality Score · CTR · CPC · ROAS ต้องดึงจาก <b>Google Ads + GA4</b> ซึ่งเป็นข้อมูลภายในบัญชีโฆษณา ไม่สามารถวัดจากการ crawl หน้าเว็บได้<br>
+            <span class="ok">✓ จุดที่เกี่ยวข้อง</span> — <b>Landing Page Experience</b> (1 ใน 3 ปัจจัยของ Quality Score) คือความเร็ว + เนื้อหา + ความพร้อมมือถือ ซึ่งระบบเรา <b>ตรวจให้แล้ว</b> ในหมวด SEO ด้านบน
+          </div>
+        </div>
+      </div>
+
+      <div class="figcap">ทุกหมวดในแผนผังนี้ลงรายละเอียดต่อในหัวข้อ 05 (น้ำหนัก) และ 09 (รายการตรวจทั้งหมด)</div>
+    </section>
+
+    <!-- 02 DIAGRAM -->
+    <section>
+      <div class="shead"><div class="num">02</div><div class="tt"><h2>ภาพรวมวิธีการวัด</h2><div class="sub">จากการเก็บข้อมูลถึงคะแนนและการตรวจทาน</div></div></div>
       <div class="figure">
         <svg viewBox="0 0 780 340" role="img" aria-label="แผนภาพกระบวนการวัดผล">
           <defs>
@@ -181,7 +350,7 @@
 
     <!-- 02 PRINCIPLES -->
     <section>
-      <div class="shead"><div class="num">02</div><div class="tt"><h2>หลักการพื้นฐาน</h2><div class="sub">เหตุผลเบื้องหลังวิธีวัด</div></div></div>
+      <div class="shead"><div class="num">03</div><div class="tt"><h2>หลักการพื้นฐาน</h2><div class="sub">เหตุผลเบื้องหลังวิธีวัด</div></div></div>
       <div class="grid g3">
         <div class="cell"><div class="k">Raw-first</div><h3>วัดจาก HTML ดิบ</h3><p>ประเมินสิ่งที่ Googlebot รอบแรกและ AI crawler อ่านได้ก่อนรัน JavaScript เพราะ crawler ส่วนใหญ่ไม่ประมวลผล JS</p></div>
         <div class="cell"><div class="k">Two-wave</div><h3>เทียบหน้า render จริง</h3><p>เปิดด้วย headless Chrome เทียบ raw กับ rendered ตามพฤติกรรม two-wave indexing ที่ Google ใช้</p></div>
@@ -194,7 +363,7 @@
 
     <!-- 03 SCORING -->
     <section>
-      <div class="shead"><div class="num">03</div><div class="tt"><h2>วิธีคิดคะแนน</h2><div class="sub">สามชั้น จาก check เดี่ยวสู่คะแนนรวม</div></div></div>
+      <div class="shead"><div class="num">04</div><div class="tt"><h2>วิธีคิดคะแนน</h2><div class="sub">สามชั้น จาก check เดี่ยวสู่คะแนนรวม</div></div></div>
       <div class="formula">
         <div class="frow"><div class="stage">ชั้น 1 · check</div><div class="eq">หักคะแนน = <b>น้ำหนักความรุนแรง</b> × <b>โทษตามสถานะ</b></div></div>
         <div class="frow"><div class="stage">ชั้น 2 · หมวด</div><div class="eq">คะแนนหมวด = ( 1 − Σ หักคะแนน ÷ Σ น้ำหนักเต็ม ) × 100</div></div>
@@ -205,7 +374,7 @@
 
     <!-- 04 WEIGHTS -->
     <section>
-      <div class="shead"><div class="num">04</div><div class="tt"><h2>น้ำหนักทั้ง 9 หมวด</h2><div class="sub">รวมเป็น 100 ถ่วงตามผลกระทบต่ออันดับ</div></div></div>
+      <div class="shead"><div class="num">05</div><div class="tt"><h2>น้ำหนักทั้ง 9 หมวด</h2><div class="sub">รวมเป็น 100 ถ่วงตามผลกระทบต่ออันดับ</div></div></div>
       <div class="wrow"><span class="nm">Indexability</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="v">20</span><span class="note">เข้า Google ได้ไหม</span></div>
       <div class="wrow"><span class="nm">Meta &amp; เนื้อหา</span><span class="track"><span class="fill" style="width:90%"></span></span><span class="v">18</span><span class="note">title · h1 · desc</span></div>
       <div class="wrow"><span class="nm">Structured Data</span><span class="track"><span class="fill" style="width:60%"></span></span><span class="v">12</span><span class="note">schema · JSON-LD</span></div>
@@ -220,7 +389,7 @@
 
     <!-- 05 SEVERITY -->
     <section>
-      <div class="shead"><div class="num">05</div><div class="tt"><h2>ความรุนแรง × สถานะ</h2><div class="sub">แต่ละผลหักคะแนนเท่าไร</div></div></div>
+      <div class="shead"><div class="num">06</div><div class="tt"><h2>ความรุนแรง × สถานะ</h2><div class="sub">แต่ละผลหักคะแนนเท่าไร</div></div></div>
       <div class="grid g2">
         <div class="cell" style="padding:0">
           <table style="border:0">
@@ -245,7 +414,7 @@
 
     <!-- 06 STANDARDS -->
     <section>
-      <div class="shead"><div class="num">06</div><div class="tt"><h2>มาตรฐานอ้างอิง</h2><div class="sub">ทุกการวัดอิงเอกสารทางการ ไม่ใช่ความเห็นส่วนตัว</div></div></div>
+      <div class="shead"><div class="num">07</div><div class="tt"><h2>มาตรฐานอ้างอิง</h2><div class="sub">ทุกการวัดอิงเอกสารทางการ ไม่ใช่ความเห็นส่วนตัว</div></div></div>
 
       <div class="deep" style="margin-bottom:22px">
         <div class="dh">กรณีตัวอย่าง — ทำไมวัด H1 แบบนี้</div>
@@ -279,7 +448,7 @@
 
     <!-- 07 CONFIDENCE -->
     <section>
-      <div class="shead"><div class="num">07</div><div class="tt"><h2>ความเชื่อมั่นรายข้อ</h2><div class="sub">บอกว่าแต่ละผลเชื่อได้แค่ไหน</div></div></div>
+      <div class="shead"><div class="num">08</div><div class="tt"><h2>ความเชื่อมั่นรายข้อ</h2><div class="sub">บอกว่าแต่ละผลเชื่อได้แค่ไหน</div></div></div>
       <div class="conf">
         <div class="c"><div class="pct">97%</div><div class="lab">Deterministic</div><p>parser ตรวจ “มี/ไม่มี” ตรงตัว เช่น มี title ไหม robots บล็อกหรือไม่ — เป็นข้อเท็จจริงที่เถียงไม่ได้</p></div>
         <div class="c"><div class="pct">88%</div><div class="lab">Rule</div><p>วัดตามเกณฑ์มาตรฐาน เช่น เนื้อหาบางเกินไป ลิงก์เสีย รูปไม่มี alt — อิงแนวปฏิบัติอุตสาหกรรม</p></div>
@@ -290,7 +459,7 @@
 
     <!-- 08 GLOSSARY -->
     <section>
-      <div class="shead"><div class="num">08</div><div class="tt"><h2>รายการตรวจทั้งหมด</h2><div class="sub">ประมาณ 75 จุด จัดกลุ่มตาม 9 หมวด</div></div></div>
+      <div class="shead"><div class="num">09</div><div class="tt"><h2>รายการตรวจทั้งหมด</h2><div class="sub">ประมาณ 75 จุด จัดกลุ่มตาม 9 หมวด</div></div></div>
       <div class="legend">
         <span><span class="sq s-hi"></span>High — ร้ายแรง</span>
         <span><span class="sq s-me"></span>Medium — ปานกลาง</span>

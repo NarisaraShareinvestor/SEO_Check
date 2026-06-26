@@ -16,7 +16,11 @@ function showView(btn) {
   document.querySelectorAll('.nitem[data-view]').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   btn.classList.add('active');
-  $('#view-' + btn.dataset.view).classList.add('active');
+  const view = $('#view-' + btn.dataset.view);
+  view.classList.add('active');
+  // lazy-load embedded doc pages (methodology / architecture) on first open
+  const frame = view.querySelector('iframe.docframe[data-src]');
+  if (frame && !frame.src) frame.src = frame.dataset.src;
   if (btn.dataset.view === 'history') loadHistory();
   if (btn.dataset.view === 'dashboard') loadDashboard();
   if (btn.dataset.view === 'quality') loadQuality();
