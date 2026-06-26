@@ -58,12 +58,14 @@
   .note{font-size:12.5px;color:var(--mut);margin-top:14px;background:var(--faint);border-left:3px solid var(--blue);padding:10px 15px;border-radius:0 6px 6px 0}
   .foot{padding:26px 0 4px;font-size:11.5px;color:var(--mut);text-align:center}
   .foot .b{font-family:var(--serif);color:var(--ink);font-size:13px}
-  /* embedded in app (iframe) → fill the frame, drop the floating-card look */
+  /* embedded in app (iframe) → fill the frame, cover + content share one centered column */
   html.embed{background:#fff}
   .embed body{background:#fff}
   .embed .page{max-width:none;margin:0;box-shadow:none}
-  .embed .pad{max-width:1180px;margin:0 auto}
-  .embed .cover{padding-left:max(40px,calc((100% - 1180px)/2 + 40px));padding-right:max(40px,calc((100% - 1180px)/2 + 40px))}
+  .embed .cover,.embed .pad{max-width:none;margin:0;
+    padding-left:max(32px,calc((100% - 1280px)/2));
+    padding-right:max(32px,calc((100% - 1280px)/2))}
+  .embed .cover .lead{max-width:760px}
 </style>
 </head>
 <body>

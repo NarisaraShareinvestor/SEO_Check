@@ -153,12 +153,14 @@
   .pnote .tag-yes{background:#e7f4ec;color:var(--ok)}
   .pnote .prow > div{flex:1;color:var(--ink);line-height:1.62}
   @media(max-width:520px){.pnote .prow{flex-direction:column;gap:6px}}
-  /* embedded in app (iframe) → fill the frame, drop the floating-card look */
+  /* embedded in app (iframe) → fill the frame, cover + content share one centered column */
   html.embed{background:#fff}
   .embed body{background:#fff}
   .embed .page{max-width:none;margin:0;box-shadow:none}
-  .embed .pad{max-width:1180px;margin:0 auto}
-  .embed .cover{padding-left:max(40px,calc((100% - 1180px)/2 + 40px));padding-right:max(40px,calc((100% - 1180px)/2 + 40px))}
+  .embed .cover,.embed .pad{max-width:none;margin:0;
+    padding-left:max(32px,calc((100% - 1280px)/2));
+    padding-right:max(32px,calc((100% - 1280px)/2))}
+  .embed .cover .lead,.embed .cover .scope{max-width:760px}
 </style>
 </head>
 <body>
