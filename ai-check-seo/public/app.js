@@ -18,6 +18,9 @@ function showView(btn) {
   btn.classList.add('active');
   const view = $('#view-' + btn.dataset.view);
   view.classList.add('active');
+  // doc pages render full-bleed (main fills the whole area); other views stay in the 1240 column
+  const isDoc = ['methodology', 'architecture'].includes(btn.dataset.view);
+  document.querySelector('main').classList.toggle('docmode', isDoc);
   // lazy-load embedded doc pages (methodology / architecture) on first open
   const frame = view.querySelector('iframe.docframe[data-src]');
   if (frame && !frame.src) frame.src = frame.dataset.src;

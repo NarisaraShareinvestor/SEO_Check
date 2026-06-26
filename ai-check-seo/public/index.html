@@ -48,6 +48,9 @@ main{flex:1;padding:34px 44px 80px;max-width:1240px}
 .pagehead .sub{color:var(--mut);font-size:13.5px;margin-top:2px}
 .view{display:none}.view.active{display:block}
 .docframe{display:block;width:100%;height:calc(100vh - 116px);border:0;border-radius:14px;background:#fff}
+/* doc pages (methodology / architecture) → main fills full width, iframe เต็มจอ */
+main.docmode{max-width:none;padding:0}
+main.docmode .docframe{height:100vh;border-radius:0}
 
 .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px 24px;margin-bottom:18px}
 .card .chead{display:flex;align-items:baseline;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:4px}
