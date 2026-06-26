@@ -673,12 +673,23 @@ export function buildPlan(audit, opts = {}) {
     `จัดทำอัตโนมัติโดย AI SEO Audit Pro · ${new Date(audit.createdAt).toLocaleString('th-TH')}`,
   ].filter(Boolean).join('\n\n');
 
+  // จัด subtasks เป็นกลุ่มตามหมวด (เรียงตาม GROUP_META) — ใช้สร้างโครงสร้าง 3 ชั้นใน ClickUp
+  const byGroup = new Map();
+  for (const st of subtasks) {
+    if (!byGroup.has(st.group)) byGroup.set(st.group, []);
+    byGroup.get(st.group).push(st);
+  }
+  const groups = [...byGroup.entries()]
+    .sort((a, b) => (GROUP_META[a[0]]?.order ?? 99) - (GROUP_META[b[0]]?.order ?? 99))
+    .map(([group, items]) => ({ group, emoji: GROUP_META[group]?.emoji || '•', team: items[0].team, issues: items }));
+
   return {
     parent: {
       name: `[SEO] ${host} — ${s.overall ?? '–'}/100 (${s.grade ?? '–'})`,
       markdown_description: parentDesc,
     },
     subtasks,
+    groups,
     meta: { host, total: subtasks.length, fail: counts.fail ?? 0, warn: counts.warn ?? 0 },
   };
 }
@@ -708,30 +719,49 @@ export async function pushToClickUp(audit, { token, listId, assignee, limit, nam
     body: JSON.stringify({ name: (namePrefix || '') + plan.parent.name, markdown_description: plan.parent.markdown_description, ...(assignees ? { assignees } : {}) }),
   });
 
-  // 2) subtasks = แต่ละปัญหา
-  const created = [], errors = [];
-  for (const st of subtaskList) {
+  // 2) โครงสร้าง 3 ชั้น: เว็บ (parent) → หมวด (category task) → ปัญหา (issue ซ้อนใต้หมวด)
+  const created = [], errors = [], categories = [];
+  let remaining = limit || Infinity; // โหมดทดสอบ: จำกัดจำนวน "ปัญหา" รวมทุกหมวด
+  // map subtask → group (เผื่อโดน limit ตัด)
+  const allowed = new Set(subtaskList.map(s => s.issueKey));
+
+  for (const grp of plan.groups) {
+    const grpIssues = grp.issues.filter(i => allowed.has(i.issueKey));
+    if (!grpIssues.length || remaining <= 0) continue;
+    const take = grpIssues.slice(0, remaining);
+
+    // 2a) สร้าง task หมวด (ชั้นกลาง) ใต้ parent — ชื่อมี emoji + จำนวน
+    let catTask;
+    const catBody = {
+      name: `${grp.emoji} ${grp.group} (${grpIssues.length})`,
+      parent: parent.id,
+      markdown_description: `**หมวด ${grp.group}** · ทีมรับผิดชอบ: ${grp.team || '-'}\n\n${take.map(i => `- ${i.name}`).join('\n')}`,
+    };
     try {
-      const t = await cuFetch(`/list/${listId}/task`, token, {
-        method: 'POST',
-        body: JSON.stringify({
-          name: st.name, parent: parent.id, priority: st.priority, tags: st.tags,
-          markdown_description: st.markdown_description,
-          due_date: now + st.dueDays * 86400000, due_date_time: false,
-          ...(assignees ? { assignees } : {}),
-        }),
-      });
-      created.push({ id: t.id, name: st.name, priority: st.priorityLabel });
-    } catch (e) {
-      // ถ้า tags ใช้ไม่ได้ (บางแผน) ลองสร้างซ้ำแบบไม่มี tags
+      catTask = await cuFetch(`/list/${listId}/task`, token, { method: 'POST', body: JSON.stringify(catBody) });
+      categories.push({ id: catTask.id, name: catBody.name });
+    } catch (e) { errors.push({ name: catBody.name, error: String(e.message || e) }); continue; }
+
+    // 2b) สร้างปัญหาแต่ละข้อ ซ้อนใต้ task หมวด
+    for (const st of take) {
+      const issueBody = {
+        name: st.name, parent: catTask.id, priority: st.priority,
+        markdown_description: st.markdown_description,
+        due_date: now + st.dueDays * 86400000, due_date_time: false,
+        ...(assignees ? { assignees } : {}),
+      };
       try {
-        const t = await cuFetch(`/list/${listId}/task`, token, {
-          method: 'POST',
-          body: JSON.stringify({ name: st.name, parent: parent.id, priority: st.priority, markdown_description: st.markdown_description, due_date: now + st.dueDays * 86400000 }),
-        });
-        created.push({ id: t.id, name: st.name, priority: st.priorityLabel, note: 'no-tags' });
-      } catch (e2) { errors.push({ name: st.name, error: String(e2.message || e2) }); }
+        const t = await cuFetch(`/list/${listId}/task`, token, { method: 'POST', body: JSON.stringify({ ...issueBody, tags: st.tags }) });
+        created.push({ id: t.id, name: st.name, group: grp.group, priority: st.priorityLabel });
+      } catch (e) {
+        // tags ใช้ไม่ได้บางแผน → ลองซ้ำแบบไม่มี tags
+        try {
+          const t = await cuFetch(`/list/${listId}/task`, token, { method: 'POST', body: JSON.stringify(issueBody) });
+          created.push({ id: t.id, name: st.name, group: grp.group, priority: st.priorityLabel, note: 'no-tags' });
+        } catch (e2) { errors.push({ name: st.name, error: String(e2.message || e2) }); }
+      }
+      remaining--;
     }
   }
-  return { ok: true, parentId: parent.id, parentUrl: parent.url, created: created.length, total: subtaskList.length, errors, meta: plan.meta };
+  return { ok: true, parentId: parent.id, parentUrl: parent.url, categories: categories.length, created: created.length, total: subtaskList.length, errors, meta: plan.meta };
 }
