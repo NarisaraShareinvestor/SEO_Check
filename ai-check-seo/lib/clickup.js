@@ -11,7 +11,7 @@ const CATEGORY_MAP = {
   index:       { group: 'Indexing',       team: 'Technical SEO' },
   schema:      { group: 'Schema',         team: 'Technical SEO' },
   performance: { group: 'Performance',    team: 'Dev / DevOps' },
-  onpage:      { group: 'Content / SEO',  team: 'Content / SEO' },
+  onpage:      { group: 'On-page SEO',    team: 'Content / SEO' },
   geo:         { group: 'AI Readiness',   team: 'SEO + Dev' },
   links:       { group: 'Technical SEO',  team: 'Dev' },
   images:      { group: 'Technical SEO',  team: 'Dev' },
@@ -19,6 +19,103 @@ const CATEGORY_MAP = {
   security:    { group: 'Technical SEO',  team: 'Dev' },
 };
 const groupOf = (cat) => CATEGORY_MAP[cat] || { group: 'SEO', team: 'SEO' };
+
+// ── หมวด → emoji + ลำดับการแสดง (ใช้ในสรุปจัดกลุ่มของ parent task) ──
+const GROUP_META = {
+  'Indexing':      { emoji: '📈', order: 1 },
+  'Technical SEO': { emoji: '🌐', order: 2 },
+  'On-page SEO':   { emoji: '📝', order: 3 },
+  'AI Readiness':  { emoji: '🤖', order: 4 },
+  'Schema':        { emoji: '📚', order: 5 },
+  'Performance':   { emoji: '⚡', order: 6 },
+  'SEO':           { emoji: '🔎', order: 9 },
+};
+
+// ── check id → ชื่อมาตรฐานภาษาอังกฤษ pattern [สิ่งที่ตรวจ] → [สถานะ/ปัญหา] ──
+const ACTION_TITLE = {
+  // Indexing
+  'no-pages': 'Pages Not Accessible', 'noindex': 'Noindex Blocking Pages',
+  'canonical-missing': 'Canonical Tag Missing', 'canonical-multiple': 'Multiple Canonical Tags',
+  'canonical-relative': 'Relative Canonical URL', 'host-variants': 'Duplicate Host Variants (www/non-www)',
+  'redirect-chain': 'Redirect Chain Detected', 'meta-refresh': 'Meta Refresh Redirect',
+  'trailing-slash': 'Inconsistent Trailing Slash', 'near-duplicate': 'Near-Duplicate Pages',
+  'error-pages': 'Error Pages Found (4xx/5xx)', 'soft-404': 'Incorrect 404 Status Code',
+  'crawl-blocked': 'Crawl Blocked (429/5xx)',
+  'robots-missing': 'robots.txt Missing', 'robots-blocks-all': 'robots.txt Blocking Entire Site',
+  'robots-blocks-section': 'Important Pages Blocked by robots.txt', 'robots-sitemap': 'Sitemap Not Declared in robots.txt',
+  'robots-meta-invalid': 'Invalid Robots Meta Tag',
+  'sitemap-exists': 'XML Sitemap Missing', 'sitemap-coverage': 'Sitemap Coverage Incomplete',
+  'sitemap-lastmod': 'Sitemap Missing lastmod', 'hreflang': 'hreflang Issues',
+  // On-page SEO
+  'title-missing': 'Title Missing', 'title-length': 'Title Length Not Optimal', 'title-duplicate': 'Duplicate Title Tags',
+  'desc-missing': 'Meta Description Missing', 'desc-length': 'Meta Description Length Not Optimal', 'desc-duplicate': 'Duplicate Meta Description',
+  'h1-missing': 'H1 Missing', 'h1-hidden': 'H1 Hidden by CSS', 'h1-multiple': 'Multiple H1 Tags', 'h1-duplicate': 'Duplicate H1 Across Pages',
+  'heading-order': 'Broken Heading Hierarchy', 'empty-headings': 'Empty Heading Tags',
+  'content-thin': 'Thin Content', 'lang-missing': 'Lang Attribute Missing',
+  'viewport-missing': 'Viewport Meta Missing', 'viewport-noscale': 'Viewport Blocks Zoom',
+  'favicon-missing': 'Favicon Missing', 'favicon-file': 'Favicon File Issue',
+  'url-hygiene': 'URL Hygiene Issues', 'deprecated-tags': 'Deprecated HTML Tags', 'meta-keywords': 'Obsolete Meta Keywords',
+  'doctype-missing': 'Doctype Missing', 'charset-not-utf8': 'Charset Not UTF-8', 'copyright-stale': 'Outdated Copyright Year',
+  // Technical SEO — rendering
+  'spa-shell': 'Server-side Render Missing (SPA Only)', 'render-diff': 'Raw HTML ≠ Rendered HTML',
+  'noscript-fallback': 'No-script Fallback Missing', 'head-blocking': 'Render-blocking Scripts in <head>',
+  // Technical SEO — links
+  'broken-links': 'Broken Links (404/410)', 'broken-links-soft': 'Soft Broken Links',
+  'internal-links-few': 'Few Internal Links', 'orphan-pages': 'Orphan Pages',
+  'empty-anchor': 'Empty Anchor Text', 'generic-anchor': 'Generic Anchor Text',
+  // Technical SEO — images
+  'img-alt': 'Image Alt Text Missing', 'img-lazy': 'Lazy Loading Not Used', 'img-dimensions': 'Image Dimensions Missing (CLS)',
+  // Technical SEO — security
+  'https': 'HTTPS Not Enabled', 'ssl-chain-incomplete': 'Incomplete SSL Certificate Chain',
+  'mixed-content': 'Mixed Content on HTTPS', 'security-headers': 'Security Headers Missing',
+  // Schema
+  'jsonld-missing': 'JSON-LD Missing', 'jsonld-invalid': 'Invalid JSON-LD',
+  'schema-org': 'Organization Schema Missing', 'schema-incomplete': 'Incomplete Schema Properties', 'schema-breadcrumb': 'Breadcrumb Schema Missing',
+  'og-tags': 'Open Graph Tags Missing', 'og-image-relative': 'Open Graph Image URL Relative', 'twitter-card': 'Twitter Card Missing',
+  // AI Readiness (GEO)
+  'geo-bot-access': 'AI Crawlers Blocked', 'geo-spa-risk': 'AI Cannot Read Content',
+  'geo-entity': 'Brand Entity Not Found', 'geo-eeat': 'Weak E-E-A-T Signals',
+  'geo-faq-schema': 'FAQ Schema Missing', 'geo-qa-content': 'Q&A Content Missing',
+  'geo-citable': 'Content Not Citable by AI', 'geo-llms-txt': 'llms.txt Missing', 'geo-trust-pages': 'Trust Pages Missing',
+  // Performance
+  'cwv-score': 'Low Performance Score', 'cwv-field': 'Core Web Vitals Failing (Field Data)', 'cwv': 'Core Web Vitals',
+  'ttfb-slow': 'Slow Server Response (TTFB)', 'compression': 'Compression Not Enabled', 'html-size': 'HTML Document Too Large',
+  'script-count': 'Too Many Scripts', 'third-party': 'Excessive Third-party Requests',
+  'text-ratio': 'Low Text-to-HTML Ratio', 'inline-bloat': 'Excessive Inline CSS/JS',
+};
+const humanizeId = (id) => esc(id).replace(/-/g, ' ').replace(/\b\w/g, m => m.toUpperCase());
+// ชื่อมาตรฐาน: เคส JS-rendered (สถานะ warn ของ *-missing) ใช้ชื่อเฉพาะ
+function actionTitle(c) {
+  if (c.status === 'warn') {
+    if (c.id === 'title-missing') return 'Title Rendered by JavaScript';
+    if (c.id === 'desc-missing')  return 'Meta Description Rendered by JavaScript';
+    if (c.id === 'h1-missing')    return 'H1 Rendered by JavaScript';
+  }
+  return ACTION_TITLE[c.id] || humanizeId(c.id);
+}
+// สรุปปัญหาจัดกลุ่มตามหมวด + emoji (Markdown) — ใช้ในคำอธิบาย parent task
+function groupedSummary(issues) {
+  const byGroup = new Map();
+  for (const c of issues) {
+    const g = groupOf(c.category).group;
+    if (!byGroup.has(g)) byGroup.set(g, []);
+    byGroup.get(g).push(c);
+  }
+  const ordered = [...byGroup.entries()].sort((a, b) => (GROUP_META[a[0]]?.order ?? 99) - (GROUP_META[b[0]]?.order ?? 99));
+  const blocks = [];
+  for (const [g, list] of ordered) {
+    const em = GROUP_META[g]?.emoji || '•';
+    const seen = new Set();
+    const items = [];
+    for (const c of list) {
+      const t = actionTitle(c);
+      if (seen.has(t)) continue; seen.add(t);
+      items.push(`- ${t}`);
+    }
+    blocks.push(`${em} **${g}**\n${items.join('\n')}`);
+  }
+  return blocks.join('\n\n');
+}
 
 // ── severity + status → ClickUp priority (1=Urgent..4=Low) + due (วัน) (ตารางข้อ 4.1) ──
 function priorityOf(severity, status) {
@@ -552,7 +649,7 @@ export function buildPlan(audit, opts = {}) {
     ].filter(Boolean).join('\n\n');
 
     return {
-      name: esc(c.title),
+      name: actionTitle(c),
       priority: pr.priority,
       priorityLabel: pr.label,
       dueDays: pr.dueDays,
@@ -571,6 +668,7 @@ export function buildPlan(audit, opts = {}) {
     `**คะแนนรวม:** ${s.overall ?? '-'}/100 (เกรด ${s.grade ?? '-'})    **GEO:** ${s.categoryScores?.geo ?? '-'}/100`,
     `**สรุปปัญหา:** ต้องแก้ ${counts.fail ?? 0} รายการ · ควรปรับปรุง ${counts.warn ?? 0} รายการ · ตรวจ ${audit.pagesAnalyzed ?? '?'} หน้า`,
     a.executiveSummary ? esc(a.executiveSummary) : '',
+    issues.length ? `**🗂️ ปัญหาที่พบ — จัดกลุ่มตามหมวด**\n\n${groupedSummary(issues)}` : '',
     `**รายงานฉบับเต็ม:** ${reportUrl}`,
     `จัดทำอัตโนมัติโดย AI SEO Audit Pro · ${new Date(audit.createdAt).toLocaleString('th-TH')}`,
   ].filter(Boolean).join('\n\n');
