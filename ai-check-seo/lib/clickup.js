@@ -628,6 +628,10 @@ export function buildPlan(audit, opts = {}) {
     };
   });
 
+  // เรียง subtask จาก priority แรง→อ่อน (Urgent=1 → Low=4) เพื่อให้สร้างใน ClickUp เรียงบนลงล่าง
+  // tiebreak: รายการ top priority ของเว็บก่อน แล้วคงลำดับเดิม (severity/status) — sort เสถียร
+  subtasks.sort((a, b) => (a.priority - b.priority) || (Number(b.isTopPriority) - Number(a.isTopPriority)));
+
   const counts = s.counts || {};
   const parentDesc = [
     `**เว็บไซต์:** ${audit.url}`,
