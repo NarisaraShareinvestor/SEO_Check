@@ -48,8 +48,16 @@ export function runGeoChecks(site) {
 
   // ── 1. AI bot access ผ่าน robots.txt ──
   if (site.robots) {
-    // ทดสอบทั้ง '/' และ path เนื้อหาจริงที่ crawl เจอ — กันเคส Allow: / แต่ Disallow section (เช่น /th/, /blog/)
-    const samplePaths = [...new Set(['/', ...pages.map(p => { try { return new URL(p.url).pathname || '/'; } catch { return '/'; } })])].slice(0, 25);
+    // ทดสอบทั้ง '/' · path เนื้อหาจริงที่ crawl เจอ · และ section เนื้อหาที่ robots ประกาศ disallow
+    // (สำคัญ: section ที่ถูกบล็อกมักไม่ถูก crawl เลย จึงต้องดึงจากกฎ robots ตรงๆ ด้วย — กันเคส /th/ ที่มองไม่เห็น)
+    const SECTION_RE = /^\/(th|en|blog|product|service|news|article|category|shop)s?\/?$/i;
+    const robotsSections = (site.robots.groups || []).flatMap(g => g.rules)
+      .filter(x => x.type === 'disallow' && x.path && SECTION_RE.test(x.path)).map(x => x.path);
+    const samplePaths = [...new Set([
+      '/',
+      ...pages.map(p => { try { return new URL(p.url).pathname || '/'; } catch { return '/'; } }),
+      ...robotsSections,
+    ])].slice(0, 30);
     const blocked = [], allowed = [];
     for (const bot of AI_BOTS) {
       const blockedPaths = samplePaths.filter(path => !robotsAllows(site.robots, bot.ua, path));
