@@ -108,51 +108,47 @@
   .foot{padding:26px 0 4px;font-size:11.5px;color:var(--mut);text-align:center}
   .foot .b{font-family:var(--serif);color:var(--ink);font-size:13px}
   a{color:var(--blue)}
-  /* scope tree */
-  .tree{--seo:#1b4dd8;--geo:#7c3aed;--sem:#94a3b8}
-  .troot{background:var(--navy);color:#fff;border-radius:4px;padding:16px 22px;text-align:center}
-  .troot .tt{font-family:var(--serif);font-size:clamp(16px,2.6vw,20px);font-weight:700}
-  .troot .ts{font-size:12.5px;color:#aebfe0;margin-top:5px}
-  .troot .ts b{color:#fff;font-weight:700}
-  .tstem{width:2px;height:20px;background:var(--line);margin:0 auto}
-  .pillar{border:1px solid var(--line);border-radius:4px;border-top:3px solid var(--clr,var(--blue));margin-bottom:16px;overflow:hidden}
-  .pillar.seo{--clr:var(--seo)} .pillar.geo{--clr:var(--geo)} .pillar.sem{--clr:var(--sem)}
-  .pillar.sem{opacity:.92;background:var(--faint)}
-  .ph{display:flex;align-items:flex-start;gap:14px;padding:15px 20px;border-bottom:1px solid var(--line2)}
-  .ph .pn{flex:none;width:34px;height:34px;border-radius:7px;background:var(--clr,var(--blue));color:#fff;font-family:var(--serif);font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center}
-  .ph .pmain{flex:1;min-width:0}
-  .ph .pt{font-family:var(--serif);font-size:18px;font-weight:700;line-height:1.2}
-  .ph .pt span{font-family:var(--sans);font-size:12px;font-weight:600;color:var(--clr,var(--blue));letter-spacing:.02em}
-  .ph .pg{font-size:12.5px;color:var(--mut);margin-top:3px}
-  .ph .pw{flex:none;align-self:center;font-size:11px;font-weight:700;color:var(--navy);background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 12px;text-align:center;white-space:nowrap}
-  .pbody{padding:8px 20px 16px}
-  .pnode{display:flex;gap:13px;padding:11px 0;border-bottom:1px dashed var(--line2)}
-  .pnode:last-child{border-bottom:0}
-  .pnode .pk{flex:none;width:150px}
-  .pnode .pk .knm{font-weight:700;font-size:13.5px}
-  .pnode .pk .kw{font-size:11px;color:var(--mut)}
-  .pnode .pv{flex:1;min-width:0}
-  .pnode .pv .pd{font-size:12.5px;color:var(--mut);margin-bottom:6px}
-  .pnode .pv .chips{padding:0;gap:5px}
-  .pnode .pv .chip{font-size:11.5px;padding:2px 8px}
-  .ptools{display:flex;gap:11px;align-items:flex-start;margin:13px 20px 16px;padding:11px 14px;background:#fff;border:1px solid var(--line);border-left:3px solid var(--clr,var(--blue));border-radius:3px;font-size:12.5px}
-  .ptools .tlab{flex:none;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--clr,var(--blue));padding-top:2px}
-  .ptools .tval{flex:1;color:var(--ink)}
-  .ptools .tval b{font-weight:700}
-  .pnote{margin:13px 20px 16px;padding:12px 15px;background:#fff;border:1px dashed var(--line);border-radius:3px;font-size:12.8px;color:var(--ink)}
-  .pnote .x{color:var(--hi);font-weight:700}
-  .pnote .ok{color:var(--ok);font-weight:700}
-  @media(max-width:600px){.pnode{flex-direction:column;gap:6px}.pnode .pk{width:auto}}
-  .lede{font-size:15.5px;line-height:1.74;color:#3a4658;max-width:760px;margin:-6px 0 24px;border-left:3px solid var(--blue);padding-left:16px}
+  .lede{font-size:15.5px;line-height:1.74;color:#3a4658;max-width:760px;margin:-6px 0 26px;border-left:3px solid var(--blue);padding-left:16px}
   .lede b{color:var(--ink);font-weight:700}
-  /* SEM note rows */
-  .pnote .prow{display:flex;gap:13px;align-items:flex-start;padding:9px 0}
-  .pnote .prow+.prow{border-top:1px solid var(--line2)}
-  .pnote .tag{flex:none;font-size:11px;font-weight:700;letter-spacing:.02em;padding:3px 11px;border-radius:20px;margin-top:1px;white-space:nowrap}
-  .pnote .tag-no{background:#fbeae8;color:var(--hi)}
-  .pnote .tag-yes{background:#e7f4ec;color:var(--ok)}
-  .pnote .prow > div{flex:1;color:var(--ink);line-height:1.62}
-  @media(max-width:520px){.pnote .prow{flex-direction:column;gap:6px}}
+  /* ── check map (infographic mind-map) ── */
+  .cmap{--seo:#1b4dd8;--geo:#6d28d9;--sem:#8a95a6}
+  .cmap-root{display:flex;flex-direction:column;align-items:center;margin-bottom:2px}
+  .cmap-root .rbox{background:linear-gradient(135deg,#2150d8,#0f1e3d);color:#fff;border-radius:15px;padding:16px 32px;text-align:center;box-shadow:0 8px 22px rgba(27,77,216,.22)}
+  .cmap-root .rt{font-family:var(--serif);font-size:clamp(17px,2.6vw,22px);font-weight:700;letter-spacing:.2px}
+  .cmap-root .rs{font-size:12.5px;color:#c6d4f6;margin-top:5px}
+  .cmap-root .rs b{color:#fff;font-weight:700}
+  .cmap-root .drop{width:0;height:30px;border-left:2px dashed #c2cbe0}
+  /* branch */
+  .branch{position:relative;margin-bottom:34px}
+  .branch:last-child{margin-bottom:0}
+  .bhead{display:inline-flex;align-items:center;gap:10px;background:var(--bc,var(--blue));color:#fff;border-radius:12px;padding:10px 20px;box-shadow:0 5px 14px rgba(15,30,61,.18)}
+  .branch.seo{--bc:var(--seo)} .branch.geo{--bc:var(--geo)} .branch.sem{--bc:var(--sem)}
+  .bhead .bn{font-family:var(--serif);font-weight:700;font-size:19px;letter-spacing:.3px}
+  .bhead .ben{font-size:11px;font-weight:600;color:rgba(255,255,255,.82);letter-spacing:.03em}
+  .bhead .bw{margin-left:4px;font-size:11px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 11px;white-space:nowrap}
+  .bgoal{font-size:13px;color:var(--mut);margin:10px 0 0 4px}
+  .brail{height:0;border-top:2px dashed #cfd6e6;margin:20px 2px 0}
+  /* grid of term nodes */
+  .bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:22px 18px;margin-top:14px}
+  .gcard{position:relative;display:flex;flex-direction:column}
+  .gcard::before{content:"";position:absolute;left:26px;top:-14px;height:14px;border-left:2px dashed #cfd6e6}
+  .gt{align-self:flex-start;background:var(--bc,var(--blue));color:#fff;border-radius:9px;padding:8px 14px;font-weight:700;font-size:14px;display:inline-flex;align-items:baseline;gap:8px;box-shadow:0 3px 10px rgba(15,30,61,.16);position:relative;z-index:1}
+  .gt em{font-style:normal;font-size:10.5px;font-weight:600;color:rgba(255,255,255,.78);letter-spacing:.02em}
+  .gd{background:var(--faint);border:1px solid var(--line2);border-radius:11px;padding:12px 15px;margin-top:9px;font-size:12.8px;line-height:1.62;color:#41506a;flex:1}
+  .gtags{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+  .gtags span{font-size:11px;color:#3f5275;background:#eaf0fb;border:1px solid #d9e2f8;border-radius:6px;padding:2px 8px}
+  /* how-we-check strip */
+  .btool{display:flex;gap:12px;align-items:flex-start;margin-top:18px;padding:12px 16px;background:#fff;border:1px solid var(--line);border-left:3px solid var(--bc,var(--blue));border-radius:9px;font-size:12.5px}
+  .btool .tl{flex:none;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--bc,var(--blue));padding-top:2px}
+  .btool .tv{flex:1;color:var(--ink)} .btool .tv b{font-weight:700}
+  /* SEM out-of-scope */
+  .semcard{background:var(--faint);border:1px dashed #c7cdd8;border-radius:12px;padding:4px 18px;margin-top:16px}
+  .semrow{display:flex;gap:13px;align-items:flex-start;padding:13px 0}
+  .semrow+.semrow{border-top:1px solid var(--line2)}
+  .semrow .tag{flex:none;font-size:11px;font-weight:700;padding:3px 12px;border-radius:20px;margin-top:1px;white-space:nowrap}
+  .tag-no{background:#fbeae8;color:var(--hi)} .tag-yes{background:#e7f4ec;color:var(--ok)}
+  .semrow > div{flex:1;color:var(--ink);line-height:1.64;font-size:13px}
+  @media(max-width:560px){.semrow{flex-direction:column;gap:6px}.gcard::before{display:none}}
   /* embedded in app (iframe) → fill the frame, cover + content share one centered column */
   html.embed{background:#fff}
   .embed body{background:#fff}
@@ -183,129 +179,55 @@
 
       <p class="lede">พูดให้เข้าใจง่ายที่สุด งานของเราเหมือนการ <b>ตรวจสุขภาพเว็บไซต์</b> อย่างละเอียด — ดูว่าเว็บของคุณพร้อมให้คนเจอบน Google แค่ไหน (SEO) และพร้อมให้ AI อย่าง ChatGPT หยิบไปพูดถึงแค่ไหน (GEO) แผนผังด้านล่างคือทุกเรื่องที่เราเข้าไปดูให้ จัดเป็น 3 กลุ่มใหญ่</p>
 
-      <div class="tree">
+      <div class="cmap">
         <!-- root -->
-        <div class="troot">
-          <div class="tt">AI SEO Audit Pro — มาตรฐานการตรวจวัด</div>
-          <div class="ts"><b>9 หมวด</b> · ~75 จุดตรวจ · ให้คะแนน <b>0–100</b> · ครอบคลุม <b>SEO</b> (ออร์แกนิก) + <b>GEO</b> (AI Search)</div>
-        </div>
-        <div class="tstem"></div>
-
-        <!-- PILLAR 1 — SEO -->
-        <div class="pillar seo">
-          <div class="ph">
-            <div class="pn">1</div>
-            <div class="pmain">
-              <div class="pt">SEO <span>· Search Engine Optimization</span></div>
-              <div class="pg">เป้าหมาย: เพิ่ม Visibility บน Google แบบออร์แกนิก — 8 หมวด</div>
-            </div>
-            <div class="pw">~80 / 100<br>คะแนน</div>
+        <div class="cmap-root">
+          <div class="rbox">
+            <div class="rt">AI SEO Audit Pro · มาตรฐานการตรวจวัด</div>
+            <div class="rs"><b>9 หมวด</b> · ~75 จุดตรวจ · ให้คะแนน <b>0–100</b> · ครอบคลุม SEO + GEO</div>
           </div>
-          <div class="pbody">
-            <div class="pnode">
-              <div class="pk"><div class="knm">Indexability</div><div class="kw">น้ำหนัก 20</div></div>
-              <div class="pv"><div class="pd">เว็บของคุณ “ถูกเห็น” โดย Google และ AI หรือเปล่า — ด่านแรกสุด ถ้าตรงนี้พลาด หน้าอื่นดีแค่ไหนก็ไม่โผล่ในผลค้นหา</div>
-                <div class="chips"><span class="chip"><span class="sq s-hi"></span>noindex</span><span class="chip"><span class="sq s-hi"></span>canonical</span><span class="chip"><span class="sq s-hi"></span>robots.txt</span><span class="chip"><span class="sq s-me"></span>XML sitemap</span><span class="chip"><span class="sq s-me"></span>redirect chain</span><span class="chip"><span class="sq s-me"></span>hreflang</span><span class="chip"><span class="sq s-hi"></span>404/410</span></div>
-              </div>
-            </div>
-            <div class="pnode">
-              <div class="pk"><div class="knm">Meta &amp; เนื้อหา</div><div class="kw">น้ำหนัก 18</div></div>
-              <div class="pv"><div class="pd">ชื่อหน้าและคำอธิบายที่ไปโชว์บนหน้าผลค้นหา รวมถึงว่าเนื้อหาในหน้าครบและสื่อความชัดพอไหม</div>
-                <div class="chips"><span class="chip"><span class="sq s-hi"></span>title</span><span class="chip"><span class="sq s-hi"></span>h1</span><span class="chip"><span class="sq s-me"></span>meta description</span><span class="chip"><span class="sq s-hi"></span>viewport (มือถือ)</span><span class="chip"><span class="sq s-me"></span>thin content</span><span class="chip"><span class="sq s-lo"></span>heading order</span></div>
-              </div>
-            </div>
-            <div class="pnode">
-              <div class="pk"><div class="knm">Structured Data</div><div class="kw">น้ำหนัก 12</div></div>
-              <div class="pv"><div class="pd">โค้ดเบื้องหลังที่บอก Google และ AI ว่าหน้านี้คืออะไร (สินค้า บทความ ร้านค้า รีวิว) ช่วยให้แสดงผลเด่นและถูกต้องขึ้น</div>
-                <div class="chips"><span class="chip"><span class="sq s-hi"></span>JSON-LD</span><span class="chip"><span class="sq s-me"></span>schema.org</span><span class="chip"><span class="sq s-me"></span>Open Graph</span><span class="chip"><span class="sq s-lo"></span>breadcrumb</span></div>
-              </div>
-            </div>
-            <div class="pnode">
-              <div class="pk"><div class="knm">JS Rendering</div><div class="kw">น้ำหนัก 12</div></div>
-              <div class="pv"><div class="pd">บางเว็บแสดงเนื้อหาด้วยสคริปต์ เราตรวจว่าบอทของ Google และ AI มองเห็นเนื้อหาจริงเหมือนที่คนเห็นหรือเปล่า</div>
-                <div class="chips"><span class="chip"><span class="sq s-hi"></span>SPA shell</span><span class="chip"><span class="sq s-hi"></span>render diff (raw≠rendered)</span><span class="chip"><span class="sq s-lo"></span>noscript</span></div>
-              </div>
-            </div>
-            <div class="pnode">
-              <div class="pk"><div class="knm">Core Web Vitals</div><div class="kw">น้ำหนัก 10</div></div>
-              <div class="pv"><div class="pd">ประสบการณ์ใช้งานจริง — หน้าโหลดเร็ว กดแล้วตอบสนองทันใจ และเลย์เอาต์ไม่ขยับกระตุกตอนโหลด</div>
-                <div class="chips"><span class="chip"><span class="sq s-me"></span>TTFB</span><span class="chip"><span class="sq s-me"></span>LCP / CLS / INP</span><span class="chip"><span class="sq s-me"></span>compression</span><span class="chip"><span class="sq s-me"></span>render-blocking</span></div>
-              </div>
-            </div>
-            <div class="pnode">
-              <div class="pk"><div class="knm">ลิงก์</div><div class="kw">น้ำหนัก 8</div></div>
-              <div class="pv"><div class="pd">ลิงก์ภายในเว็บที่พาทั้งคนและบอทเดินไปหน้าอื่นได้ทั่วถึง และไม่มีลิงก์เสียที่กดแล้วเจอหน้า 404</div>
-                <div class="chips"><span class="chip"><span class="sq s-hi"></span>broken links</span><span class="chip"><span class="sq s-me"></span>internal links</span><span class="chip"><span class="sq s-me"></span>orphan pages</span><span class="chip"><span class="sq s-lo"></span>anchor text</span></div>
-              </div>
-            </div>
-            <div class="pnode">
-              <div class="pk"><div class="knm">รูปภาพ</div><div class="kw">น้ำหนัก 5</div></div>
-              <div class="pv"><div class="pd">รูปภาพมีคำอธิบายให้ Google และผู้พิการทางสายตาเข้าใจ และกำหนดขนาดไว้ไม่ให้หน้ากระตุกตอนรูปโหลด</div>
-                <div class="chips"><span class="chip"><span class="sq s-me"></span>alt text</span><span class="chip"><span class="sq s-lo"></span>lazy loading</span><span class="chip"><span class="sq s-lo"></span>width/height</span></div>
-              </div>
-            </div>
-            <div class="pnode">
-              <div class="pk"><div class="knm">ความปลอดภัย</div><div class="kw">น้ำหนัก 5</div></div>
-              <div class="pv"><div class="pd">เว็บล็อกกุญแจ (HTTPS) ปลอดภัยจริงไหม — เป็นสัญญาณความน่าเชื่อถือที่ Google ใช้จัดอันดับ</div>
-                <div class="chips"><span class="chip"><span class="sq s-hi"></span>HTTPS</span><span class="chip"><span class="sq s-hi"></span>SSL chain</span><span class="chip"><span class="sq s-me"></span>mixed content</span><span class="chip"><span class="sq s-lo"></span>security headers</span></div>
-              </div>
-            </div>
-          </div>
-          <div class="ptools"><div class="tlab">วิธีตรวจของเรา</div><div class="tval"><b>Deterministic crawler</b> อ่าน HTML ดิบ + <b>headless Chrome</b> เปิดหน้า render จริง → ยืนยันผลด้วย <b>Google Lighthouse / PageSpeed Insights</b> เป็นเกณฑ์อิสระ</div></div>
+          <div class="drop"></div>
         </div>
 
-        <!-- PILLAR 2 — GEO -->
-        <div class="pillar geo">
-          <div class="ph">
-            <div class="pn">2</div>
-            <div class="pmain">
-              <div class="pt">GEO <span>· Generative Engine Optimization</span></div>
-              <div class="pg">เป้าหมาย: เพิ่มโอกาสถูก AI (ChatGPT · Gemini · Perplexity) อ้างอิง</div>
-            </div>
-            <div class="pw">10 / 100<br>+ ทับซ้อน</div>
+        <!-- BRANCH 1 — SEO -->
+        <div class="branch seo">
+          <div class="bhead"><span class="bn">SEO</span><span class="ben">Search Engine Optimization</span><span class="bw">~80 / 100 คะแนน</span></div>
+          <div class="bgoal">ทำให้คนเจอเว็บคุณบน Google แบบไม่ต้องจ่ายเงิน — แบ่งเป็น 8 หมวด</div>
+          <div class="brail"></div>
+          <div class="bgrid">
+            <article class="gcard"><div class="gt">Indexability <em>น้ำหนัก 20</em></div><p class="gd">เว็บของคุณ “ถูกเห็น” โดย Google และ AI หรือเปล่า — ด่านแรกสุด ถ้าตรงนี้พลาด หน้าอื่นดีแค่ไหนก็ไม่โผล่ในผลค้นหา</p><div class="gtags"><span>noindex</span><span>canonical</span><span>robots.txt</span><span>XML sitemap</span><span>redirect chain</span><span>hreflang</span><span>404/410</span></div></article>
+            <article class="gcard"><div class="gt">Meta &amp; เนื้อหา <em>น้ำหนัก 18</em></div><p class="gd">ชื่อหน้าและคำอธิบายที่ไปโชว์บนหน้าผลค้นหา รวมถึงว่าเนื้อหาในหน้าครบและสื่อความชัดพอไหม</p><div class="gtags"><span>title</span><span>h1</span><span>meta description</span><span>viewport (มือถือ)</span><span>thin content</span><span>heading order</span></div></article>
+            <article class="gcard"><div class="gt">Structured Data <em>น้ำหนัก 12</em></div><p class="gd">โค้ดเบื้องหลังที่บอก Google และ AI ว่าหน้านี้คืออะไร (สินค้า บทความ ร้านค้า รีวิว) ช่วยให้แสดงผลเด่นและถูกต้องขึ้น</p><div class="gtags"><span>JSON-LD</span><span>schema.org</span><span>Open Graph</span><span>breadcrumb</span></div></article>
+            <article class="gcard"><div class="gt">JS Rendering <em>น้ำหนัก 12</em></div><p class="gd">บางเว็บแสดงเนื้อหาด้วยสคริปต์ เราตรวจว่าบอทของ Google และ AI มองเห็นเนื้อหาจริงเหมือนที่คนเห็นหรือเปล่า</p><div class="gtags"><span>SPA shell</span><span>render diff</span><span>noscript</span></div></article>
+            <article class="gcard"><div class="gt">Core Web Vitals <em>น้ำหนัก 10</em></div><p class="gd">ประสบการณ์ใช้งานจริง — หน้าโหลดเร็ว กดแล้วตอบสนองทันใจ และเลย์เอาต์ไม่ขยับกระตุกตอนโหลด</p><div class="gtags"><span>TTFB</span><span>LCP / CLS / INP</span><span>compression</span><span>render-blocking</span></div></article>
+            <article class="gcard"><div class="gt">ลิงก์ <em>น้ำหนัก 8</em></div><p class="gd">ลิงก์ภายในเว็บที่พาทั้งคนและบอทเดินไปหน้าอื่นได้ทั่วถึง และไม่มีลิงก์เสียที่กดแล้วเจอหน้า 404</p><div class="gtags"><span>broken links</span><span>internal links</span><span>orphan pages</span><span>anchor text</span></div></article>
+            <article class="gcard"><div class="gt">รูปภาพ <em>น้ำหนัก 5</em></div><p class="gd">รูปภาพมีคำอธิบายให้ Google และผู้พิการทางสายตาเข้าใจ และกำหนดขนาดไว้ไม่ให้หน้ากระตุกตอนรูปโหลด</p><div class="gtags"><span>alt text</span><span>lazy loading</span><span>width/height</span></div></article>
+            <article class="gcard"><div class="gt">ความปลอดภัย <em>น้ำหนัก 5</em></div><p class="gd">เว็บล็อกกุญแจ (HTTPS) ปลอดภัยจริงไหม — เป็นสัญญาณความน่าเชื่อถือที่ Google ใช้จัดอันดับ</p><div class="gtags"><span>HTTPS</span><span>SSL chain</span><span>mixed content</span><span>security headers</span></div></article>
           </div>
-          <div class="pbody">
-            <div class="pnode">
-              <div class="pk"><div class="knm">AI Crawler Access</div></div>
-              <div class="pv"><div class="pd">เว็บคุณเปิดให้บอทของ ChatGPT, Claude และ Perplexity เข้ามาอ่านไหม — ถ้าเผลอปิดไว้ AI ก็เอาเว็บคุณไปพูดถึงไม่ได้เลย</div>
-                <div class="chips"><span class="chip"><span class="sq s-hi"></span>GPTBot</span><span class="chip"><span class="sq s-hi"></span>ClaudeBot</span><span class="chip"><span class="sq s-hi"></span>PerplexityBot</span><span class="chip"><span class="sq s-hi"></span>SPA risk (AI มองไม่เห็น)</span></div>
-              </div>
-            </div>
-            <div class="pnode">
-              <div class="pk"><div class="knm">Citation &amp; Fact</div></div>
-              <div class="pv"><div class="pd">เนื้อหาจัดรูปแบบให้ AI หยิบไปตอบผู้ใช้ได้ง่าย เช่น มีคำถาม-คำตอบชัดเจน ตัวเลขและข้อเท็จจริงที่อ้างอิงได้</div>
-                <div class="chips"><span class="chip"><span class="sq s-me"></span>FAQ schema</span><span class="chip"><span class="sq s-me"></span>เนื้อหาถาม-ตอบ</span><span class="chip"><span class="sq s-me"></span>citability</span></div>
-              </div>
-            </div>
-            <div class="pnode">
-              <div class="pk"><div class="knm">Entity &amp; E-E-A-T</div></div>
-              <div class="pv"><div class="pd">AI รู้จักและเรียกชื่อแบรนด์คุณได้ถูก พร้อมสัญญาณว่าน่าเชื่อถือ — มีประสบการณ์จริง เชี่ยวชาญ และโปร่งใส (E-E-A-T)</div>
-                <div class="chips"><span class="chip"><span class="sq s-me"></span>entity recognition</span><span class="chip"><span class="sq s-me"></span>E-E-A-T</span><span class="chip"><span class="sq s-me"></span>หน้าความน่าเชื่อถือ</span></div>
-              </div>
-            </div>
-            <div class="pnode">
-              <div class="pk"><div class="knm">LLM Readability</div><div class="kw">LLMO</div></div>
-              <div class="pv"><div class="pd">เนื้อหาอยู่ในรูปแบบที่ AI อ่านได้ทันที ไม่ซ่อนอยู่หลังสคริปต์ที่ AI ส่วนใหญ่เปิดไม่ได้</div>
-                <div class="chips"><span class="chip"><span class="sq s-lo"></span>llms.txt</span><span class="chip"><span class="sq s-hi"></span>เนื้อหาใน HTML ดิบ</span></div>
-              </div>
-            </div>
-          </div>
-          <div class="ptools"><div class="tlab">วิธีตรวจของเรา</div><div class="tval"><b>robots.txt parser</b> (ตามชื่อบอต AI จริง) + ตรวจโครงสร้างเนื้อหา + <b>AI assessment</b> เชิงคุณภาพ — <b>ไม่ได้</b> query ChatGPT/Claude โดยตรง วัดที่ "ความพร้อมของหน้า" ไม่ใช่อันดับภายใน AI</div></div>
+          <div class="btool"><div class="tl">วิธีตรวจ</div><div class="tv"><b>Deterministic crawler</b> อ่าน HTML ดิบ + <b>headless Chrome</b> เปิดหน้า render จริง → ยืนยันผลด้วย <b>Google Lighthouse / PageSpeed Insights</b> เป็นเกณฑ์อิสระ</div></div>
         </div>
 
-        <!-- PILLAR 3 — SEM (out of scope) -->
-        <div class="pillar sem">
-          <div class="ph">
-            <div class="pn">3</div>
-            <div class="pmain">
-              <div class="pt">SEM / Paid <span>· Search Engine Marketing (PPC)</span></div>
-              <div class="pg">เป้าหมาย: ซื้อพื้นที่โฆษณา (Paid Visibility) ให้แสดงผลทันที</div>
-            </div>
-            <div class="pw">นอกขอบเขต</div>
+        <!-- BRANCH 2 — GEO -->
+        <div class="branch geo">
+          <div class="bhead"><span class="bn">GEO</span><span class="ben">Generative Engine Optimization</span><span class="bw">10 / 100 + ทับซ้อน</span></div>
+          <div class="bgoal">เพิ่มโอกาสที่ AI อย่าง ChatGPT, Gemini, Perplexity จะหยิบเว็บคุณไปพูดถึงและอ้างอิง</div>
+          <div class="brail"></div>
+          <div class="bgrid">
+            <article class="gcard"><div class="gt">AI Crawler Access</div><p class="gd">เว็บคุณเปิดให้บอทของ ChatGPT, Claude และ Perplexity เข้ามาอ่านไหม — ถ้าเผลอปิดไว้ AI ก็เอาเว็บคุณไปพูดถึงไม่ได้เลย</p><div class="gtags"><span>GPTBot</span><span>ClaudeBot</span><span>PerplexityBot</span><span>SPA risk</span></div></article>
+            <article class="gcard"><div class="gt">Citation &amp; Fact</div><p class="gd">เนื้อหาจัดรูปแบบให้ AI หยิบไปตอบผู้ใช้ได้ง่าย เช่น มีคำถาม-คำตอบชัดเจน ตัวเลขและข้อเท็จจริงที่อ้างอิงได้</p><div class="gtags"><span>FAQ schema</span><span>เนื้อหาถาม-ตอบ</span><span>citability</span></div></article>
+            <article class="gcard"><div class="gt">Entity &amp; E-E-A-T</div><p class="gd">AI รู้จักและเรียกชื่อแบรนด์คุณได้ถูก พร้อมสัญญาณว่าน่าเชื่อถือ — มีประสบการณ์จริง เชี่ยวชาญ และโปร่งใส (E-E-A-T)</p><div class="gtags"><span>entity recognition</span><span>E-E-A-T</span><span>หน้าความน่าเชื่อถือ</span></div></article>
+            <article class="gcard"><div class="gt">LLM Readability <em>LLMO</em></div><p class="gd">เนื้อหาอยู่ในรูปแบบที่ AI อ่านได้ทันที ไม่ซ่อนอยู่หลังสคริปต์ที่ AI ส่วนใหญ่เปิดไม่ได้</p><div class="gtags"><span>llms.txt</span><span>เนื้อหาใน HTML ดิบ</span></div></article>
           </div>
-          <div class="pnote">
-            <div class="prow"><span class="tag tag-no">ไม่ได้ตรวจ</span><div>เราวิเคราะห์เฉพาะ <b>หน้าเว็บจริง</b> ที่เปิดดูได้โดยไม่ต้องเสียเงินโฆษณา ส่วนตัวเลขของการยิงแอด เช่น คะแนนคุณภาพ (Quality Score), อัตราคนคลิก (CTR), ราคาต่อคลิก (CPC) และผลตอบแทนค่าโฆษณา (ROAS) เป็นข้อมูลที่อยู่ในบัญชี Google Ads และ Google Analytics ของแต่ละธุรกิจ จึงดูจากการเปิดหน้าเว็บภายนอกไม่ได้</div></div>
-            <div class="prow"><span class="tag tag-yes">ตรวจให้แล้ว</span><div>แต่สิ่งที่ Google ใช้คิดราคาโฆษณาอย่างหนึ่งคือ <b>คุณภาพของหน้าปลายทาง</b> (โหลดเร็ว เนื้อหาตรงปก และเปิดบนมือถือได้ดี) ส่วนนี้อยู่ในหมวด SEO ด้านบนที่เราตรวจให้ครบแล้ว ดังนั้นแม้เราจะไม่แตะระบบโฆษณา ผลตรวจของเราก็ช่วยให้ค่าโฆษณาถูกลงได้ทางอ้อม</div></div>
+          <div class="btool"><div class="tl">วิธีตรวจ</div><div class="tv"><b>robots.txt parser</b> (ตามชื่อบอต AI จริง) + ตรวจโครงสร้างเนื้อหา + <b>AI assessment</b> เชิงคุณภาพ — ไม่ได้ query ChatGPT/Claude โดยตรง วัดที่ “ความพร้อมของหน้า” ไม่ใช่อันดับภายใน AI</div></div>
+        </div>
+
+        <!-- BRANCH 3 — SEM (out of scope) -->
+        <div class="branch sem">
+          <div class="bhead"><span class="bn">SEM / Paid</span><span class="ben">โฆษณาแบบจ่ายเงิน (PPC)</span><span class="bw">นอกขอบเขต</span></div>
+          <div class="bgoal">ซื้อพื้นที่โฆษณาให้ขึ้นทันที — เป็นคนละเรื่องกับการตรวจหน้าเว็บ จึงไม่ใช่สิ่งที่ระบบเราวัด</div>
+          <div class="semcard">
+            <div class="semrow"><span class="tag tag-no">ไม่ได้ตรวจ</span><div>เราวิเคราะห์เฉพาะ <b>หน้าเว็บจริง</b> ที่เปิดดูได้โดยไม่ต้องเสียเงินโฆษณา ส่วนตัวเลขของการยิงแอด เช่น คะแนนคุณภาพ (Quality Score), อัตราคนคลิก (CTR), ราคาต่อคลิก (CPC) และผลตอบแทนค่าโฆษณา (ROAS) เป็นข้อมูลที่อยู่ในบัญชี Google Ads และ Google Analytics ของแต่ละธุรกิจ จึงดูจากการเปิดหน้าเว็บภายนอกไม่ได้</div></div>
+            <div class="semrow"><span class="tag tag-yes">ตรวจให้แล้ว</span><div>แต่สิ่งที่ Google ใช้คิดราคาโฆษณาอย่างหนึ่งคือ <b>คุณภาพของหน้าปลายทาง</b> (โหลดเร็ว เนื้อหาตรงปก และเปิดบนมือถือได้ดี) ส่วนนี้อยู่ในหมวด SEO ด้านบนที่เราตรวจให้ครบแล้ว ดังนั้นแม้เราจะไม่แตะระบบโฆษณา ผลตรวจของเราก็ช่วยให้ค่าโฆษณาถูกลงได้ทางอ้อม</div></div>
           </div>
         </div>
       </div>
