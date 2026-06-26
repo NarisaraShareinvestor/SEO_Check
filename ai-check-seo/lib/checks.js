@@ -1,6 +1,6 @@
 // Rule Engine — ตรวจ Technical SEO ด้วยกฎ deterministic (ไม่ใช้ AI → ผลนิ่ง เร็ว ฟรี)
 // ผลแต่ละข้อ: { id, category, severity, status: pass|warn|fail|info, title, detail, recommendation, pages, fixable }
-import { normalizeUrl } from './crawler.js';
+import { normalizeUrl, robotsAllows } from './crawler.js';
 import { validateSchemaNodes } from './schema-validate.js';
 
 // เวอร์ชันของ "วิธีตรวจ" — bump เมื่อ logic ของ check เปลี่ยน (เช่น img-alt 3-state)
@@ -210,16 +210,31 @@ export function runChecks(site) {
       checks.push(blocksAll
         ? mk('robots-blocks-all', 'index', 'high', 'fail', 'robots.txt บล็อกทั้งเว็บ!', 'พบ "Disallow: /" สำหรับ User-agent: * — เว็บล่องหนจาก Google ทั้งหมด', 'เอา Disallow: / ออกทันที', [], true)
         : mk('robots-blocks-all', 'index', 'high', 'pass', 'robots.txt ไม่ได้บล็อกทั้งเว็บ', 'ไม่มี Disallow: / แบบเหมารวม'));
-      const bigBlocks = [];
-      for (const g of r.groups) {
-        for (const rule of g.rules) {
-          if (rule.type === 'disallow' && /^\/(th|en|blog|product|service|news|article)s?\/?$/i.test(rule.path))
-            bigBlocks.push(`"Disallow: ${rule.path}" (agent: ${g.agents.join(',')})`);
-        }
-      }
-      if (bigBlocks.length) checks.push(mk('robots-blocks-section', 'index', 'high', 'fail', 'robots.txt บล็อก section สำคัญ',
-        `พบการบล็อก: ${bigBlocks.join(' · ')} — หากเป็น section ภาษา/เนื้อหาหลัก หน้าเหล่านั้นจะไม่ถูกจัดเก็บใน Google`,
-        'ตรวจว่าตั้งใจบล็อกจริงไหม ถ้าไม่ ให้เอาออก', [], true));
+      // section สำคัญที่อาจถูกบล็อก — ตรวจ "ตามจริง" ว่า agent ที่มีผลต่อ SEO/AI โดนบล็อกไหม
+      // (robots.txt ใช้กฎ most-specific match: Googlebot/AI ใช้ group ของตัวเองถ้ามี ไม่งั้น fallback ไป * —
+      //  ดังนั้น Disallow ที่อยู่ในกลุ่มบอตขยะอย่างเดียว ไม่กระทบ Google/AI)
+      const SECTION_RE = /^\/(th|en|blog|product|service|news|article|category|shop)s?\/?$/i;
+      const candidateSections = [...new Set(
+        r.groups.flatMap(g => g.rules)
+          .filter(x => x.type === 'disallow' && x.path && SECTION_RE.test(x.path))
+          .map(x => x.path)
+      )];
+      const AI_SECTION_BOTS = ['GPTBot', 'ClaudeBot', 'PerplexityBot', 'OAI-SearchBot'];
+      const googleBlocked = candidateSections.filter(p => !robotsAllows(r, 'Googlebot', p));
+      const aiBlocked = candidateSections.filter(p => AI_SECTION_BOTS.some(b => !robotsAllows(r, b, p)));
+      if (googleBlocked.length)
+        checks.push(mk('robots-blocks-section', 'index', 'high', 'fail', 'robots.txt บล็อก Googlebot จาก section สำคัญ',
+          `Googlebot ถูกห้าม crawl: ${googleBlocked.map(p => `"${p}"`).join(', ')} — หน้าในส่วนนี้อาจไม่ถูก crawl และเนื้อหาอาจไม่ถูกจัดทำดัชนีตามปกติ (Google ยังอาจรู้จัก URL จาก sitemap/ลิงก์ แต่จะอ่านเนื้อหาไม่ได้) — ตรวจว่าตั้งใจบล็อกหรือไม่`,
+          `ถ้าไม่ได้ตั้งใจ: ลบบรรทัด Disallow ของ section นี้ออกจากกลุ่ม "User-agent: *" หรือเพิ่มกลุ่มเฉพาะ "User-agent: Googlebot" + "Allow: ${googleBlocked[0]}" — แก้เฉพาะจุด ไม่ต้องเขียน robots.txt ใหม่ทั้งไฟล์`, [], true));
+      else if (aiBlocked.length)
+        checks.push(mk('robots-blocks-section', 'index', 'med', 'warn', 'robots.txt บล็อก AI crawler จาก section สำคัญ',
+          `Googlebot เข้าถึงได้ปกติ แต่ AI crawler (เช่น ${AI_SECTION_BOTS.join(', ')}) ถูกห้าม crawl: ${aiBlocked.map(p => `"${p}"`).join(', ')} — มักเกิดจากกฎใน "User-agent: *" ที่ครอบ AI bot ไปด้วย ทำให้ AI ดึงเนื้อหาส่วนนี้ไปตอบไม่ได้ (กระทบ GEO ไม่กระทบอันดับ Google โดยตรง)`,
+          `ถ้าต้องการให้ AI เข้าถึง section นี้ ให้เพิ่มกลุ่มเฉพาะ เช่น "User-agent: GPTBot" + "Allow: ${aiBlocked[0]}" (ทำเหมือนกันกับ ClaudeBot/PerplexityBot)`, [], true));
+      else
+        checks.push(mk('robots-blocks-section', 'index', 'low', 'pass', 'robots.txt ไม่ได้บล็อก Googlebot/AI จาก section เนื้อหาหลัก',
+          candidateSections.length
+            ? `พบ Disallow บาง section (${candidateSections.join(', ')}) แต่จำกัดเฉพาะบอตที่ไม่กระทบ SEO/AI (เช่น scraper / SEO-tool bots) — ถือว่าตั้งใจ ไม่เป็นปัญหา`
+            : 'ไม่พบการบล็อก section เนื้อหาหลัก'));
       checks.push(r.sitemaps.length
         ? mk('robots-sitemap', 'index', 'low', 'pass', 'robots.txt อ้างถึง sitemap', r.sitemaps.join(', '))
         : mk('robots-sitemap', 'index', 'low', 'warn', 'robots.txt ไม่ได้อ้าง sitemap', 'ควรใส่บรรทัด Sitemap: เพื่อช่วย bot หา URL ครบ', '', [], true));
