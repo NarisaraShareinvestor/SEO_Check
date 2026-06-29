@@ -636,6 +636,8 @@ async function renderedCrawl(startUrl, seedUrls, { maxPages, onProgress }) {
       const data = extractPageData((rawHtml || renderedHtml).slice(0, 600_000), url, headers, status, 0, []);
       const rd = extractPageData(renderedHtml.slice(0, 600_000), url, headers, status, 0, []);
       data.finalUrl = finalUrl;
+      data.rawSnapshot = (rawHtml || renderedHtml).slice(0, 300_000);     // evidence: สิ่งที่ Google รอบแรก/AI bot เห็น
+      data.renderedSnapshot = renderedHtml.slice(0, 300_000);             // evidence: DOM หลัง JS รัน (SPA)
       // เก็บเนื้อหา "ฉบับ render แล้ว" ไว้กับ page (persist ใน audit) — ใช้เสนอ H1/Title จริงที่มีอยู่ใน DOM
       // (SPA: H1/title เขียนไว้แล้วใน JS แค่ไม่อยู่ raw HTML → รายงานเสนอค่าจริงได้เลย ไม่ต้องเดา)
       const renH1 = (rd.headings || []).filter(h => h.tag === 'h1').map(h => h.text);
@@ -804,6 +806,7 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
       const page = extractPageData(html, url, res.headers, status, 0, chain);
       if (detectedCharset && !/^utf-?8$/i.test(detectedCharset)) page.detectedCharset = detectedCharset;
       page.finalUrl = finalUrl;
+      if (status === 200) page.rawSnapshot = html.slice(0, 300_000); // เก็บไว้ทำ evidence snapshot (transient — server เซฟลงไฟล์ ไม่ persist ใน audit)
       site.pages.push(page);
 
       // เก็บ HTML ต้นฉบับของหน้าแรกไว้ให้ AI สร้าง "หน้าฉบับแก้แล้ว"

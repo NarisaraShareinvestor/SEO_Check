@@ -61,6 +61,26 @@ function emitJob(job) {
   for (const res of subs) { try { res.write(`data: ${payload}\n\n`); } catch {} }
 }
 
+// Evidence snapshot — เซฟ raw/rendered HTML ต่อหน้าลง data/evidence/{auditId}/ (พิสูจน์ "หน้านี้เห็นแบบนี้จริง")
+const EVIDENCE_DIR = join(DATA_DIR, '..', 'evidence');
+function writeEvidence(auditId, pages) {
+  try {
+    const dir = join(EVIDENCE_DIR, auditId);
+    mkdirSync(dir, { recursive: true });
+    const index = []; let i = 0;
+    for (const p of pages) {
+      if (!p.rawSnapshot && !p.renderedSnapshot) continue;
+      const slug = ((p.url || '').replace(/^https?:\/\//, '').replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80) || 'page') + '_' + (i++);
+      const entry = { url: p.url, status: p.status };
+      if (p.rawSnapshot) { writeFileSync(join(dir, slug + '.raw.html'), p.rawSnapshot); entry.raw = slug + '.raw.html'; }
+      if (p.renderedSnapshot) { writeFileSync(join(dir, slug + '.rendered.html'), p.renderedSnapshot); entry.rendered = slug + '.rendered.html'; }
+      index.push(entry);
+    }
+    writeFileSync(join(dir, 'index.json'), JSON.stringify({ auditId, capturedAt: new Date().toISOString(), pages: index }, null, 2));
+    return index.length;
+  } catch { return 0; }
+}
+
 function saveAudit(audit) {
   writeFileSync(join(DATA_DIR, `${audit.id}.json`), JSON.stringify(audit));
 }
@@ -227,7 +247,8 @@ async function runAudit(job, url, maxPages, competitorUrl) {
       crawlSite(url, { maxPages, onProgress: push }),
       compPromise,
     ]);
-    stepEnd(sData, `ดึง ${site.pages.length} หน้า${site.renderedCrawl ? ' · SPA rendered (chromium)' : ''}`, `/present/${job.id}`);
+    const evCount = writeEvidence(job.id, site.pages); // เซฟ raw/rendered snapshot ต่อหน้า → /api/evidence
+    stepEnd(sData, `ดึง ${site.pages.length} หน้า${site.renderedCrawl ? ' · SPA rendered (chromium)' : ''}${evCount ? ` · เก็บ snapshot ${evCount}` : ''}`, `/api/evidence/${job.id}`);
 
     job.status = 'analyzing';
     push('Crawl เสร็จ — กำลังรัน rule engine 200+ จุดตรวจ...');
@@ -861,6 +882,24 @@ setInterval(watchTick, 60 * 60 * 1000);
 setTimeout(watchTick, 30_000); // เช็ครอบแรกหลังบูต 30 วิ
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, aiAvailable: aiAvailable() }));
+
+// ผล link health-check ล่าสุด (รันด้วย cron: npm run check-refs) — กันลิงก์อ้างอิงตาย/ย้าย
+app.get('/api/reference-health', (_req, res) => {
+  try { res.json(JSON.parse(readFileSync(join(DATA_DIR, '..', 'reference-health.json'), 'utf8'))); }
+  catch { res.json({ checkedAt: null, note: 'ยังไม่เคยรัน — npm run check-refs' }); }
+});
+
+// Evidence snapshot — รายการ + เสิร์ฟไฟล์ HTML ที่เก็บไว้ (raw/rendered ต่อหน้า)
+app.get('/api/evidence/:auditId', (req, res) => {
+  if (!/^[a-f0-9]+$/i.test(req.params.auditId)) return res.status(400).json({ error: 'bad id' });
+  try { res.json(JSON.parse(readFileSync(join(EVIDENCE_DIR, req.params.auditId, 'index.json'), 'utf8'))); }
+  catch { res.status(404).json({ error: 'ไม่มี evidence สำหรับ audit นี้' }); }
+});
+app.get('/api/evidence/:auditId/:file', (req, res) => {
+  if (!/^[a-f0-9]+$/i.test(req.params.auditId) || !/^[a-zA-Z0-9._-]+\.html$/.test(req.params.file)) return res.status(400).end();
+  try { res.type('html').send(readFileSync(join(EVIDENCE_DIR, req.params.auditId, req.params.file), 'utf8')); }
+  catch { res.status(404).end(); }
+});
 
 app.listen(PORT, () => {
   console.log(`\nAI SEO Audit Pro พร้อมใช้งาน → http://localhost:${PORT}`);
