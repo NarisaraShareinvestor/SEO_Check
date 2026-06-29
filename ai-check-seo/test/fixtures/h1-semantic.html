@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>หลาย H1 ตาม HTML5 sectioning — ทดสอบ h1-multiple แบบ evidence-based</title>
+  <meta name="description" content="fixture ที่มีหลาย H1 แต่แต่ละตัวอยู่ใน article ของตัวเอง หัวข้อต่างกัน ไม่ใช่ keyword stuffing ระบบต้องไม่ false-positive">
+  <link rel="canonical" href="https://example.com/h1-semantic">
+  <meta name="robots" content="index, follow">
+  <link rel="icon" href="/favicon.ico">
+  <meta property="og:title" content="หลาย H1 ที่ถูกต้องตาม HTML5">
+  <meta property="og:description" content="fixture sectioning">
+  <meta property="og:image" content="https://example.com/og.jpg">
+</head>
+<body>
+  <!-- หลาย H1 แต่แต่ละตัวอยู่ใน <article> ของตัวเอง หัวข้อคนละเรื่อง → ถูกต้องตาม HTML5 sectioning ต้อง PASS ไม่ใช่ fail -->
+  <article>
+    <h1>รายงานประจำปีและงบการเงิน</h1>
+    <p>บริษัทเปิดเผยรายงานประจำปีฉบับล่าสุดพร้อมงบการเงินที่ผ่านการตรวจสอบโดยผู้สอบบัญชีรับอนุญาต นักลงทุนสามารถดาวน์โหลดเอกสารทั้งหมดได้จากส่วนนี้ ทั้งงบดุล งบกำไรขาดทุน และหมายเหตุประกอบงบการเงิน เพื่อใช้ประกอบการตัดสินใจลงทุนได้อย่างครบถ้วนและโปร่งใสตามหลักธรรมาภิบาลที่ดีของบริษัทจดทะเบียน</p>
+  </article>
+  <article>
+    <h1>ข่าวแจ้งตลาดหลักทรัพย์</h1>
+    <p>รวมข่าวสารและสารสนเทศที่บริษัทแจ้งต่อตลาดหลักทรัพย์แห่งประเทศไทย ครอบคลุมมติคณะกรรมการ การจ่ายเงินปันผล และเหตุการณ์สำคัญที่มีผลต่อราคาหลักทรัพย์ ผู้ถือหุ้นสามารถติดตามความเคลื่อนไหวได้แบบเรียลไทม์เพื่อความเท่าเทียมในการเข้าถึงข้อมูล</p>
+  </article>
+  <article>
+    <h1>ปฏิทินกิจกรรมนักลงทุน</h1>
+    <p>กำหนดการประชุมผู้ถือหุ้น การประชุมนักวิเคราะห์ และกิจกรรม roadshow ตลอดทั้งปี นักลงทุนและสื่อมวลชนสามารถลงทะเบียนเข้าร่วมงานล่วงหน้าได้ผ่านช่องทางที่ระบุไว้ พร้อมเอกสารประกอบการนำเสนอที่เผยแพร่หลังจบงานทุกครั้ง</p>
+  </article>
+  <img src="/ir.jpg" alt="ภาพประกอบหน้านักลงทุนสัมพันธ์" width="600" height="400" loading="lazy">
+  <a href="https://example.com/about">เกี่ยวกับเรา</a>
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"Organization","name":"Example","url":"https://example.com","logo":"https://example.com/logo.png","sameAs":["https://facebook.com/example"]}
+  </script>
+</body>
+</html>

@@ -262,6 +262,19 @@ function renderVerify(audit) {
   }
 }
 const confBadge = (ch) => ch._confidence == null ? '' : `<span title="ความเชื่อมั่น ${ch._confidence}% · ${ch._type}${ch._needsVerify ? ' — ต่างจาก Google ควรรีวิว' : ''}" style="font-size:11px;margin-left:6px;padding:1px 6px;border-radius:6px;background:${ch._needsVerify ? '#fde2e2;color:#c0392b' : ch._confidence >= 95 ? '#e6f4ea;color:#15803d' : '#f0f0f0;color:#888'}">${ch._needsVerify ? '⚠️ รีวิว ' : ''}${ch._confidence}%</span>`;
+// Evidence-Based engine: confidence (0–1) + reasoning ต่อ finding → โชว์ให้คนติดตามได้ว่า "ทำไมตัดสินแบบนี้"
+const evConfChip = (ch) => {
+  if (ch.confidence == null) return '';
+  const c = Math.round(ch.confidence * 100);
+  const col = c >= 80 ? '#e6f4ea;color:#15803d' : c >= 60 ? '#fff4e0;color:#b26b00' : '#fde2e2;color:#c0392b';
+  return `<span title="ความเชื่อมั่นจากหลักฐาน ${c}%${c < 60 ? ' — ควรเปิดหน้าเว็บดูยืนยัน' : ''}" style="font-size:11px;margin-left:6px;padding:1px 6px;border-radius:6px;background:${col}">conf ${c}%</span>`;
+};
+const reasonBlock = (ch) => {
+  if (!ch.reasoning) return '';
+  const r = ch.reasoning;
+  const sig = r.signals ? Object.entries(r.signals).map(([k, v]) => `<code>${esc(k)}=${esc(String(v))}</code>`).join(' ') : '';
+  return `<div class="reasonln"><b>ทำไมตัดสินแบบนี้</b> ${sig}${r.standard ? `<div class="rstd">เกณฑ์: ${esc(r.standard)}</div>` : ''}${r.note ? `<div class="rnote">${esc(r.note)}</div>` : ''}</div>`;
+};
 
 // ── เทียบก่อน/หลังแก้ (delta) — แยก "แก้/แย่จริง" ออกจาก "เปลี่ยนเพราะตรวจไม่เท่ากัน/อัปเกรด/ค่าผันผวน" ──
 function renderDelta(audit) {
@@ -514,12 +527,13 @@ function renderChecks(audit, filter) {
         <b>${esc(stripEmoji(ch.title))}</b>
         ${ch.affectedCount ? `<span class="n">${ch.affectedCount} รายการ</span>` : ''}
         <span class="sev">${sevTh[ch.severity] || ch.severity}</span>
-        ${confBadge(ch)}
+        ${confBadge(ch)}${evConfChip(ch)}
       </summary>
       <div class="body">
         <div>${esc(stripEmoji(ch.detail))}</div>
         ${ch.recommendation ? `<div class="rec"><b>วิธีแก้</b> — ${esc(stripEmoji(ch.recommendation))}</div>` : ''}
         ${ch.reference ? `<div class="refln"><span class="reftier t${ch.reference.tier}">${esc(ch.reference.type)}</span> <b>อ้างอิง:</b> ${ch.reference.sources.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)} ↗</a>`).join(' · ')}</div>` : ''}
+        ${reasonBlock(ch)}
         ${(ch.evidence || []).length
           ? `<div class="plist"><b>หลักฐานรายหน้า:</b>${ch.evidence.map(e => `<div class="evrow"><a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.url)}</a>${e.note ? `<span class="evnote"> — ${esc(e.note)}</span>` : ''}</div>`).join('')}</div>`
           : (ch.pages || []).length ? `<div class="plist">${ch.pages.map(p => `<a href="${esc(p)}" target="_blank" rel="noopener">${esc(p)}</a>`).join('<br>')}</div>` : ''}

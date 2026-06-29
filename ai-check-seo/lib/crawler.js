@@ -384,7 +384,11 @@ export function extractPageData(html, url, headers, status, elapsed, chain) {
   const headings = [];
   let hiddenH1 = 0;
   $('h1,h2,h3,h4,h5,h6').each((_, el) => {
-    headings.push({ tag: el.tagName.toLowerCase(), text: $(el).text().replace(/\s+/g, ' ').trim().slice(0, 200) });
+    const tag = el.tagName.toLowerCase();
+    const h = { tag, text: $(el).text().replace(/\s+/g, ' ').trim().slice(0, 200) };
+    // h1 อยู่ใน <article>/<section> ไหม → context สำหรับ h1-multiple แบบ evidence-based (HTML5 sectioning ยอมให้หลาย H1)
+    if (tag === 'h1') h.sectioned = $(el).closest('article,section').length > 0;
+    headings.push(h);
   });
   // ตรวจ H1 ที่ถูกซ่อนด้วย inline style — CSS class ต้องใช้ Playwright computed style
   $('h1').each((_, el) => {

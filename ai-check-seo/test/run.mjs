@@ -69,6 +69,24 @@ const FIXTURES = [
     absent: ['h1-hidden', 'charset-not-utf8', 'robots-meta-invalid'],
   },
   {
+    name: 'หลาย H1 ใน <article> หัวข้อต่างกัน (HTML5 sectioning) → ต้อง PASS (ไม่ false-positive)',
+    file: 'h1-semantic.html', url: 'https://example.com/h1-semantic',
+    expect: { 'h1-multiple': 'pass' },
+    absent: ['h1-hidden', 'charset-not-utf8', 'robots-meta-invalid'],
+  },
+  {
+    name: 'noindex บนหน้า utility (/cart) → ต้อง PASS (ตั้งใจ ปกติ)',
+    file: 'noindex.html', url: 'https://example.com/cart',
+    expect: { 'noindex': 'pass' },
+    absent: ['robots-meta-invalid'],
+  },
+  {
+    name: 'noindex บนหน้าหลัก (/) → ต้อง WARN (หน้าเนื้อหาอาจพลาด)',
+    file: 'noindex.html', url: 'https://example.com/',
+    expect: { 'noindex': 'warn' },
+    absent: ['robots-meta-invalid'],
+  },
+  {
     name: 'H1 ซ่อนด้วย visibility:hidden → ต้อง WARN',
     file: 'hidden-h1.html', url: 'https://example.com/hidden-h1',
     expect: { 'h1-hidden': 'warn' },

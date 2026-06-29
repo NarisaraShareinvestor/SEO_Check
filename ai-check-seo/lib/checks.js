@@ -5,7 +5,7 @@ import { validateSchemaNodes } from './schema-validate.js';
 
 // เวอร์ชันของ "วิธีตรวจ" — bump เมื่อ logic ของ check เปลี่ยน (เช่น img-alt 3-state)
 // ใช้ตอนเทียบก่อน/หลัง: ถ้า audit 2 ครั้งคนละเวอร์ชัน → การเปลี่ยนบางอย่างมาจากการอัปเกรดระบบ ไม่ใช่การแก้เว็บ
-export const ENGINE_VERSION = 4;
+export const ENGINE_VERSION = 5;
 
 const CATS = {
   onpage: 'Meta & เนื้อหา',
@@ -149,16 +149,46 @@ export function runChecks(site) {
     const h1Count = p => p.headings.filter(h => h.tag === 'h1').length;
     const multiH1 = okPages.filter(p => h1Count(p) > 1);
     if (multiH1.length) {
-      const maxH1 = Math.max(...multiH1.map(h1Count));
-      // 2–3 H1 = เจือจางสัญญาณ (warn) · มากกว่านั้น = H1 abuse จริง (fail)
-      const abuse = maxH1 > 3;
-      checks.push(mk('h1-multiple', 'onpage', abuse ? 'high' : 'low', abuse ? 'fail' : 'warn',
-        abuse ? `H1 มากเกินไป (สูงสุด ${maxH1} ตัวต่อหน้า)` : 'หน้าที่มี H1 มากกว่า 1',
-        abuse
-          ? `${multiH1.length} หน้ามี H1 หลายตัว (สูงสุด ${maxH1} ตัว/หน้า) — Google ไม่รู้ว่าหน้านี้เกี่ยวกับอะไร มักเกิดจากเอา H1 ไปครอบ slider/section headers`
-          : `${multiH1.length} หน้า — ไม่ผิดร้ายแรงแต่เจือจางสัญญาณคีย์เวิร์ด`,
-        'เหลือ H1 เดียวต่อหน้า ที่เหลือเปลี่ยนเป็น H2/H3 ตามลำดับชั้นเนื้อหา',
-        pageList(multiH1), abuse));
+      // Evidence-Based: หลาย H1 "ผิดหรือไม่" ขึ้นกับบริบท ไม่ใช่แค่จำนวน
+      // เก็บหลักฐานหลายมิติ (จำนวน / ข้อความซ้ำ / keyword similarity / อยู่ใน <article>,<section>) → reasoning → confidence
+      const normH = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+      const toks = s => new Set(normH(s).split(/[\s/|·–—-]+/).filter(w => w.length > 1));
+      const avgSim = (texts) => {
+        const sets = texts.map(toks).filter(s => s.size); if (sets.length < 2) return 0;
+        let tot = 0, n = 0;
+        for (let i = 0; i < sets.length; i++) for (let j = i + 1; j < sets.length; j++) {
+          let inter = 0; for (const w of sets[i]) if (sets[j].has(w)) inter++;
+          const uni = new Set([...sets[i], ...sets[j]]).size; tot += uni ? inter / uni : 0; n++;
+        }
+        return n ? tot / n : 0;
+      };
+      const classify = (p) => {
+        const h1s = p.headings.filter(h => h.tag === 'h1');
+        const texts = h1s.map(h => h.text);
+        const count = texts.length;
+        const dup = new Set(texts.map(normH)).size < count;
+        const sim = avgSim(texts);
+        const sectionedAll = h1s.length > 0 && h1s.every(h => h.sectioned);
+        let rank, status, severity, reason;
+        if (sectionedAll && sim < 0.6 && !dup) { rank = 0; status = 'pass'; severity = 'low'; reason = `H1 แต่ละตัวอยู่ใน <article>/<section> ตาม HTML5 sectioning · ข้อความต่างกัน (similarity ${sim.toFixed(2)}) → Google ยอมรับหลาย H1 กรณีนี้`; }
+        else if (count > 3 && sim >= 0.6) { rank = 3; status = 'fail'; severity = 'med'; reason = `H1 ${count} ตัวที่คีย์เวิร์ดคล้ายกันสูง (similarity ${sim.toFixed(2)}) → เข้าข่าย keyword stuffing`; }
+        else if (count > 3) { rank = 3; status = 'fail'; severity = 'high'; reason = `H1 ${count} ตัวต่อหน้า ไม่ได้อยู่ใน sectioning — Google สับสนว่าหน้านี้เกี่ยวกับอะไร (มักเอา H1 ไปครอบ slider/section)`; }
+        else if (dup) { rank = 1; status = 'warn'; severity = 'low'; reason = 'H1 ข้อความซ้ำกัน → เจือจางสัญญาณคีย์เวิร์ด (มักมาจาก template)'; }
+        else { rank = 1; status = 'warn'; severity = 'low'; reason = `H1 ${count} ตัว — ไม่ผิดร้ายแรงแต่เจือจางสัญญาณคีย์เวิร์ด`; }
+        return { p, count, dup, sim, sectionedAll, rank, status, severity, reason };
+      };
+      const classed = multiH1.map(classify).sort((a, b) => b.rank - a.rank);
+      const w = classed[0];
+      const affected = classed.filter(c => c.status !== 'pass').map(c => c.p.url);
+      const title = w.status === 'pass' ? 'หลาย H1 แต่ถูกต้องตาม HTML5 sectioning'
+        : w.status === 'fail' ? (w.severity === 'med' ? `H1 ซ้ำคีย์เวิร์ด (สูงสุด ${w.count} ตัว/หน้า)` : `H1 มากเกินไป (สูงสุด ${w.count} ตัว/หน้า)`)
+        : 'หน้าที่มี H1 มากกว่า 1';
+      const chk = mk('h1-multiple', 'onpage', w.severity, w.status, title, w.reason,
+        'เหลือ H1 หลักเดียวต่อ section · ถ้ามีหลาย topic ใช้ <article>/<section> ครอบแต่ละ H1',
+        w.status === 'pass' ? [] : (affected.length ? affected : pageList(multiH1)), w.status === 'fail');
+      chk.confidence = w.status === 'pass' ? 0.85 : w.status === 'fail' ? (w.severity === 'med' ? 0.78 : 0.85) : 0.8;
+      chk.reasoning = { signals: { maxCount: w.count, duplicate: w.dup, keyword_similarity: +w.sim.toFixed(2), all_in_section: w.sectionedAll }, standard: 'HTML Living Standard (sectioning) · Google: หลาย H1 ไม่ผิดถ้าโครงสร้างถูก', verdict: w.status };
+      checks.push(chk);
     }
 
     const skipHeading = okPages.filter(p => {
@@ -253,7 +283,40 @@ export function runChecks(site) {
     }
 
     const noindexed = okPages.filter(p => /noindex/i.test(p.metas['robots'] || '') || /noindex/i.test(p.headers?.['x-robots-tag'] || ''));
-    if (noindexed.length) checks.push(mk('noindex', 'index', 'high', 'warn', 'หน้าที่ติด noindex', `${noindexed.length} หน้ามี meta robots หรือ X-Robots-Tag เป็น noindex — หน้าเหล่านี้จะไม่ถูกจัดทำดัชนีใน Google (ถ้าตั้งใจ เช่น หน้า thank-you / staging / ผลค้นหาภายใน ถือว่าปกติ)`, 'ตรวจว่าตั้งใจไหม ถ้าเป็นหน้าสำคัญให้เอา noindex ออก', pageList(noindexed)));
+    if (noindexed.length) {
+      // Evidence-Based: noindex บนหน้า utility (login/cart/search) = ตั้งใจ ปกติ
+      //   แต่บนหน้า "เนื้อหา" (homepage/about/สินค้า/ข่าว) = มักพลาด → ค่อยเตือนหนัก
+      // ใช้ URL pattern เป็นหลักฐาน (เดาเจตนาจาก path) → confidence ไม่เต็ม เพราะอ่านใจไม่ได้ 100%
+      const UTILITY_RE = /\/(login|signin|sign-in|logout|register|signup|sign-up|cart|checkout|basket|account|profile|dashboard|admin|wp-admin|wp-login|thank-?you|thanks|confirm(ation)?|search|results?|preview|print|staging|tag\/|author\/|filter|compare|wishlist|unsubscribe|404|error)/i;
+      const classifyNi = (p) => {
+        let path = '', search = '';
+        try { const u = new URL(p.url); path = u.pathname; search = u.search; } catch { path = p.url || ''; }
+        const utility = (path !== '/' && (UTILITY_RE.test(path) || /[?&](page|year|sort|filter|q|s|tag|ref)=/i.test(search)));
+        return { p, path, utility };
+      };
+      const classed = noindexed.map(classifyNi);
+      const accidental = classed.filter(c => !c.utility);
+      const intentional = classed.filter(c => c.utility);
+      const signals = { total_noindexed: noindexed.length, content_pages: accidental.length, utility_pages: intentional.length };
+      const std = 'Google Search Central: robots meta tag (noindex)';
+      if (accidental.length) {
+        const homepageHit = accidental.some(c => c.path === '/' || c.path === '');
+        const extra = intentional.length ? ` · อีก ${intentional.length} หน้าเป็น utility (login/cart/search) ถือว่าตั้งใจ` : '';
+        const c = mk('noindex', 'index', 'high', 'warn', homepageHit ? 'หน้าหลัก/หน้าเนื้อหาติด noindex' : 'หน้าเนื้อหาอาจติด noindex โดยไม่ตั้งใจ',
+          `${accidental.length} หน้าที่ดูเหมือน "หน้าเนื้อหา" มี noindex → จะไม่ถูกจัดทำดัชนีใน Google${homepageHit ? ' (รวมหน้าหลัก — ควรรีบตรวจ)' : ''}${extra}`,
+          'เปิดดูว่าตั้งใจไหม — ถ้าเป็นหน้าที่อยากให้ติดอันดับ ให้เอา noindex ออก', pageList(accidental.map(c => c.p)));
+        c.confidence = homepageHit ? 0.8 : 0.65;
+        c.reasoning = { signals, standard: std, verdict: 'warn', note: 'จำแนกจาก URL path (เดาเจตนา) — ควรยืนยันกับเจ้าของเว็บ' };
+        checks.push(c);
+      } else {
+        const c = mk('noindex', 'index', 'low', 'pass', 'หน้า noindex ดูเหมือนตั้งใจทั้งหมด',
+          `${intentional.length} หน้ามี noindex แต่ทั้งหมดเป็นหน้า utility (login/cart/search/print) → ปกติ ไม่ใช่ปัญหา`,
+          'ถ้ามั่นใจว่าไม่มีหน้าเนื้อหาสำคัญติด noindex ก็ไม่ต้องแก้', pageList(intentional.map(c => c.p)));
+        c.confidence = 0.6;
+        c.reasoning = { signals, standard: std, verdict: 'pass', note: 'จำแนกจาก URL path — ทั้งหมดเข้าเกณฑ์หน้า utility' };
+        checks.push(c);
+      }
+    }
 
     // robots meta directive ที่ไม่ valid หรือ deprecated (เช่น "nodiy", "noodp", "noydir")
     const VALID_ROBOTS = new Set(['index','noindex','follow','nofollow','none','all','noarchive','nosnippet','notranslate','noimageindex','nocache','indexifembedded','max-snippet','max-image-preview','max-video-preview','unavailable_after']);
@@ -442,14 +505,27 @@ export function runChecks(site) {
     });
     if (totalImg > 0) {
       const srcNote = usedRender ? ' (ตรวจจากรูปที่แสดงจริงบนหน้าเว็บ)' : '';
+      // Evidence-Based: confidence ขึ้นกับว่าใช้ rendered DOM (เห็นรูปจริง) หรือ heuristic จาก raw HTML
+      // และเคส alt="" จงใจให้ confidence ต่ำ = ซื่อสัตย์ว่าต้องเปิดดูยืนยันว่าเป็นรูปประดับจริง ไม่ฟันธง
+      const imgSignals = { visible_images: totalImg, missing_alt: missingAlt, empty_alt: emptyAlt, used_rendered_dom: usedRender };
+      const imgStd = 'WCAG 2.1 §1.1.1 Non-text Content · Google Image SEO best practices';
       if (missingAlt > 0) {
         const pct = Math.round(missingAlt / totalImg * 100);
         const extra = emptyAlt ? ` · อีก ${emptyAlt} รูปใช้ alt="" (รูปประดับ — ควรเปิดดูยืนยัน)` : '';
-        checks.push(mk('img-alt', 'images', 'med', pct > 50 ? 'fail' : 'warn', 'รูปที่ไม่มี alt text', `${missingAlt}/${totalImg} รูป (${pct}%) ไม่มี alt — เสียโอกาส Google Images และ accessibility${extra}${srcNote}`, 'ใส่ alt บรรยายรูปสั้นๆ มีคีย์เวิร์ดเมื่อเกี่ยวข้อง', missingPages, true));
+        const c = mk('img-alt', 'images', 'med', pct > 50 ? 'fail' : 'warn', 'รูปที่ไม่มี alt text', `${missingAlt}/${totalImg} รูป (${pct}%) ไม่มี alt — เสียโอกาส Google Images และ accessibility${extra}${srcNote}`, 'ใส่ alt บรรยายรูปสั้นๆ มีคีย์เวิร์ดเมื่อเกี่ยวข้อง', missingPages, true);
+        c.confidence = usedRender ? 0.9 : 0.7;
+        c.reasoning = { signals: imgSignals, standard: imgStd, verdict: pct > 50 ? 'fail' : 'warn' };
+        checks.push(c);
       } else if (emptyAlt > 0) {
-        checks.push(mk('img-alt', 'images', 'low', 'warn', 'รูปที่ใช้ alt="" (ควรยืนยันว่าเป็นรูปประดับ)', `${emptyAlt}/${totalImg} รูปที่แสดงจริงใช้ alt="" — ถ้าเป็นรูปประดับ (ไอคอน/เส้นคั่น) ถูกแล้ว แต่ถ้าเป็นรูปเนื้อหา (โลโก้/สินค้า/ภาพข่าว) ควรใส่คำอธิบาย${srcNote}`, 'เปิดหน้าเว็บดู: รูปที่สื่อความหมายต้องมี alt บรรยาย · รูปประดับล้วนๆ ใช้ alt="" ได้', emptyPages, true));
+        const c = mk('img-alt', 'images', 'low', 'warn', 'รูปที่ใช้ alt="" (ควรยืนยันว่าเป็นรูปประดับ)', `${emptyAlt}/${totalImg} รูปที่แสดงจริงใช้ alt="" — ถ้าเป็นรูปประดับ (ไอคอน/เส้นคั่น) ถูกแล้ว แต่ถ้าเป็นรูปเนื้อหา (โลโก้/สินค้า/ภาพข่าว) ควรใส่คำอธิบาย${srcNote}`, 'เปิดหน้าเว็บดู: รูปที่สื่อความหมายต้องมี alt บรรยาย · รูปประดับล้วนๆ ใช้ alt="" ได้', emptyPages, true);
+        c.confidence = usedRender ? 0.6 : 0.45;   // ambiguous โดยธรรมชาติ — ต้องคนยืนยัน
+        c.reasoning = { signals: imgSignals, standard: imgStd, verdict: 'warn-needs-human' };
+        checks.push(c);
       } else {
-        checks.push(mk('img-alt', 'images', 'med', 'pass', 'รูปมี alt text ครบ', `${totalImg} รูปที่แสดงจริงมี alt ครบ${srcNote}`));
+        const c = mk('img-alt', 'images', 'med', 'pass', 'รูปมี alt text ครบ', `${totalImg} รูปที่แสดงจริงมี alt ครบ${srcNote}`);
+        c.confidence = usedRender ? 0.92 : 0.75;
+        c.reasoning = { signals: imgSignals, standard: imgStd, verdict: 'pass' };
+        checks.push(c);
       }
       let rawTotalImg = 0;
       okPages.forEach(p => { rawTotalImg += p.images.filter(i => i.src).length; });

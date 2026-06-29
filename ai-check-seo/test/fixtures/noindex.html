@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>หน้าที่ตั้ง meta robots noindex — ทดสอบ noindex context-aware</title>
+  <meta name="description" content="fixture ที่มี meta robots noindex ใช้ทดสอบว่าระบบแยกหน้า utility ออกจากหน้าเนื้อหาได้">
+  <link rel="canonical" href="https://example.com/noindex">
+  <meta name="robots" content="noindex, follow">
+  <link rel="icon" href="/favicon.ico">
+</head>
+<body>
+  <h1>หน้าที่ตั้งค่า noindex</h1>
+  <h2>รายละเอียด</h2>
+  <p>หน้านี้ตั้ง meta robots เป็น noindex โดยตั้งใจ ใช้สำหรับทดสอบว่า rule engine จำแนกได้ว่าเป็นหน้า utility (เช่น ผลค้นหาภายใน ตะกร้าสินค้า) ที่ควรไม่ติดดัชนี หรือเป็นหน้าเนื้อหาสำคัญที่อาจโดน noindex โดยไม่ตั้งใจ เนื้อหานี้ยาวพอสมควรเพื่อไม่ให้ระบบแจ้งเตือนเรื่อง thin content และเพื่อความสมจริงของหน้าเว็บที่มีโครงสร้างดี จึงต้องเขียนให้ครบตามเกณฑ์ขั้นต่ำของกฎ content-thin ในระบบตรวจสอบนี้</p>
+  <a href="https://example.com/about">เกี่ยวกับเรา</a>
+</body>
+</html>
