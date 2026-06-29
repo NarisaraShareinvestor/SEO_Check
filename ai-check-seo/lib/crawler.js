@@ -475,7 +475,24 @@ export function extractPageData(html, url, headers, status, elapsed, chain) {
     angular: /ng-version=/.test(html),
   };
 
+  // titleH1Sim: ความใกล้เคียง <title> ↔ H1 แรก (0–1) — สัญญาณว่า signal หลัก 2 ตัวพูดเรื่องเดียวกันไหม
+  // ใช้ char-bigram + containment (ไม่ใช่ word-token) เพราะภาษาไทยไม่เว้นวรรค → word Jaccard จะได้ 0 ผิดๆ
+  // (ใช้ใน check title-h1-align แบบ evidence-based — เตือนเฉพาะที่ overlap ต่ำมาก เพราะ title มัก +brand)
+  let titleH1Sim = null;
+  const _titleTxt = $('title').first().text().trim();
+  const _firstH1 = headings.find(h => h.tag === 'h1');
+  if (_titleTxt && _firstH1 && _firstH1.text) {
+    const _norm = s => String(s || '').toLowerCase().replace(/\s+/g, '').replace(/[|·–—_,\-]/g, '');
+    const _bg = s => { const set = new Set(); for (let i = 0; i < s.length - 1; i++) set.add(s.slice(i, i + 2)); return set; };
+    const t = _norm(_titleTxt), h = _norm(_firstH1.text);
+    if (t.length >= 2 && h.length >= 2) {
+      if (t.includes(h) || h.includes(t)) titleH1Sim = 1;   // title มัก = "H1 | Brand" → ครอบกัน = ตรงเรื่องแน่
+      else { const a = _bg(t), b = _bg(h); let inter = 0; for (const g of a) if (b.has(g)) inter++; const uni = new Set([...a, ...b]).size; titleH1Sim = uni ? +(inter / uni).toFixed(2) : 0; }
+    }
+  }
+
   return {
+    titleH1Sim,
     url, status, elapsed,
     redirectChain: chain || [],
     headers: {

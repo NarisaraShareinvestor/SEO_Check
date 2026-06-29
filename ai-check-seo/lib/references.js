@@ -109,6 +109,7 @@ const MAP = {
   "h1-missing": { tier: 1, confidence: 95, refs: ["htmlHeadings", "gStarter"] },
   "h1-multiple": { tier: 3, confidence: 75, refs: ["htmlHeadings", "ahrefsH1"] },
   "h1-duplicate": { tier: 3, confidence: 70, refs: ["htmlHeadings", "ahrefsH1"] },
+  "title-h1-align": { tier: 2, confidence: 70, refs: ["gTitle", "htmlHeadings"] },
   "h1-hidden": { tier: 2, confidence: 80, refs: ["gStarter", "wcagHeadings"] },
   "heading-order": { tier: 1, confidence: 90, refs: ["htmlHeadings", "wcagHeadings"] },
   "empty-headings": { tier: 1, confidence: 90, refs: ["htmlHeadings", "wcagHeadings"] },

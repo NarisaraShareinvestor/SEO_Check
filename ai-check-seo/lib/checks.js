@@ -5,7 +5,7 @@ import { validateSchemaNodes } from './schema-validate.js';
 
 // เวอร์ชันของ "วิธีตรวจ" — bump เมื่อ logic ของ check เปลี่ยน (เช่น img-alt 3-state)
 // ใช้ตอนเทียบก่อน/หลัง: ถ้า audit 2 ครั้งคนละเวอร์ชัน → การเปลี่ยนบางอย่างมาจากการอัปเกรดระบบ ไม่ใช่การแก้เว็บ
-export const ENGINE_VERSION = 5;
+export const ENGINE_VERSION = 6;
 
 const CATS = {
   onpage: 'Meta & เนื้อหา',
@@ -191,6 +191,26 @@ export function runChecks(site) {
       checks.push(chk);
     }
 
+    // title-h1-align (Evidence-Based): <title> กับ H1 ควรพูดหัวข้อเดียวกัน — ใช้ titleH1Sim (Jaccard) จาก crawler
+    // เตือนเฉพาะหน้าที่ "ไม่มีคำร่วมเลย" (sim===0) · confidence ปานกลาง เพราะ title มักมี brand ต่อท้าย → ไม่ฟันธง
+    const alignChecked = okPages.filter(p => p.title && typeof p.titleH1Sim === 'number');
+    if (alignChecked.length) {
+      const noOverlap = alignChecked.filter(p => p.titleH1Sim < 0.1);   // overlap ต่ำมาก = น่าจะคนละเรื่องจริง
+      if (noOverlap.length) {
+        const c = mk('title-h1-align', 'onpage', 'low', 'warn', 'title กับ H1 ไม่มีคำร่วมกัน',
+          `${noOverlap.length}/${alignChecked.length} หน้าที่ <title> กับ H1 ไม่มีคำสำคัญร่วมกันเลย — อาจสื่อคนละเรื่อง ทำให้สัญญาณหัวข้อของหน้าไม่ชัด (บางครั้งปกติถ้า title ใส่แต่ชื่อแบรนด์ ควรเปิดดูยืนยัน)`,
+          'ให้ <title> กับ H1 พูดถึงหัวข้อหลักเดียวกัน (title = หัวข้อ + แบรนด์, H1 = หัวข้อ)', pageList(noOverlap), true);
+        c.confidence = 0.55;
+        c.reasoning = { signals: { pages_no_overlap: noOverlap.length, pages_checked: alignChecked.length }, standard: 'Google Search Central: เขียน title/heading ที่สื่อหัวข้อหน้าให้ชัด', verdict: 'warn', note: 'sim=0 อาจเกิดจาก title มีแต่ brand — เปิดหน้าดูยืนยัน ไม่ฟันธง' };
+        checks.push(c);
+      } else {
+        const c = mk('title-h1-align', 'onpage', 'low', 'pass', 'title กับ H1 สอดคล้องกัน', `ทุกหน้าที่ตรวจ (${alignChecked.length}) มีคำสำคัญร่วมระหว่าง <title> กับ H1`);
+        c.confidence = 0.7;
+        c.reasoning = { signals: { pages_checked: alignChecked.length }, standard: 'Google Search Central', verdict: 'pass' };
+        checks.push(c);
+      }
+    }
+
     const skipHeading = okPages.filter(p => {
       const order = p.headings.map(h => +h.tag[1]);
       for (let i = 1; i < order.length; i++) if (order[i] - order[i - 1] > 1) return true;
@@ -343,9 +363,28 @@ export function runChecks(site) {
     }
 
     const noCanonical = okPages.filter(p => !p.canonical);
-    checks.push(noCanonical.length
-      ? mk('canonical-missing', 'index', 'high', 'fail', 'หน้าที่ไม่มี canonical tag', `${noCanonical.length}/${okPages.length} หน้า — Google จะถือว่าแต่ละหน้าเป็น canonical ของตัวเองโดยปริยาย แต่การใส่ให้ชัดช่วยกัน duplicate เมื่อมี query param/trailing slash/หน้าซ้ำเข้ามา index แยกกัน`, 'ใส่ <link rel="canonical"> ทุกหน้า ชี้ URL หลักของตัวเอง', pageList(noCanonical), true)
-      : mk('canonical-missing', 'index', 'high', 'pass', 'canonical tag ครบ', 'ทุกหน้ามี canonical'));
+    if (noCanonical.length) {
+      // Evidence-Based: ไม่มี canonical "ร้ายแรงแค่ไหน" ขึ้นกับว่ามีความเสี่ยง duplicate จริงไหม
+      // Google self-canonical ให้โดยปริยาย → ถ้าเว็บสะอาด (ไม่มี query param / title ไม่ซ้ำ) = ความเสี่ยงต่ำ ไม่ใช่ fail/high
+      const hasQueryParam = okPages.some(p => { try { return new URL(p.url).search.length > 0; } catch { return false; } })
+        || (site.sitemapUrls || []).some(u => typeof u === 'string' && u.includes('?'));
+      const titleCount = {};
+      okPages.forEach(p => { const t = (p.title || '').trim(); if (t) titleCount[t] = (titleCount[t] || 0) + 1; });
+      const hasDupTitle = Object.values(titleCount).some(n => n > 1);
+      const dupRisk = hasQueryParam || hasDupTitle;
+      const riskWhy = [hasQueryParam ? 'พบ URL ที่มี query param' : null, hasDupTitle ? 'พบ title ซ้ำข้ามหน้า' : null].filter(Boolean).join(' · ');
+      const c = mk('canonical-missing', 'index', dupRisk ? 'high' : 'low', dupRisk ? 'fail' : 'warn',
+        dupRisk ? 'หน้าที่ไม่มี canonical (มีความเสี่ยง duplicate)' : 'หน้าที่ไม่มี canonical (ความเสี่ยงต่ำ)',
+        dupRisk
+          ? `${noCanonical.length}/${okPages.length} หน้าไม่มี canonical และเว็บนี้มีสัญญาณ duplicate (${riskWhy}) → หน้าซ้ำอาจถูก index แยกกัน แย่งสัญญาณกันเอง`
+          : `${noCanonical.length}/${okPages.length} หน้าไม่มี canonical — Google จะ self-canonical ให้โดยปริยาย และยังไม่พบสัญญาณ duplicate (ไม่มี query param/title ซ้ำ) จึงไม่เร่งด่วน แต่ใส่ให้ชัดช่วยกันปัญหาในอนาคต`,
+        'ใส่ <link rel="canonical"> ทุกหน้า ชี้ URL หลักของตัวเอง', pageList(noCanonical), true);
+      c.confidence = dupRisk ? 0.8 : 0.6;
+      c.reasoning = { signals: { missing: noCanonical.length, total: okPages.length, has_query_param: hasQueryParam, has_dup_title: hasDupTitle }, standard: 'Google Search Central: consolidate duplicate URLs (rel=canonical)', verdict: dupRisk ? 'fail' : 'warn' };
+      checks.push(c);
+    } else {
+      checks.push(mk('canonical-missing', 'index', 'low', 'pass', 'canonical tag ครบ', 'ทุกหน้ามี canonical'));
+    }
 
     const chains = okPages.filter(p => (p.redirectChain || []).length > 1);
     if (chains.length) checks.push(mk('redirect-chain', 'index', 'med', 'warn', 'redirect ต่อกันหลายชั้น', `${chains.length} หน้ามี redirect chain เกิน 1 hop — เสีย crawl budget และ link equity`, 'แก้ให้ redirect ตรงไปปลายทางใน hop เดียว (301)', pageList(chains)));

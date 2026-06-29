@@ -87,6 +87,18 @@ const FIXTURES = [
     absent: ['robots-meta-invalid'],
   },
   {
+    name: 'ไม่มี canonical แต่เว็บสะอาด (ไม่มี param/title ซ้ำ) → canonical-missing WARN (ไม่ใช่ FAIL) + title-h1-align PASS',
+    file: 'no-canonical-clean.html', url: 'https://example.com/services',
+    expect: { 'canonical-missing': 'warn', 'title-h1-align': 'pass' },
+    absent: ['robots-meta-invalid'],
+  },
+  {
+    name: 'title (อังกฤษ) ↔ H1 (ไทย) คนละเรื่อง → title-h1-align WARN',
+    file: 'title-h1-mismatch.html', url: 'https://example.com/title-h1-mismatch',
+    expect: { 'title-h1-align': 'warn' },
+    absent: ['robots-meta-invalid'],
+  },
+  {
     name: 'H1 ซ่อนด้วย visibility:hidden → ต้อง WARN',
     file: 'hidden-h1.html', url: 'https://example.com/hidden-h1',
     expect: { 'h1-hidden': 'warn' },
