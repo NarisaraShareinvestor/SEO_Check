@@ -69,30 +69,42 @@ function renderRunSteps(steps, progress) {
 
 function poll(id) {
   clearInterval(pollTimer);
-  pollTimer = setInterval(async () => {
+  let es = null, finished = false;
+  const box = () => $('#progress');
+  const renderState = (job) => {
+    const steps = job.steps || job.result?.run;
+    box().innerHTML = steps && steps.length
+      ? renderRunSteps(steps, job.progress)
+      : (job.progress || []).slice(-12).map(p => `<div>· ${esc(p.msg)}</div>`).join('');
+    box().scrollTop = box().scrollHeight;
+  };
+  const finish = async () => {
+    if (finished) return; finished = true;
+    if (es) es.close(); clearInterval(pollTimer);
+    $('#startBtn').disabled = false;
+    let job; try { job = await (await fetch('/api/audit/' + id)).json(); } catch { return; }
+    if (job.status === 'done') {
+      // คงแถบ run tracker ไว้ (evidence link ใช้ได้หลังเซฟ) เพื่อติดตามย้อนหลัง
+      box().innerHTML = `<div style="font-weight:650;color:#15803d;margin-bottom:6px">✓ รันครบ ${(job.result?.run || []).length} step — คลิก “หลักฐาน” ดูผลแต่ละขั้นได้</div>` + renderRunSteps(job.result?.run || [], []);
+      render(job.result);
+      $('#result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (job.status === 'error') {
+      box().innerHTML += `<div style="color:#b91c1c">ผิดพลาด — ${esc(job.error)}</div>`;
+    }
+  };
+  const onState = (job) => { renderState(job); if (job.status === 'done' || job.status === 'error') finish(); };
+  const startPolling = () => {
+    clearInterval(pollTimer);
+    pollTimer = setInterval(async () => { try { onState(await (await fetch('/api/audit/' + id)).json()); } catch {} }, 900);
+  };
+  // SSE ก่อน (push real-time) · ถ้าเปิดไม่ได้/พังกลางคัน → fallback polling
+  if (window.EventSource) {
     try {
-      const res = await fetch('/api/audit/' + id);
-      const job = await res.json();
-      const box = $('#progress');
-      const steps = job.steps || job.result?.run;
-      box.innerHTML = steps && steps.length
-        ? renderRunSteps(steps, job.progress)
-        : (job.progress || []).slice(-12).map(p => `<div>· ${esc(p.msg)}</div>`).join('');
-      box.scrollTop = box.scrollHeight;
-      if (job.status === 'done') {
-        clearInterval(pollTimer);
-        $('#startBtn').disabled = false;
-        // คงแถบ run tracker ไว้ (evidence link ใช้ได้แล้วหลังเซฟ) — ไม่ซ่อน เพื่อให้ติดตามย้อนหลังได้
-        box.innerHTML = `<div style="font-weight:650;color:#15803d;margin-bottom:6px">✓ รันครบ ${(job.result?.run || []).length} step — คลิก “หลักฐาน” ดูผลแต่ละขั้นได้</div>` + renderRunSteps(job.result?.run || steps, []);
-        render(job.result);
-        $('#result').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else if (job.status === 'error') {
-        clearInterval(pollTimer);
-        $('#startBtn').disabled = false;
-        box.innerHTML += `<div style="color:#b91c1c">ผิดพลาด — ${esc(job.error)}</div>`;
-      }
-    } catch {}
-  }, 900);
+      es = new EventSource('/api/audit/' + id + '/stream');
+      es.onmessage = (e) => { try { onState(JSON.parse(e.data)); } catch {} };
+      es.onerror = () => { if (!finished) { try { es.close(); } catch {} es = null; startPolling(); } };
+    } catch { startPolling(); }
+  } else startPolling();
 }
 
 function rescan() { if (currentAudit) { $('#urlInput').value = currentAudit.url; startAudit(currentAudit.url); window.scrollTo({ top: 0, behavior: 'smooth' }); } }

@@ -52,6 +52,15 @@ app.get('/reaudit', (_req, res) => res.sendFile(join(__dirname, 'public', 'reaud
 // in-memory job state (ผลถาวรเก็บเป็นไฟล์ JSON)
 const jobs = new Map(); // id → {id, status, progress[], result?}
 
+// SSE — push run-tracker updates ให้ dashboard แบบ real-time (ไม่ต้อง poll) · fallback เป็น polling ฝั่ง client
+const sseClients = new Map(); // jobId → Set<res>
+function emitJob(job) {
+  const subs = sseClients.get(job.id);
+  if (!subs || !subs.size) return;
+  const payload = JSON.stringify({ status: job.status, steps: job.steps || [], progress: (job.progress || []).slice(-3), error: job.error });
+  for (const res of subs) { try { res.write(`data: ${payload}\n\n`); } catch {} }
+}
+
 function saveAudit(audit) {
   writeFileSync(join(DATA_DIR, `${audit.id}.json`), JSON.stringify(audit));
 }
@@ -195,11 +204,11 @@ function buildProfile(url, score, checks, pagesAnalyzed) {
 }
 
 async function runAudit(job, url, maxPages, competitorUrl) {
-  const push = (msg) => { job.progress.push({ t: Date.now(), msg }); };
+  const push = (msg) => { job.progress.push({ t: Date.now(), msg }); emitJob(job); };
   // Run tracker — บันทึก step แบบมีโครงสร้าง (agent/status/เวลา/evidence) เพื่อให้ dashboard ติดตาม real-time ได้ ไม่ใช่กล่องดำ
   job.steps = [];
-  const stepRec = (key, name) => { const s = { key, name, status: 'run', startedAt: Date.now() }; job.steps.push(s); return s; };
-  const stepEnd = (s, out, evidence) => { if (!s) return; s.status = 'done'; s.ms = Date.now() - s.startedAt; if (out) s.out = out; if (evidence) s.evidence = evidence; };
+  const stepRec = (key, name) => { const s = { key, name, status: 'run', startedAt: Date.now() }; job.steps.push(s); emitJob(job); return s; };
+  const stepEnd = (s, out, evidence) => { if (!s) return; s.status = 'done'; s.ms = Date.now() - s.startedAt; if (out) s.out = out; if (evidence) s.evidence = evidence; emitJob(job); };
   let sData, sCheck, sAudit, sResult;
   try {
     job.status = 'crawling';
@@ -436,6 +445,20 @@ app.get('/api/audit/:id', (req, res) => {
   const saved = loadAudit(req.params.id);
   if (saved) return res.json({ id: saved.id, status: 'done', progress: [], result: saved });
   res.status(404).json({ error: 'ไม่พบ audit นี้' });
+});
+
+// SSE stream — push run-tracker updates real-time (dashboard ใช้ EventSource · ถ้าเปิดไม่ได้ client fallback ไป poll /api/audit/:id)
+app.get('/api/audit/:id/stream', (req, res) => {
+  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+  res.flushHeaders?.();
+  const job = jobs.get(req.params.id);
+  if (!job) { res.write(`data: ${JSON.stringify({ status: 'notfound' })}\n\n`); return res.end(); }
+  let subs = sseClients.get(job.id);
+  if (!subs) { subs = new Set(); sseClients.set(job.id, subs); }
+  subs.add(res);
+  // ส่งสถานะปัจจุบันทันทีตอนเชื่อมต่อ
+  res.write(`data: ${JSON.stringify({ status: job.status, steps: job.steps || [], progress: (job.progress || []).slice(-3), error: job.error })}\n\n`);
+  req.on('close', () => { subs.delete(res); if (!subs.size) sseClients.delete(job.id); });
 });
 
 // Audit Quality — รวม verify จากทุก audit → precision/recall/FP/FN + เว็บที่ต้องรีวิว + check ที่พลาดบ่อย
