@@ -1,6 +1,7 @@
 // SEO Audit — frontend logic (clean SaaS edition)
 let currentAudit = null;
 let pollTimer = null;
+let evidenceMap = {};   // url → {raw, rendered} ของ HTML snapshot ที่เก็บไว้ตอนตรวจ (Evidence Drawer)
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const stripEmoji = (s) => String(s ?? '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '').trim();
@@ -238,6 +239,7 @@ function render(audit) {
   renderDelta(audit);
   renderAi(audit.analysis);
   renderChecks(audit, 'issues');
+  loadEvidenceMap(audit.id);   // async — เมื่อโหลด index เสร็จ จะ re-render checks พร้อมลิงก์ HTML snapshot
   renderPages(audit);
   renderCompare(audit);
   renderFixes(audit);
@@ -275,6 +277,28 @@ const reasonBlock = (ch) => {
   const sig = r.signals ? Object.entries(r.signals).map(([k, v]) => `<code>${esc(k)}=${esc(String(v))}</code>`).join(' ') : '';
   return `<div class="reasonln"><b>ทำไมตัดสินแบบนี้</b> ${sig}${r.standard ? `<div class="rstd">เกณฑ์: ${esc(r.standard)}</div>` : ''}${r.note ? `<div class="rnote">${esc(r.note)}</div>` : ''}</div>`;
 };
+// Evidence Drawer: ลิงก์ไป HTML snapshot จริงที่เซิร์ฟเวอร์เก็บไว้ตอนตรวจ → "นี่คือหลักฐานที่เราเห็น ไม่ได้มั่ว"
+// pageStr อาจมี suffix เช่น "https://… (8 รูป)" → จับ url ที่ขึ้นต้นแทน match ตรงตัว
+const evidenceLink = (pageStr) => {
+  const id = currentAudit && currentAudit.id;
+  if (!id || !pageStr) return '';
+  const url = Object.keys(evidenceMap).find(u => pageStr === u || pageStr.startsWith(u));
+  const e = url && evidenceMap[url];
+  if (!e) return '';
+  const parts = [];
+  if (e.raw) parts.push(`<a href="/api/evidence/${id}/${esc(e.raw)}" target="_blank" rel="noopener" title="HTML ดิบที่เซิร์ฟเวอร์ดึงมา ณ เวลาตรวจ">📄 HTML ที่ตรวจ</a>`);
+  if (e.rendered) parts.push(`<a href="/api/evidence/${id}/${esc(e.rendered)}" target="_blank" rel="noopener" title="HTML หลัง render ด้วย browser (เห็นเหมือนที่ Google เห็น)">🖥️ rendered</a>`);
+  return parts.length ? `<span class="evsnap"> · ${parts.join(' · ')}</span>` : '';
+};
+async function loadEvidenceMap(id) {
+  evidenceMap = {};
+  if (!id) return;
+  try {
+    const idx = await (await fetch('/api/evidence/' + id)).json();
+    for (const p of (idx.pages || [])) if (p.url) evidenceMap[p.url] = { raw: p.raw, rendered: p.rendered };
+    if (Object.keys(evidenceMap).length && currentAudit && currentAudit.id === id) renderChecks(currentAudit, checkFilter);
+  } catch { /* audit เก่าไม่มี evidence — ไม่เป็นไร ลิงก์ไม่ขึ้น */ }
+}
 
 // ── เทียบก่อน/หลังแก้ (delta) — แยก "แก้/แย่จริง" ออกจาก "เปลี่ยนเพราะตรวจไม่เท่ากัน/อัปเกรด/ค่าผันผวน" ──
 function renderDelta(audit) {
@@ -535,8 +559,8 @@ function renderChecks(audit, filter) {
         ${ch.reference ? `<div class="refln"><span class="reftier t${ch.reference.tier}">${esc(ch.reference.type)}</span> <b>อ้างอิง:</b> ${ch.reference.sources.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)} ↗</a>`).join(' · ')}</div>` : ''}
         ${reasonBlock(ch)}
         ${(ch.evidence || []).length
-          ? `<div class="plist"><b>หลักฐานรายหน้า:</b>${ch.evidence.map(e => `<div class="evrow"><a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.url)}</a>${e.note ? `<span class="evnote"> — ${esc(e.note)}</span>` : ''}</div>`).join('')}</div>`
-          : (ch.pages || []).length ? `<div class="plist">${ch.pages.map(p => `<a href="${esc(p)}" target="_blank" rel="noopener">${esc(p)}</a>`).join('<br>')}</div>` : ''}
+          ? `<div class="plist"><b>หลักฐานรายหน้า:</b>${ch.evidence.map(e => `<div class="evrow"><a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.url)}</a>${e.note ? `<span class="evnote"> — ${esc(e.note)}</span>` : ''}${evidenceLink(e.url)}</div>`).join('')}</div>`
+          : (ch.pages || []).length ? `<div class="plist">${ch.pages.map(p => `<div class="evrow"><a href="${esc(p)}" target="_blank" rel="noopener">${esc(p)}</a>${evidenceLink(p)}</div>`).join('')}</div>` : ''}
         ${ch.fixable ? `<div class="note">มีไฟล์แก้ในแท็บ Auto-Fix</div>` : ''}
       </div>
     </details>`).join('') || '<div class="empty">ไม่มีรายการในหมวดนี้</div>';
