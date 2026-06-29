@@ -15,6 +15,7 @@ import { execFile } from 'node:child_process';
 import { renderReport } from './lib/report.js';
 import { renderSalesReport } from './lib/report-sales.js';
 import { buildPlan, pushToClickUp, resolveRouting } from './lib/clickup.js';
+import { recordPush, loadLinks, runReauditCycle } from './lib/reaudit.js';
 import { renderExecReport } from './lib/report-exec.js';
 import { renderSalesQA } from './lib/sales-qa.js';
 import { renderPresentation } from './lib/present.js';
@@ -45,6 +46,7 @@ app.use(express.static(join(__dirname, 'public')));
 app.use('/demo', express.static(join(__dirname, 'demo-site'), { extensions: ['html'] }));
 app.get('/methodology', (_req, res) => res.sendFile(join(__dirname, 'public', 'methodology.html')));
 app.get('/architecture', (_req, res) => res.sendFile(join(__dirname, 'public', 'architecture.html')));
+app.get('/reaudit', (_req, res) => res.sendFile(join(__dirname, 'public', 'reaudit.html')));
 
 // in-memory job state (ผลถาวรเก็บเป็นไฟล์ JSON)
 const jobs = new Map(); // id → {id, status, progress[], result?}
@@ -193,9 +195,15 @@ function buildProfile(url, score, checks, pagesAnalyzed) {
 
 async function runAudit(job, url, maxPages, competitorUrl) {
   const push = (msg) => { job.progress.push({ t: Date.now(), msg }); };
+  // Run tracker — บันทึก step แบบมีโครงสร้าง (agent/status/เวลา/evidence) เพื่อให้ dashboard ติดตาม real-time ได้ ไม่ใช่กล่องดำ
+  job.steps = [];
+  const stepRec = (key, name) => { const s = { key, name, status: 'run', startedAt: Date.now() }; job.steps.push(s); return s; };
+  const stepEnd = (s, out, evidence) => { if (!s) return; s.status = 'done'; s.ms = Date.now() - s.startedAt; if (out) s.out = out; if (evidence) s.evidence = evidence; };
+  let sData, sCheck, sAudit, sResult;
   try {
     job.status = 'crawling';
     push(`เริ่มตรวจ ${url} (สูงสุด ${maxPages} หน้า)`);
+    sData = stepRec('data', 'Data · ดึง raw + rendered + screenshot');
     const psiPromise = fetchCWV(url); // ยิง Google PageSpeed คู่ขนานไปกับ crawl (ใช้เวลา ~30-60s)
     // ตาข่ายกันตรวจผิด: ดึง Lighthouse SEO ของ Google มาเทียบผลเรา (คู่ขนาน) — ห้ามใช้ engine ตัดสิน engine
     const lhPromise = fetchLighthouse(url, process.env.PAGESPEED_API_KEY).catch(() => null);
@@ -209,9 +217,11 @@ async function runAudit(job, url, maxPages, competitorUrl) {
       crawlSite(url, { maxPages, onProgress: push }),
       compPromise,
     ]);
+    stepEnd(sData, `ดึง ${site.pages.length} หน้า${site.renderedCrawl ? ' · SPA rendered (chromium)' : ''}`, `/present/${job.id}`);
 
     job.status = 'analyzing';
     push('Crawl เสร็จ — กำลังรัน rule engine 200+ จุดตรวจ...');
+    sCheck = stepRec('check', 'SEO Check · รัน 87 checks (raw + rendered)');
     const tech = runChecks(site);
     const geo = runGeoChecks(site);
     push('กำลังรอผล Core Web Vitals จาก Google...');
@@ -219,6 +229,8 @@ async function runAudit(job, url, maxPages, competitorUrl) {
     const psiChecks = buildPsiChecks(psi);
     const allChecks = [...tech.checks, ...geo.checks, ...psiChecks];
     const score = scoreAudit(allChecks);
+    stepEnd(sCheck, `พบ ${score.counts.fail} fail · ${score.counts.warn} warn จาก ${allChecks.length} checks`, `/report/${job.id}`);
+    sAudit = stepRec('audit', 'Audit · severity + priority + AI + verify');
 
     const audit = {
       id: job.id, url, createdAt: new Date().toISOString(),
@@ -276,6 +288,8 @@ async function runAudit(job, url, maxPages, competitorUrl) {
       };
       job.status = 'done';
       push(`เข้าเว็บไม่ได้ — crawl 0 หน้า (${audit.unreachableInfo.message}). ข้ามการวิเคราะห์ ลองตรวจใหม่อีกครั้ง`);
+      (job.steps || []).forEach(s => { if (s.status === 'run') { s.status = 'error'; s.ms = Date.now() - s.startedAt; } });
+      audit.run = job.steps;
       job.result = audit;
       saveAudit(audit);
       return;
@@ -365,6 +379,7 @@ async function runAudit(job, url, maxPages, competitorUrl) {
     } catch {}
     // ติดป้าย type/confidence/needsVerify ให้ทุก check (อิงผล cross-check) — รากฐานของ Quality Center
     try { audit.verifyMeta = annotateChecks(audit); if (audit.verifyMeta.needsVerify) push(`ต้องรีวิว ${audit.verifyMeta.needsVerify} check ก่อนส่งลูกค้า`); } catch {}
+    stepEnd(sAudit, `จัดลำดับ + ${audit.verify ? (audit.verify.flag ? '⚠️ ต่าง Google บางจุด' : '✓ ตรง Google') : 'verify'}`, `/report/${job.id}`);
 
     // เทียบกับการตรวจครั้งก่อนของ URL เดียวกัน (ก่อน/หลังแก้)
     const prevAudit = findPreviousAudit(url, audit.createdAt);
@@ -373,14 +388,19 @@ async function runAudit(job, url, maxPages, competitorUrl) {
       push(`เทียบกับครั้งก่อน: ${audit.delta.prevScore} → ${score.overall} (${audit.delta.scoreDelta >= 0 ? '+' : ''}${audit.delta.scoreDelta}) | แก้แล้ว ${audit.delta.fixed.length} ข้อ`);
     }
 
+    sResult = stepRec('result', 'Result · สรุป + เก็บผล + report');
     job.status = 'done';
     push(`เสร็จสิ้น — คะแนน ${score.overall}/100 (เกรด ${score.grade}) | ปัญหาร้ายแรง ${score.counts.fail} ข้อ`);
     job.result = audit;
+    stepEnd(sResult, `คะแนน ${score.overall}/100 (เกรด ${score.grade})`, `/report-sale/${job.id}`);
+    audit.run = job.steps; // เก็บ run trace ลง audit → ทบทวนย้อนหลังได้
     saveAudit(audit);
     notifyWatch(url, audit); // แจ้งเตือนถ้าเว็บนี้อยู่ใน watchlist
   } catch (e) {
     job.status = 'error';
     job.error = String(e?.message || e);
+    const running = (job.steps || []).find(s => s.status === 'run');
+    if (running) { running.status = 'error'; running.ms = Date.now() - running.startedAt; }
     push(`เกิดข้อผิดพลาด: ${job.error}`);
   }
 }
@@ -643,9 +663,48 @@ app.post('/api/clickup/:id', async (req, res) => {
   }
   try {
     const result = await pushToClickUp(audit, { token: process.env.CLICKUP_API_TOKEN, listId: route.listId, assignee: route.assignee });
+    try { recordPush(audit, result, route.listId); } catch (e) { console.error('recordPush:', e.message); } // เริ่มติดตามวงปิด
     res.json(result);
   } catch (e) { res.status(502).json({ error: String(e.message || e) }); }
 });
+
+// ── วงปิด (re-audit loop) ──
+// รัน audit 1 ครั้งแล้วคืน audit object ที่เซฟแล้ว (ใช้โดย cycle — มี .delta เทียบ audit เดิมให้)
+async function runAuditOnce(url) {
+  const id = crypto.randomBytes(6).toString('hex');
+  const job = { id, url, status: 'queued', progress: [], startedAt: Date.now() };
+  jobs.set(id, job);
+  await runAudit(job, url, MAX_PAGES_DEFAULT, null);
+  if (job.status === 'error') throw new Error(job.error || 'audit failed');
+  return job.result;
+}
+
+// trigger รอบตรวจซ้ำ — เรียกจาก cron บน VPS (curl) หรือกดจาก dashboard
+app.post('/api/reaudit/run', async (_req, res) => {
+  if (!process.env.CLICKUP_API_TOKEN) return res.status(400).json({ error: 'ยังไม่ได้ตั้ง CLICKUP_API_TOKEN' });
+  try {
+    const out = await runReauditCycle({ token: process.env.CLICKUP_API_TOKEN, runAudit: runAuditOnce, onLog: (m) => console.log('[reaudit]', m) });
+    res.json(out);
+  } catch (e) { res.status(502).json({ error: String(e.message || e) }); }
+});
+
+// state สำหรับ dashboard — เว็บที่กำลังติดตามวงปิด + ความคืบหน้า + before→after
+app.get('/api/reaudit/state', (_req, res) => {
+  res.json({ links: loadLinks(), intervalMin: +(process.env.REAUDIT_INTERVAL_MIN || 0) });
+});
+
+// ตัวจับเวลาในตัว (ทางเลือกแทน cron นอก) — ตั้ง REAUDIT_INTERVAL_MIN ใน .env (0 = ปิด)
+const REAUDIT_INTERVAL_MIN = +(process.env.REAUDIT_INTERVAL_MIN || 0);
+if (REAUDIT_INTERVAL_MIN > 0 && process.env.CLICKUP_API_TOKEN) {
+  let running = false;
+  setInterval(async () => {
+    if (running) return; running = true; // กันรอบทับกัน
+    try { const o = await runReauditCycle({ token: process.env.CLICKUP_API_TOKEN, runAudit: runAuditOnce, onLog: (m) => console.log('[reaudit]', m) }); if (o.checked) console.log(`[reaudit] รอบนี้ตรวจ ${o.checked} เว็บ`); }
+    catch (e) { console.error('[reaudit] cycle error:', e.message); }
+    finally { running = false; }
+  }, REAUDIT_INTERVAL_MIN * 60_000);
+  console.log(`[reaudit] scheduler เปิด — ทุก ${REAUDIT_INTERVAL_MIN} นาที`);
+}
 
 // รายงานสำหรับผู้บริหาร — ภาษาทางการ โครงสร้าง สิ่งที่ตรวจพบ/ผลกระทบ/ระดับความสำคัญ/คำแนะนำ
 app.get('/report-exec/:id', (req, res) => {

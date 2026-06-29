@@ -51,6 +51,22 @@ async function startAudit(url) {
   }
 }
 
+// Agent Run Tracker — แสดงทุก step ทำงาน real-time + ลิงก์ evidence (ไม่ใช่กล่องดำ)
+function renderRunSteps(steps, progress) {
+  const ICON = { done: '✓', error: '✕', run: '◌' }, COL = { done: '#15803d', error: '#b91c1c', run: '#b45309' };
+  const fmt = ms => ms == null ? '…' : ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms';
+  const rows = (steps || []).map(s => {
+    const ic = ICON[s.status] || '·', col = COL[s.status] || '#888';
+    const spin = s.status === 'run' ? ' style="display:inline-block;animation:rspin 1s linear infinite"' : '';
+    const ev = s.evidence ? ` · <a href="${s.evidence}" target="_blank" rel="noopener" style="color:#c2410c;text-decoration:none">หลักฐาน ↗</a>` : '';
+    return `<div style="display:flex;gap:9px;align-items:baseline;padding:5px 0;border-bottom:1px solid #f0ece6">
+      <span${spin} style="color:${col};font-family:monospace;font-weight:700;width:14px;flex:none;text-align:center">${ic}</span>
+      <span><b>${esc(s.name)}</b>${s.out ? ' — ' + esc(s.out) : ''} <span style="opacity:.55;font-family:monospace;font-size:.85em">${fmt(s.ms)}</span>${ev}</span></div>`;
+  }).join('');
+  const tail = (progress || []).slice(-3).map(p => `<div style="opacity:.45;font-size:.82em;padding-top:2px">· ${esc(p.msg)}</div>`).join('');
+  return rows + tail;
+}
+
 function poll(id) {
   clearInterval(pollTimer);
   pollTimer = setInterval(async () => {
@@ -58,18 +74,22 @@ function poll(id) {
       const res = await fetch('/api/audit/' + id);
       const job = await res.json();
       const box = $('#progress');
-      box.innerHTML = (job.progress || []).slice(-12).map(p => `<div>· ${esc(p.msg)}</div>`).join('');
+      const steps = job.steps || job.result?.run;
+      box.innerHTML = steps && steps.length
+        ? renderRunSteps(steps, job.progress)
+        : (job.progress || []).slice(-12).map(p => `<div>· ${esc(p.msg)}</div>`).join('');
       box.scrollTop = box.scrollHeight;
       if (job.status === 'done') {
         clearInterval(pollTimer);
         $('#startBtn').disabled = false;
-        $('#progress').style.display = 'none';
+        // คงแถบ run tracker ไว้ (evidence link ใช้ได้แล้วหลังเซฟ) — ไม่ซ่อน เพื่อให้ติดตามย้อนหลังได้
+        box.innerHTML = `<div style="font-weight:650;color:#15803d;margin-bottom:6px">✓ รันครบ ${(job.result?.run || []).length} step — คลิก “หลักฐาน” ดูผลแต่ละขั้นได้</div>` + renderRunSteps(job.result?.run || steps, []);
         render(job.result);
         $('#result').scrollIntoView({ behavior: 'smooth', block: 'start' });
       } else if (job.status === 'error') {
         clearInterval(pollTimer);
         $('#startBtn').disabled = false;
-        box.innerHTML += `<div>ผิดพลาด — ${esc(job.error)}</div>`;
+        box.innerHTML += `<div style="color:#b91c1c">ผิดพลาด — ${esc(job.error)}</div>`;
       }
     } catch {}
   }, 900);
