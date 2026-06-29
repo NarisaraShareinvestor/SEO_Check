@@ -507,6 +507,7 @@ function renderChecks(audit, filter) {
       <div class="body">
         <div>${esc(stripEmoji(ch.detail))}</div>
         ${ch.recommendation ? `<div class="rec"><b>วิธีแก้</b> — ${esc(stripEmoji(ch.recommendation))}</div>` : ''}
+        ${ch.reference ? `<div class="refln"><span class="reftier t${ch.reference.tier}">${esc(ch.reference.type)}</span> <b>อ้างอิง:</b> ${ch.reference.sources.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)} ↗</a>`).join(' · ')}</div>` : ''}
         ${(ch.evidence || []).length
           ? `<div class="plist"><b>หลักฐานรายหน้า:</b>${ch.evidence.map(e => `<div class="evrow"><a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.url)}</a>${e.note ? `<span class="evnote"> — ${esc(e.note)}</span>` : ''}</div>`).join('')}</div>`
           : (ch.pages || []).length ? `<div class="plist">${ch.pages.map(p => `<a href="${esc(p)}" target="_blank" rel="noopener">${esc(p)}</a>`).join('<br>')}</div>` : ''}

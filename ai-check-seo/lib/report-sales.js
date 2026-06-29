@@ -547,6 +547,7 @@ export function renderSalesReport(audit, brand = {}) {
       ${ex.what ? `<div class="ic-what"><span class="lbl">อธิบายง่ายๆ ว่าคืออะไร</span> ${esc(ex.what)}</div>` : ''}
       ${ex.why ? `<div class="ic-why"><span class="lbl">ทำไมสำคัญต่อธุรกิจ</span> ${esc(ex.why)}</div>` : ''}
       ${c.recommendation ? `<div class="ic-fix"><span class="lbl">แนวทางแก้</span> ${ann(c.recommendation)}</div>` : ''}
+      ${c.reference ? `<div class="ic-ref"><span class="lbl">อ้างอิงมาตรฐาน</span> ${c.reference.sources.map(s => esc(s.label)).join(' · ')} <span class="ic-tier">(${esc(c.reference.type)})</span></div>` : ''}
     </div>`;
   };
 
@@ -691,6 +692,9 @@ h2 .pgof{font-size:15px;font-weight:600;color:var(--mut)}
 .ic-why .lbl{color:#7a2030;background:#fce4e7}
 .ic-fix .lbl{color:#7a5a08;background:#fbeecb}
 .ic-fix{font-style:normal;color:#3b4d68;padding-top:7px;border-top:1px dashed var(--border)}
+.ic-ref .lbl{color:#1d4ed8;background:#e0ebff}
+.ic-ref{font-style:normal;color:#475569;font-size:12px;padding-top:6px}
+.ic-tier{color:#64748b;font-style:italic}
 .chip{display:inline-block;padding:2.5px 13px;border-radius:4px;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;white-space:nowrap}
 .chip.fail{background:var(--red)} .chip.warn{background:var(--amber)} .chip.pass{background:var(--teal)} .chip.info{background:#8b97a8}
 /* ข่าวดี */

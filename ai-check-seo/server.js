@@ -20,6 +20,7 @@ import { renderExecReport } from './lib/report-exec.js';
 import { renderSalesQA } from './lib/sales-qa.js';
 import { renderPresentation } from './lib/present.js';
 import { scoreAudit, CAT_LABELS } from './lib/scorer.js';
+import { referenceFor } from './lib/references.js';
 import { aiAnalyze, aiCompare, aiGrowthPlan, aiAvailable, drainAiCost } from './lib/ai.js';
 import { generateFixes } from './lib/autofix.js';
 
@@ -228,6 +229,8 @@ async function runAudit(job, url, maxPages, competitorUrl) {
     const psi = await psiPromise;
     const psiChecks = buildPsiChecks(psi);
     const allChecks = [...tech.checks, ...geo.checks, ...psiChecks];
+    // Reference Authority: ติดแหล่งอ้างอิง + tier + confidence ให้ทุก check → ตอบลูกค้า "อ้างจากอะไร"
+    for (const c of allChecks) { const r = referenceFor(c.id); if (r) c.reference = r; }
     const score = scoreAudit(allChecks);
     stepEnd(sCheck, `พบ ${score.counts.fail} fail · ${score.counts.warn} warn จาก ${allChecks.length} checks`, `/report/${job.id}`);
     sAudit = stepRec('audit', 'Audit · severity + priority + AI + verify');
