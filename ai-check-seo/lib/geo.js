@@ -83,10 +83,10 @@ export function runGeoChecks(site) {
 
   // ── 2. llms.txt ──
   checks.push(site.llmsTxt
-    ? mk('geo-llms-txt', 'low', 'pass', 'มี llms.txt แล้ว', 'ไฟล์ llms.txt ช่วยสรุปโครงสร้าง/เนื้อหาสำคัญให้ LLM (เป็น convention ใหม่ — มีไว้ดีกว่าไม่มี)')
-    : mk('geo-llms-txt', 'low', 'warn', 'ยังไม่มี llms.txt',
-      'llms.txt เป็น convention ที่เสนอใหม่ (เหมือน robots.txt สำหรับ LLM) — สรุปว่าเว็บคุณคือใคร มีหน้าสำคัญอะไร · หมายเหตุ: AI engine รายใหญ่ยังไม่ยืนยันว่ารองรับอย่างเป็นทางการ แต่ต้นทุนทำต่ำและไม่มี downside',
-      'สร้าง /llms.txt (ระบบ Auto-Fix สร้างให้ได้)', [], true));
+    ? mk('geo-llms-txt', 'low', 'pass', 'มี llms.txt แล้ว', 'มีไฟล์ llms.txt อยู่ — หมายเหตุ: Google ยืนยันว่า**ไม่ crawl/ไม่ใช้** llms.txt (Gary Illyes/John Mueller) และ AI engine รายใหญ่ยังไม่ยืนยันรองรับ จึงไม่ส่งผลต่ออันดับ ถือเป็น nice-to-have ไม่ใช่ปัจจัย SEO')
+    : mk('geo-llms-txt', 'low', 'info', 'ไม่มี llms.txt (ไม่ใช่ปัญหา)',
+      'ไม่พบ /llms.txt — **ไม่ใช่ข้อผิดพลาด**: Google ระบุชัดว่าไม่ crawl/ไม่ใช้ llms.txt และการติดอันดับใน AI Overviews อาศัย SEO ปกติ (Gary Illyes/John Mueller, 2025). จะทำไว้ก็ได้แต่ห้ามคาดหวังผลต่ออันดับ — โฟกัสเนื้อหา/โครงสร้าง/E-E-A-T สำคัญกว่า',
+      'ไม่ต้องเร่งทำ · ถ้าอยากครบสามารถสร้าง /llms.txt ได้ (ระบบ Auto-Fix สร้างให้ได้) แต่ให้น้ำหนักต่ำ', [], true));
 
   // ── 3. SPA = AI มองไม่เห็น ──
   const spaPages = pages.filter(p => p.emptyRoot);
@@ -106,10 +106,10 @@ export function runGeoChecks(site) {
     collect(j.data);
   }));
   checks.push((ldTypes.has('FAQPage') || ldTypes.has('QAPage'))
-    ? mk('geo-faq-schema', 'med', 'pass', 'มี FAQ/QA schema', 'AI engines ดึง Q&A ที่มี schema ไปตอบได้ตรงที่สุด')
-    : mk('geo-faq-schema', 'med', 'warn', 'ยังไม่มี FAQ schema',
-      `ไม่พบ FAQPage/QAPage schema ใน ${pages.length} หน้าที่ตรวจ — เป็น format ที่ AI Overview และ ChatGPT ดึงไปตอบได้ดี (เป็นส่วนเสริม ไม่ใช่สิ่งจำเป็นพื้นฐาน)`,
-      'เพิ่ม FAQPage schema เฉพาะหน้าที่มีคำถาม-คำตอบจริงเท่านั้น — หมายเหตุ: ตั้งแต่ปี 2023 Google จำกัด FAQ rich result เฉพาะเว็บภาครัฐ/สุขภาพ และการมาร์กอัป Q&A ปลอมผิดแนวทางอาจโดน manual action จึงห้ามใส่ schema กับเนื้อหาที่ไม่ใช่ Q&A จริง', pages.map(p => p.url), true));
+    ? mk('geo-faq-schema', 'med', 'pass', 'มี FAQ/QA schema', 'โครง Q&A ที่มี schema ช่วยให้ AI engine (AI Overview/ChatGPT/Perplexity) ดึงไปตอบได้ตรง — หมายเหตุ: ไม่ได้ให้ rich result ใน Google แล้ว (ถอด พ.ค. 2026) ประโยชน์ที่เหลือคือการอ้างอิงโดย AI')
+    : mk('geo-faq-schema', 'med', 'warn', 'ยังไม่มี FAQ/Q&A schema',
+      `ไม่พบ FAQPage/QAPage schema ใน ${pages.length} หน้าที่ตรวจ — โครงคำถาม-คำตอบที่ชัดเจนช่วยให้ AI Overview/ChatGPT ดึงไปตอบได้ตรง (เป็นส่วนเสริมด้าน GEO ไม่ใช่พื้นฐาน)`,
+      'เพิ่ม schema เฉพาะหน้าที่มีคำถาม-คำตอบจริง · สำคัญ (อัปเดต 2026): Google ถอด FAQ rich result ออกจากผลค้นหาแล้ว (7 พ.ค. 2026) — FAQPage จึง**ไม่ได้ rich result ใน SERP อีกต่อไป** ประโยชน์ที่เหลือคือช่วย AI engine อ้างอิง · ถ้าเป็น Q&A ที่ผู้ใช้ตอบกันเองให้ใช้ QAPage · อย่ามาร์กอัป Q&A ปลอม', pages.map(p => p.url), true));
 
   // ── 5. Q&A content blocks (heading เป็นคำถาม) ──
   const qWords = /(\?|คืออะไร|คือ\s|ทำไม|อย่างไร|ยังไง|เท่าไหร่|ที่ไหน|เมื่อไหร่|^(what|how|why|when|where|who)\b)/i;

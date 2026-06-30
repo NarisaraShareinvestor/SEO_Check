@@ -121,9 +121,9 @@ ${urls.map(u => `  <url><loc>${esc(u)}</loc></url>`).join('\n')}
   if (failedIds.has('geo-faq-schema') || failedIds.has('geo-qa-content')) {
     fixes.push({
       id: 'fix-faq-schema', forCheck: 'geo-faq-schema', filename: 'faq-schema.html', language: 'html',
-      title: 'FAQ section + FAQPage schema (อาวุธลับ GEO)',
-      description: 'โครง FAQ ที่ AI Overview / ChatGPT ดึงไปตอบได้ตรงที่สุด — แก้คำถาม-คำตอบให้ตรงธุรกิจ',
-      howTo: 'วาง HTML ในหน้าบริการหลัก และ JSON-LD ใน <head> ของหน้าเดียวกัน (คำถาม-คำตอบต้องตรงกับที่แสดงบนหน้า)',
+      title: 'FAQ section + FAQPage schema (ช่วย AI citation)',
+      description: 'โครง FAQ ที่ AI Overview / ChatGPT / Perplexity ดึงไปตอบได้ตรง — แก้คำถาม-คำตอบให้ตรงธุรกิจ · หมายเหตุ: Google ถอด FAQ rich result ออกจาก SERP แล้ว (พ.ค. 2026) ตัวนี้จึงช่วยด้าน AI citation (GEO) ไม่ใช่ rich result ใน Google',
+      howTo: 'วาง HTML ในหน้าบริการหลัก และ JSON-LD ใน <head> ของหน้าเดียวกัน (คำถาม-คำตอบต้องตรงกับที่แสดงบนหน้าจริง · ถ้าเป็น Q&A ที่ผู้ใช้ตอบกันเองใช้ QAPage แทน)',
       content: `<!-- ส่วนแสดงผลบนหน้า -->
 <section class="faq">
   <h2>คำถามที่พบบ่อย</h2>
