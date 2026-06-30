@@ -5,7 +5,7 @@ import { validateSchemaNodes } from './schema-validate.js';
 
 // เวอร์ชันของ "วิธีตรวจ" — bump เมื่อ logic ของ check เปลี่ยน (เช่น img-alt 3-state)
 // ใช้ตอนเทียบก่อน/หลัง: ถ้า audit 2 ครั้งคนละเวอร์ชัน → การเปลี่ยนบางอย่างมาจากการอัปเกรดระบบ ไม่ใช่การแก้เว็บ
-export const ENGINE_VERSION = 9;
+export const ENGINE_VERSION = 10;
 
 const CATS = {
   onpage: 'Meta & เนื้อหา',
@@ -68,6 +68,11 @@ export function runChecks(site) {
   const pages = site.pages.filter(p => p.title !== undefined && !p.nonHtml && !p.blocked);
   const okPages = pages.filter(p => p.status === 200);
   const home = okPages.find(p => { try { return new URL(p.url).pathname === '/'; } catch { return false; } }) || okPages[0];
+  // Pre-processing ระดับหน้า (ใช้ร่วมหลาย check): okPages ผ่าน dedup-by-finalUrl จาก crawler แล้ว
+  // + ตัดหน้า noindex / canonical ชี้หน้าอื่น (ไม่ประเมินหน้าที่ไม่ตั้งใจให้ index) ตามมาตรฐาน Pre-processing
+  const canonicalAway = p => { if (!p.canonical) return false; try { return new URL(p.canonical, p.url).toString().replace(/\/$/, '') !== (p.finalUrl || p.url).replace(/\/$/, ''); } catch { return false; } };
+  const isNoindex = p => /noindex/i.test(((p.metas && p.metas['robots']) || '') + ' ' + ((p.headers && p.headers['x-robots-tag']) || ''));
+  const pageEligible = okPages.filter(p => !isNoindex(p) && !canonicalAway(p));
 
   if (!okPages.length) {
     checks.push(mk('no-pages', 'index', 'high', 'fail', 'เข้าถึงหน้าเว็บไม่ได้',
@@ -133,22 +138,22 @@ export function runChecks(site) {
       checks.push(c);
     }
 
-    // h1: "มี H1 ที่ใช้ได้" = มี <h1> ที่มีข้อความจริง — H1 ว่างเปล่า (whitespace) นับเท่ากับไม่มี (Empty H1 = High ตามมาตรฐาน)
-    // 3-state: raw มี = PASS · JS/SPA สร้าง = WARNING · ไม่มีทั้ง raw+render = FAIL
+    // h1: "มี H1 ที่ใช้ได้" = มี <h1> ที่มีข้อความจริง — H1 ว่างเปล่า (whitespace) นับเท่ากับไม่มี (Empty H1 = High)
+    // 3-state: raw มี = PASS · JS/SPA สร้าง = WARNING · ไม่มีทั้ง raw+render = FAIL · ตรวจเฉพาะ pageEligible (ผ่าน Final URL+noindex/canonical)
     const usableH1 = p => p.headings.some(h => h.tag === 'h1' && (h.text || '').trim());
     const renderedHasH1 = p => Array.isArray(p.renderedH1) && p.renderedH1.some(t => (t || '').trim());
-    const rawNoH1 = okPages.filter(p => !usableH1(p));
+    const rawNoH1 = pageEligible.filter(p => !usableH1(p));
     const h1TrulyNo = rawNoH1.filter(p => !renderedHasH1(p));
     const h1JsOnly = rawNoH1.filter(p => renderedHasH1(p));
     if (h1TrulyNo.length)
-      checks.push(mk('h1-missing', 'onpage', 'high', 'fail', 'หน้าที่ไม่มี H1 (หรือ H1 ว่างเปล่า)', `${h1TrulyNo.length}/${okPages.length} หน้าไม่มี H1 ที่มีข้อความ ทั้งใน HTML ดิบและหลัง render (รวมกรณี <h1> ที่ว่างเปล่า)`, 'ทุกหน้าควรมี H1 เดียวที่มีข้อความจริง ใส่คีย์เวิร์ดหลัก และอยู่ใน HTML ดิบ', pageList(h1TrulyNo), true));
+      checks.push(mk('h1-missing', 'onpage', 'high', 'fail', 'หน้าที่ไม่มี H1 (หรือ H1 ว่างเปล่า)', `${h1TrulyNo.length}/${pageEligible.length} หน้า (ที่ index ได้) ไม่มี H1 ที่มีข้อความ ทั้งใน HTML ดิบและหลัง render (รวมกรณี <h1> ที่ว่างเปล่า)`, 'ทุกหน้าควรมี H1 เดียวที่มีข้อความจริง ใส่คีย์เวิร์ดหลัก และอยู่ใน HTML ดิบ', pageList(h1TrulyNo), true));
     else if (h1JsOnly.length)
       checks.push(mk('h1-missing', 'onpage', 'high', 'warn', 'H1 มาจาก JavaScript (ไม่อยู่ใน HTML ดิบ)', `${h1JsOnly.length} หน้าไม่มี H1 ใน HTML ดิบ แต่พบหลัง render — เว็บเป็น SPA · Googlebot เห็นหลัง render แต่ AI bot ที่ไม่รัน JS จะไม่เห็น`, 'ทำ SSR/SSG ให้ H1 อยู่ใน HTML ดิบ', pageList(h1JsOnly), true));
-    else
-      checks.push(mk('h1-missing', 'onpage', 'high', 'pass', 'ทุกหน้ามี H1', 'ครบทุกหน้าใน HTML ดิบ'));
+    else if (pageEligible.length)
+      checks.push(mk('h1-missing', 'onpage', 'high', 'pass', 'ทุกหน้ามี H1', `ครบทุกหน้าที่ index ได้ (${pageEligible.length} หน้า) ใน HTML ดิบ`));
 
-    // H1 ซ่อนด้วย CSS — inline style (raw) หรือ computed style (Playwright)
-    const hiddenH1Pages = okPages.filter(p => (p.hiddenH1 || 0) + (p.renderedH1Hidden || 0) > 0);
+    // H1 ซ่อนด้วย CSS — inline style (raw) หรือ computed style (Playwright) · เฉพาะ pageEligible
+    const hiddenH1Pages = pageEligible.filter(p => (p.hiddenH1 || 0) + (p.renderedH1Hidden || 0) > 0);
     if (hiddenH1Pages.length) checks.push(mk('h1-hidden', 'onpage', 'med', 'warn',
       'H1 ถูกซ่อนด้วย CSS (hidden text)',
       `${hiddenH1Pages.length} หน้ามี H1 ใน HTML แต่ผู้ใช้มองไม่เห็น (visibility:hidden / display:none) — Google อาจตีว่าเป็น hidden text manipulation`,
@@ -156,7 +161,7 @@ export function runChecks(site) {
       pageList(hiddenH1Pages), true));
 
     const h1Count = p => p.headings.filter(h => h.tag === 'h1').length;
-    const multiH1 = okPages.filter(p => h1Count(p) > 1);
+    const multiH1 = pageEligible.filter(p => h1Count(p) > 1);
     if (multiH1.length) {
       // มาตรฐาน: HTML5 อนุญาตหลาย H1 (โดยเฉพาะใน <article>/<section>) · Google ยืนยันไม่กระทบอันดับ
       // → แจ้งเป็น "ข้อสังเกต (Info)" ไม่ใช่ error และไม่หักคะแนน (ไม่ overclaim ว่าผิด)
@@ -169,25 +174,7 @@ export function runChecks(site) {
       checks.push(c);
     }
 
-    // title-h1-align (Evidence-Based): <title> กับ H1 ควรพูดหัวข้อเดียวกัน — ใช้ titleH1Sim (Jaccard) จาก crawler
-    // เตือนเฉพาะหน้าที่ "ไม่มีคำร่วมเลย" (sim===0) · confidence ปานกลาง เพราะ title มักมี brand ต่อท้าย → ไม่ฟันธง
-    const alignChecked = okPages.filter(p => p.title && typeof p.titleH1Sim === 'number');
-    if (alignChecked.length) {
-      const noOverlap = alignChecked.filter(p => p.titleH1Sim < 0.1);   // overlap ต่ำมาก = น่าจะคนละเรื่องจริง
-      if (noOverlap.length) {
-        const c = mk('title-h1-align', 'onpage', 'low', 'info', 'title กับ H1 ไม่มีคำร่วมกัน (ข้อสังเกต)',
-          `${noOverlap.length}/${alignChecked.length} หน้าที่ <title> กับ H1 ไม่มีคำสำคัญร่วมกัน — เป็นข้อสังเกต/คำแนะนำ ไม่ใช่ข้อผิดพลาด: Google ไม่ได้กำหนดให้ title ต้องคล้าย H1 และ title มักมีแบรนด์ต่อท้ายทำให้ต่างกันได้ตามปกติ`,
-          'best-practice (ไม่บังคับ): ถ้าอยากให้สัญญาณหัวข้อชัด ให้ <title> กับ H1 พูดเรื่องเดียวกัน', pageList(noOverlap), false);
-        c.confidence = 0.55;
-        c.reasoning = { signals: { pages_no_overlap: noOverlap.length, pages_checked: alignChecked.length }, standard: 'best-practice — ไม่ใช่กฎ Google บังคับ', verdict: 'info', note: 'title มักมี brand ต่อท้าย → sim ต่ำได้แม้ถูก' };
-        checks.push(c);
-      } else {
-        const c = mk('title-h1-align', 'onpage', 'low', 'pass', 'title กับ H1 สอดคล้องกัน', `ทุกหน้าที่ตรวจ (${alignChecked.length}) มีคำสำคัญร่วมระหว่าง <title> กับ H1`);
-        c.confidence = 0.7;
-        c.reasoning = { signals: { pages_checked: alignChecked.length }, standard: 'Google Search Central', verdict: 'pass' };
-        checks.push(c);
-      }
-    }
+    // (เอา title-h1-align ออกแล้ว — Google ไม่บังคับ title~H1 + title มักมี brand ต่อท้ายทำให้ sim ต่ำผิด = ไม่ใช่กฎจริง)
 
     const skipHeading = okPages.filter(p => {
       const order = p.headings.map(h => +h.tag[1]);
@@ -669,10 +656,8 @@ export function runChecks(site) {
     // pagination·search·filter / localization (เช่น /th/about vs /en/about ที่ H1 เดียวกัน) · normalize ก่อนเทียบ
     const normH1 = s => (s || '').normalize('NFC').toLowerCase().replace(/[​-‍﻿]/g, '').replace(/\s+/g, ' ').trim();
     const stripLocale = u => { try { const x = new URL(u); return x.origin + (x.pathname.replace(/^\/[a-z]{2}(-[a-z]{2})?(?=\/|$)/i, '') || '/'); } catch { return u; } };
-    const dupEligible = okPages.filter(p => {
-      const robots = ((p.metas && p.metas['robots']) || '') + ' ' + ((p.headers && p.headers['x-robots-tag']) || '');
-      if (/noindex/i.test(robots)) return false;
-      if (p.canonical) { try { const cu = new URL(p.canonical, p.url).toString().replace(/\/$/, ''); const su = (p.finalUrl || p.url).replace(/\/$/, ''); if (cu !== su) return false; } catch { /* keep */ } }
+    // dupEligible = pageEligible (ผ่าน Final URL + ตัด noindex/canonical-away แล้ว) + ตัด pagination/search/filter (ซ้ำ H1 โดยชอบ)
+    const dupEligible = pageEligible.filter(p => {
       let path = '', search = ''; try { const u = new URL(p.url); path = u.pathname; search = u.search; } catch { /* keep */ }
       if (/[?&](page|p|start|offset|sort|filter|q|s|search|tag|year|ref)=/i.test(search) || /\/page\/\d/i.test(path)) return false;
       return true;

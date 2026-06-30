@@ -93,16 +93,10 @@ const FIXTURES = [
     absent: ['robots-meta-invalid'],
   },
   {
-    name: 'ไม่มี canonical แต่เว็บสะอาด (ไม่มี param/title ซ้ำ) → canonical-missing WARN (ไม่ใช่ FAIL) + title-h1-align PASS',
+    name: 'ไม่มี canonical แต่เว็บสะอาด (ไม่มี param/title ซ้ำ) → canonical-missing WARN (ไม่ใช่ FAIL)',
     file: 'no-canonical-clean.html', url: 'https://example.com/services',
-    expect: { 'canonical-missing': 'warn', 'title-h1-align': 'pass' },
-    absent: ['robots-meta-invalid'],
-  },
-  {
-    name: 'title (อังกฤษ) ↔ H1 (ไทย) คนละเรื่อง → title-h1-align INFO (best-practice ไม่ใช่ error)',
-    file: 'title-h1-mismatch.html', url: 'https://example.com/title-h1-mismatch',
-    expect: { 'title-h1-align': 'info' },
-    absent: ['robots-meta-invalid'],
+    expect: { 'canonical-missing': 'warn' },
+    absent: ['robots-meta-invalid', 'title-h1-align'],
   },
   {
     name: 'H1 ซ่อนด้วย visibility:hidden → ต้อง WARN',
@@ -364,6 +358,7 @@ console.log('');
 console.log('▸ h1 / desc 3-state: SPA (raw ไม่มี แต่ render มี) = WARNING');
 {
   const base = pageFromFixture('decorative-alt.html', 'https://example.com/');
+  base.canonical = ''; // fixture นี้ canonical ชี้ slug ตัวเอง — reset ให้ตรงกับ url '/' (test นี้ไม่ได้ทดสอบ canonical/pageEligible)
   const st = (over, id) => Object.fromEntries(runChecks(healthySite({ ...base, ...over }, {})).checks.map(c => [c.id, c.status]))[id];
   // h1
   let g = st({ headings: [{ tag: 'h2', text: 'x' }], renderedH1: ['ShareInvestor'] }, 'h1-missing');
