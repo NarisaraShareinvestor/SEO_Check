@@ -63,16 +63,22 @@ const FIXTURES = [
     absent: ['h1-multiple', 'h1-hidden', 'charset-not-utf8', 'robots-meta-invalid', 'hreflang'],
   },
   {
-    name: 'H1 abuse (6 ตัว/หน้า) → ต้อง FAIL',
+    name: 'H1 หลายตัว (6/หน้า) → Info (HTML5 อนุญาต ไม่ใช่ error)',
     file: 'h1-abuse.html', url: 'https://example.com/h1-abuse',
-    expect: { 'h1-multiple': 'fail' },
+    expect: { 'h1-multiple': 'info' },
     absent: ['h1-hidden', 'charset-not-utf8', 'robots-meta-invalid'],
   },
   {
-    name: 'หลาย H1 ใน <article> หัวข้อต่างกัน (HTML5 sectioning) → ต้อง PASS (ไม่ false-positive)',
+    name: 'หลาย H1 ใน <article> (HTML5 sectioning) → Info (ไม่ใช่ error)',
     file: 'h1-semantic.html', url: 'https://example.com/h1-semantic',
-    expect: { 'h1-multiple': 'pass' },
+    expect: { 'h1-multiple': 'info' },
     absent: ['h1-hidden', 'charset-not-utf8', 'robots-meta-invalid'],
+  },
+  {
+    name: 'H1 ว่างเปล่า (<h1>   </h1>) → h1-missing FAIL (Empty H1 = High)',
+    file: 'h1-empty.html', url: 'https://example.com/h1-empty',
+    expect: { 'h1-missing': 'fail' },
+    absent: ['h1-multiple', 'robots-meta-invalid'],
   },
   {
     name: 'noindex บนหน้า utility (/cart) → ต้อง PASS (ตั้งใจ ปกติ)',
@@ -93,9 +99,9 @@ const FIXTURES = [
     absent: ['robots-meta-invalid'],
   },
   {
-    name: 'title (อังกฤษ) ↔ H1 (ไทย) คนละเรื่อง → title-h1-align WARN',
+    name: 'title (อังกฤษ) ↔ H1 (ไทย) คนละเรื่อง → title-h1-align INFO (best-practice ไม่ใช่ error)',
     file: 'title-h1-mismatch.html', url: 'https://example.com/title-h1-mismatch',
-    expect: { 'title-h1-align': 'warn' },
+    expect: { 'title-h1-align': 'info' },
     absent: ['robots-meta-invalid'],
   },
   {

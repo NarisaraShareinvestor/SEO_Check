@@ -5,7 +5,7 @@ import { validateSchemaNodes } from './schema-validate.js';
 
 // เวอร์ชันของ "วิธีตรวจ" — bump เมื่อ logic ของ check เปลี่ยน (เช่น img-alt 3-state)
 // ใช้ตอนเทียบก่อน/หลัง: ถ้า audit 2 ครั้งคนละเวอร์ชัน → การเปลี่ยนบางอย่างมาจากการอัปเกรดระบบ ไม่ใช่การแก้เว็บ
-export const ENGINE_VERSION = 8;
+export const ENGINE_VERSION = 9;
 
 const CATS = {
   onpage: 'Meta & เนื้อหา',
@@ -133,12 +133,15 @@ export function runChecks(site) {
       checks.push(c);
     }
 
-    // h1 3-state เหมือน title: raw มี = PASS · JS/SPA สร้าง = WARNING · ไม่มีทั้ง raw+render = FAIL
-    const rawNoH1 = okPages.filter(p => !p.headings.some(h => h.tag === 'h1'));
-    const h1TrulyNo = rawNoH1.filter(p => !(p.renderedH1 && p.renderedH1.length));
-    const h1JsOnly = rawNoH1.filter(p => p.renderedH1 && p.renderedH1.length);
+    // h1: "มี H1 ที่ใช้ได้" = มี <h1> ที่มีข้อความจริง — H1 ว่างเปล่า (whitespace) นับเท่ากับไม่มี (Empty H1 = High ตามมาตรฐาน)
+    // 3-state: raw มี = PASS · JS/SPA สร้าง = WARNING · ไม่มีทั้ง raw+render = FAIL
+    const usableH1 = p => p.headings.some(h => h.tag === 'h1' && (h.text || '').trim());
+    const renderedHasH1 = p => Array.isArray(p.renderedH1) && p.renderedH1.some(t => (t || '').trim());
+    const rawNoH1 = okPages.filter(p => !usableH1(p));
+    const h1TrulyNo = rawNoH1.filter(p => !renderedHasH1(p));
+    const h1JsOnly = rawNoH1.filter(p => renderedHasH1(p));
     if (h1TrulyNo.length)
-      checks.push(mk('h1-missing', 'onpage', 'high', 'fail', 'หน้าที่ไม่มี H1', `${h1TrulyNo.length}/${okPages.length} หน้าไม่มี H1 ทั้งใน HTML ดิบและหลัง render`, 'ทุกหน้าควรมี H1 เดียว ใส่คีย์เวิร์ดหลัก และอยู่ใน HTML ดิบ', pageList(h1TrulyNo), true));
+      checks.push(mk('h1-missing', 'onpage', 'high', 'fail', 'หน้าที่ไม่มี H1 (หรือ H1 ว่างเปล่า)', `${h1TrulyNo.length}/${okPages.length} หน้าไม่มี H1 ที่มีข้อความ ทั้งใน HTML ดิบและหลัง render (รวมกรณี <h1> ที่ว่างเปล่า)`, 'ทุกหน้าควรมี H1 เดียวที่มีข้อความจริง ใส่คีย์เวิร์ดหลัก และอยู่ใน HTML ดิบ', pageList(h1TrulyNo), true));
     else if (h1JsOnly.length)
       checks.push(mk('h1-missing', 'onpage', 'high', 'warn', 'H1 มาจาก JavaScript (ไม่อยู่ใน HTML ดิบ)', `${h1JsOnly.length} หน้าไม่มี H1 ใน HTML ดิบ แต่พบหลัง render — เว็บเป็น SPA · Googlebot เห็นหลัง render แต่ AI bot ที่ไม่รัน JS จะไม่เห็น`, 'ทำ SSR/SSG ให้ H1 อยู่ใน HTML ดิบ', pageList(h1JsOnly), true));
     else
@@ -146,7 +149,7 @@ export function runChecks(site) {
 
     // H1 ซ่อนด้วย CSS — inline style (raw) หรือ computed style (Playwright)
     const hiddenH1Pages = okPages.filter(p => (p.hiddenH1 || 0) + (p.renderedH1Hidden || 0) > 0);
-    if (hiddenH1Pages.length) checks.push(mk('h1-hidden', 'onpage', 'high', 'warn',
+    if (hiddenH1Pages.length) checks.push(mk('h1-hidden', 'onpage', 'med', 'warn',
       'H1 ถูกซ่อนด้วย CSS (hidden text)',
       `${hiddenH1Pages.length} หน้ามี H1 ใน HTML แต่ผู้ใช้มองไม่เห็น (visibility:hidden / display:none) — Google อาจตีว่าเป็น hidden text manipulation`,
       'เปลี่ยนเป็น H1 ที่มองเห็นได้จริง หรือลบออกถ้าซ้ำกับ visual element อื่น',
@@ -155,46 +158,15 @@ export function runChecks(site) {
     const h1Count = p => p.headings.filter(h => h.tag === 'h1').length;
     const multiH1 = okPages.filter(p => h1Count(p) > 1);
     if (multiH1.length) {
-      // Evidence-Based: หลาย H1 "ผิดหรือไม่" ขึ้นกับบริบท ไม่ใช่แค่จำนวน
-      // เก็บหลักฐานหลายมิติ (จำนวน / ข้อความซ้ำ / keyword similarity / อยู่ใน <article>,<section>) → reasoning → confidence
-      const normH = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
-      const toks = s => new Set(normH(s).split(/[\s/|·–—-]+/).filter(w => w.length > 1));
-      const avgSim = (texts) => {
-        const sets = texts.map(toks).filter(s => s.size); if (sets.length < 2) return 0;
-        let tot = 0, n = 0;
-        for (let i = 0; i < sets.length; i++) for (let j = i + 1; j < sets.length; j++) {
-          let inter = 0; for (const w of sets[i]) if (sets[j].has(w)) inter++;
-          const uni = new Set([...sets[i], ...sets[j]]).size; tot += uni ? inter / uni : 0; n++;
-        }
-        return n ? tot / n : 0;
-      };
-      const classify = (p) => {
-        const h1s = p.headings.filter(h => h.tag === 'h1');
-        const texts = h1s.map(h => h.text);
-        const count = texts.length;
-        const dup = new Set(texts.map(normH)).size < count;
-        const sim = avgSim(texts);
-        const sectionedAll = h1s.length > 0 && h1s.every(h => h.sectioned);
-        let rank, status, severity, reason;
-        if (sectionedAll && sim < 0.6 && !dup) { rank = 0; status = 'pass'; severity = 'low'; reason = `H1 แต่ละตัวอยู่ใน <article>/<section> ตาม HTML5 sectioning · ข้อความต่างกัน (similarity ${sim.toFixed(2)}) → Google ยอมรับหลาย H1 กรณีนี้`; }
-        else if (count > 3 && sim >= 0.6) { rank = 3; status = 'fail'; severity = 'med'; reason = `H1 ${count} ตัวที่คีย์เวิร์ดคล้ายกันสูง (similarity ${sim.toFixed(2)}) → เข้าข่าย keyword stuffing`; }
-        else if (count > 3) { rank = 3; status = 'fail'; severity = 'high'; reason = `H1 ${count} ตัวต่อหน้า ไม่ได้อยู่ใน sectioning — Google สับสนว่าหน้านี้เกี่ยวกับอะไร (มักเอา H1 ไปครอบ slider/section)`; }
-        else if (dup) { rank = 1; status = 'warn'; severity = 'low'; reason = 'H1 ข้อความซ้ำกัน → เจือจางสัญญาณคีย์เวิร์ด (มักมาจาก template)'; }
-        else { rank = 1; status = 'warn'; severity = 'low'; reason = `H1 ${count} ตัว — ไม่ผิดร้ายแรงแต่เจือจางสัญญาณคีย์เวิร์ด`; }
-        return { p, count, dup, sim, sectionedAll, rank, status, severity, reason };
-      };
-      const classed = multiH1.map(classify).sort((a, b) => b.rank - a.rank);
-      const w = classed[0];
-      const affected = classed.filter(c => c.status !== 'pass').map(c => c.p.url);
-      const title = w.status === 'pass' ? 'หลาย H1 แต่ถูกต้องตาม HTML5 sectioning'
-        : w.status === 'fail' ? (w.severity === 'med' ? `H1 ซ้ำคีย์เวิร์ด (สูงสุด ${w.count} ตัว/หน้า)` : `H1 มากเกินไป (สูงสุด ${w.count} ตัว/หน้า)`)
-        : 'หน้าที่มี H1 มากกว่า 1';
-      const chk = mk('h1-multiple', 'onpage', w.severity, w.status, title, w.reason,
-        'เหลือ H1 หลักเดียวต่อ section · ถ้ามีหลาย topic ใช้ <article>/<section> ครอบแต่ละ H1',
-        w.status === 'pass' ? [] : (affected.length ? affected : pageList(multiH1)), w.status === 'fail');
-      chk.confidence = w.status === 'pass' ? 0.85 : w.status === 'fail' ? (w.severity === 'med' ? 0.78 : 0.85) : 0.8;
-      chk.reasoning = { signals: { maxCount: w.count, duplicate: w.dup, keyword_similarity: +w.sim.toFixed(2), all_in_section: w.sectionedAll }, standard: 'HTML Living Standard (sectioning) · Google: หลาย H1 ไม่ผิดถ้าโครงสร้างถูก', verdict: w.status };
-      checks.push(chk);
+      // มาตรฐาน: HTML5 อนุญาตหลาย H1 (โดยเฉพาะใน <article>/<section>) · Google ยืนยันไม่กระทบอันดับ
+      // → แจ้งเป็น "ข้อสังเกต (Info)" ไม่ใช่ error และไม่หักคะแนน (ไม่ overclaim ว่าผิด)
+      const maxH1 = Math.max(...multiH1.map(h1Count));
+      const c = mk('h1-multiple', 'onpage', 'low', 'info', 'หน้าที่มี H1 มากกว่า 1',
+        `${multiH1.length} หน้ามี H1 หลายตัว (สูงสุด ${maxH1} ตัว/หน้า) — ตาม HTML5 หลาย H1 ใช้ได้ (โดยเฉพาะเมื่อแต่ละตัวอยู่ใน <article>/<section> ของมันเอง) Google ไม่ถือว่าผิด · เป็นข้อสังเกต ไม่ใช่ข้อผิดพลาด`,
+        'ไม่จำเป็นต้องแก้ · ถ้าต้องการสัญญาณหัวข้อชัดที่สุด อาจใช้ H1 หลักเดียวต่อ section', pageList(multiH1), false);
+      c.confidence = 0.9;
+      c.reasoning = { signals: { pages: multiH1.length, maxCount: maxH1 }, standard: 'HTML Living Standard: multiple H1 ใช้ได้ · Google: ไม่ใช่ปัจจัยอันดับ', verdict: 'info' };
+      checks.push(c);
     }
 
     // title-h1-align (Evidence-Based): <title> กับ H1 ควรพูดหัวข้อเดียวกัน — ใช้ titleH1Sim (Jaccard) จาก crawler
@@ -203,11 +175,11 @@ export function runChecks(site) {
     if (alignChecked.length) {
       const noOverlap = alignChecked.filter(p => p.titleH1Sim < 0.1);   // overlap ต่ำมาก = น่าจะคนละเรื่องจริง
       if (noOverlap.length) {
-        const c = mk('title-h1-align', 'onpage', 'low', 'warn', 'title กับ H1 ไม่มีคำร่วมกัน',
-          `${noOverlap.length}/${alignChecked.length} หน้าที่ <title> กับ H1 ไม่มีคำสำคัญร่วมกันเลย — อาจสื่อคนละเรื่อง ทำให้สัญญาณหัวข้อของหน้าไม่ชัด (บางครั้งปกติถ้า title ใส่แต่ชื่อแบรนด์ ควรเปิดดูยืนยัน)`,
-          'ให้ <title> กับ H1 พูดถึงหัวข้อหลักเดียวกัน (title = หัวข้อ + แบรนด์, H1 = หัวข้อ)', pageList(noOverlap), true);
+        const c = mk('title-h1-align', 'onpage', 'low', 'info', 'title กับ H1 ไม่มีคำร่วมกัน (ข้อสังเกต)',
+          `${noOverlap.length}/${alignChecked.length} หน้าที่ <title> กับ H1 ไม่มีคำสำคัญร่วมกัน — เป็นข้อสังเกต/คำแนะนำ ไม่ใช่ข้อผิดพลาด: Google ไม่ได้กำหนดให้ title ต้องคล้าย H1 และ title มักมีแบรนด์ต่อท้ายทำให้ต่างกันได้ตามปกติ`,
+          'best-practice (ไม่บังคับ): ถ้าอยากให้สัญญาณหัวข้อชัด ให้ <title> กับ H1 พูดเรื่องเดียวกัน', pageList(noOverlap), false);
         c.confidence = 0.55;
-        c.reasoning = { signals: { pages_no_overlap: noOverlap.length, pages_checked: alignChecked.length }, standard: 'Google Search Central: เขียน title/heading ที่สื่อหัวข้อหน้าให้ชัด', verdict: 'warn', note: 'sim=0 อาจเกิดจาก title มีแต่ brand — เปิดหน้าดูยืนยัน ไม่ฟันธง' };
+        c.reasoning = { signals: { pages_no_overlap: noOverlap.length, pages_checked: alignChecked.length }, standard: 'best-practice — ไม่ใช่กฎ Google บังคับ', verdict: 'info', note: 'title มักมี brand ต่อท้าย → sim ต่ำได้แม้ถูก' };
         checks.push(c);
       } else {
         const c = mk('title-h1-align', 'onpage', 'low', 'pass', 'title กับ H1 สอดคล้องกัน', `ทุกหน้าที่ตรวจ (${alignChecked.length}) มีคำสำคัญร่วมระหว่าง <title> กับ H1`);
@@ -693,13 +665,25 @@ export function runChecks(site) {
     const relCanon = okPages.filter(p => p.canonical && !/^https?:\/\//.test(p.canonical));
     if (relCanon.length) checks.push(mk('canonical-relative', 'index', 'low', 'warn', 'canonical เป็น relative URL', `${relCanon.length} หน้า — ควรเป็น absolute URL เต็มเพื่อกันความกำกวม`, 'ใช้ URL เต็ม https://... ใน canonical', pageList(relCanon), true));
 
-    // H1 ซ้ำข้ามหน้า
+    // H1 ซ้ำข้ามหน้า — เฉพาะ "หน้าเนื้อหาจริง คนละหน้า": ตัด noindex / canonical ชี้หน้าอื่น /
+    // pagination·search·filter / localization (เช่น /th/about vs /en/about ที่ H1 เดียวกัน) · normalize ก่อนเทียบ
+    const normH1 = s => (s || '').normalize('NFC').toLowerCase().replace(/[​-‍﻿]/g, '').replace(/\s+/g, ' ').trim();
+    const stripLocale = u => { try { const x = new URL(u); return x.origin + (x.pathname.replace(/^\/[a-z]{2}(-[a-z]{2})?(?=\/|$)/i, '') || '/'); } catch { return u; } };
+    const dupEligible = okPages.filter(p => {
+      const robots = ((p.metas && p.metas['robots']) || '') + ' ' + ((p.headers && p.headers['x-robots-tag']) || '');
+      if (/noindex/i.test(robots)) return false;
+      if (p.canonical) { try { const cu = new URL(p.canonical, p.url).toString().replace(/\/$/, ''); const su = (p.finalUrl || p.url).replace(/\/$/, ''); if (cu !== su) return false; } catch { /* keep */ } }
+      let path = '', search = ''; try { const u = new URL(p.url); path = u.pathname; search = u.search; } catch { /* keep */ }
+      if (/[?&](page|p|start|offset|sort|filter|q|s|search|tag|year|ref)=/i.test(search) || /\/page\/\d/i.test(path)) return false;
+      return true;
+    });
     const h1Map = new Map();
-    okPages.forEach(p => { const h1 = p.headings.find(h => h.tag === 'h1')?.text; if (h1) h1Map.set(h1, [...(h1Map.get(h1) || []), p.url]); });
-    const dupH1 = [...h1Map.entries()].filter(([, v]) => v.length > 1);
+    dupEligible.forEach(p => { const h = p.headings.find(x => x.tag === 'h1' && (x.text || '').trim()); const t = normH1(h && h.text); if (t) h1Map.set(t, [...(h1Map.get(t) || []), p]); });
+    const dupH1 = [...h1Map.entries()].filter(([, v]) => v.length > 1)
+      .filter(([, pages]) => new Set(pages.map(p => stripLocale(p.finalUrl || p.url))).size === pages.length); // ตัด localization variants
     if (dupH1.length) {
-      const c = mk('h1-duplicate', 'onpage', 'med', 'warn', 'H1 ซ้ำกันหลายหน้า', `พบ H1 ซ้ำ ${dupH1.length} ค่า (รวม ${dupH1.reduce((s, [, v]) => s + v.length, 0)} หน้า) — ดูด้านล่างว่าค่าไหนซ้ำที่หน้าใดบ้าง`, 'H1 ควรเฉพาะของแต่ละหน้าเหมือน title', dupH1.flatMap(([, v]) => v), true);
-      c.groups = dupH1.map(([value, pages]) => ({ value, pages }));
+      const c = mk('h1-duplicate', 'onpage', 'med', 'warn', 'H1 ซ้ำกันหลายหน้า', `พบ H1 ซ้ำ ${dupH1.length} ค่า (รวม ${dupH1.reduce((s, [, v]) => s + v.length, 0)} หน้า) — เฉพาะหน้าเนื้อหาจริง (ตัด noindex/canonical/pagination/ภาษาออกแล้ว) · ดูด้านล่างว่าค่าไหนซ้ำที่หน้าใดบ้าง`, 'H1 ควรเฉพาะของแต่ละหน้าเหมือน title', dupH1.flatMap(([, v]) => v.map(p => p.finalUrl || p.url)), true);
+      c.groups = dupH1.map(([value, pages]) => ({ value, pages: pages.map(p => p.finalUrl || p.url) }));
       checks.push(c);
     }
 

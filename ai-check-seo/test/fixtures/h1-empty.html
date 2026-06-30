@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>หน้าที่มี H1 ว่างเปล่า — ทดสอบ Empty H1</title>
+  <meta name="description" content="fixture จงใจใส่ <h1> ที่ว่างเปล่า (มีแต่ whitespace) เพื่อทดสอบว่า Empty H1 ถูกนับเป็น h1-missing (High) ตามมาตรฐาน">
+  <link rel="canonical" href="https://example.com/h1-empty">
+</head>
+<body>
+  <!-- จงใจ: <h1> ว่างเปล่า มีแต่ช่องว่าง → ต้องถือว่า "ไม่มี H1 ที่ใช้ได้" = h1-missing FAIL -->
+  <h1>   </h1>
+  <h2>หัวข้อรอง</h2>
+  <p>เนื้อหาภาษาไทยที่ยาวพอสมควรเพื่อไม่ให้ระบบแจ้งเตือนเรื่อง thin content และเพื่อความสมจริงของหน้าเว็บ จึงต้องเขียนให้ครบตามเกณฑ์ขั้นต่ำของกฎ content-thin ในระบบตรวจสอบนี้ โดยอธิบายรายละเอียดบริการให้ครบถ้วนเพียงพอต่อการประเมิน</p>
+</body>
+</html>
