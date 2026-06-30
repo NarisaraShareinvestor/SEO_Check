@@ -943,7 +943,10 @@ app.get('/evidence/:auditId', (req, res) => {
   const focus = String(req.query.focus || '').toLowerCase();
   const FOCUS_ROWS = { title: ['title'], h1: ['h1'], titleh1: ['title', 'h1', 'titleh1'], desc: ['desc'], canonical: ['canonical'], robots: ['robots'], images: ['images'], schema: ['schema'], content: ['wordcount'], lang: ['lang'], headings: ['headings'] };
   const keep = (focus && FOCUS_ROWS[focus]) ? new Set(FOCUS_ROWS[focus]) : null;
+  // p = index หน้าที่เกี่ยวกับ finding ที่กดมา (เช่น title ซ้ำเฉพาะ 2 หน้า) — ไม่ส่ง = ทุกหน้า
+  const onlyP = new Set(String(req.query.p || '').split(',').map(x => parseInt(x, 10)).filter(n => !isNaN(n)));
   const cards = (idx.pages || []).map((p, i) => {
+    if (onlyP.size && !onlyP.has(i)) return '';
     const s = p.signals;
     if (!s) return `<div class="card" id="p${i}"><h2>${esc(p.url)}</h2><p class="note bad">audit นี้เก็บก่อนมี Evidence View — re-run audit เพื่อดูข้อมูลที่ตรวจเจอ</p>${rawLinks(p)}</div>`;
     const rows = [
@@ -967,7 +970,7 @@ app.get('/evidence/:auditId', (req, res) => {
       ${rawLinks(p)}
     </div>`;
   }).join('');
-  const focusBanner = keep ? `<div class="focusbar">แสดงเฉพาะข้อมูลที่เกี่ยวกับ finding นี้ · <a href="/evidence/${esc(id)}">ดูข้อมูลทั้งหมดของทุกหน้า (หลักฐานรวม) →</a></div>` : '';
+  const focusBanner = (keep || onlyP.size) ? `<div class="focusbar">แสดงเฉพาะ${onlyP.size ? 'หน้าที่' : 'ข้อมูลที่'}เกี่ยวกับ finding นี้ · <a href="/evidence/${esc(id)}">ดูข้อมูลทั้งหมดของทุกหน้า (หลักฐานรวม) →</a></div>` : '';
   res.type('html').send(`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ข้อมูลที่ตรวจเจอ — ${esc(id)}</title><style>
 :root{--ln:#e2e8f0;--mut:#64748b}*{box-sizing:border-box}body{font-family:-apple-system,'Segoe UI',sans-serif;max-width:920px;margin:0 auto;padding:24px 18px;color:#1e293b;background:#f8fafc;line-height:1.6}

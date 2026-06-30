@@ -299,11 +299,13 @@ const evidenceLink = (pageStr, ch) => {
   const url = Object.keys(evidenceMap).find(u => pageStr === u || pageStr.startsWith(u));
   const e = url && evidenceMap[url];
   if (!e) return '';
-  const anchor = (typeof e.i === 'number') ? `#p${e.i}` : '';
   const f = ch ? focusForCheck(ch.id) : '';
-  const q = f ? `?focus=${f}` : '';
-  // ลิงก์ไป Evidence View — เฉพาะ field ที่เกี่ยวกับ finding นี้ (full view = ลิงก์ "หลักฐานรวม" ด้านบน)
-  return `<span class="evsnap"> · <a href="/evidence/${id}${q}${anchor}" target="_blank" rel="noopener" title="ข้อมูลที่ระบบดึงจากหน้านี้ เฉพาะส่วนที่เกี่ยวกับ finding นี้">🔎 หลักฐาน</a></span>`;
+  // ส่งทั้ง field (focus) + หน้านี้ (p) → Evidence View โชว์เฉพาะหน้านี้+field ที่เกี่ยว ไม่ปนหน้าที่ไม่เกี่ยว
+  const params = [];
+  if (f) params.push('focus=' + f);
+  if (typeof e.i === 'number') params.push('p=' + e.i);
+  const q = params.length ? '?' + params.join('&') : '';
+  return `<span class="evsnap"> · <a href="/evidence/${id}${q}" target="_blank" rel="noopener" title="ข้อมูลที่ระบบดึงจากหน้านี้ เฉพาะส่วนที่เกี่ยวกับ finding นี้">🔎 หลักฐาน</a></span>`;
 };
 async function loadEvidenceMap(id) {
   evidenceMap = {};
