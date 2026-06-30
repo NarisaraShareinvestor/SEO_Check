@@ -85,7 +85,7 @@
 if(window.self!==window.top)document.documentElement.classList.add('embed');
 const NS='http://www.w3.org/2000/svg';
 const esc=s=>String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-let DATA,BYID={},COLOR={},ENTVER={},NODES=[],LINKS=[],NBR={},svg,vp,W=900,H=620;
+let DATA,BYID={},COLOR={},ENTVER={},NODES=[],LINKS=[],NBR={},CATANCHOR={},svg,vp,W=900,H=620;
 let view={x:0,y:0,k:1},alpha=1,selId=null,raf=0;
 const rOf=n=>n.type==='root'?15:n.type==='cat'?11:n.type==='entity'?8:n.type==='dep'?8:(n.verified?7:4.2);
 const fillOf=n=>n.type==='root'?'#111':n.type==='dep'?'#475569':(n.verified||n.type==='cat'||n.type==='entity'?(COLOR[n.cat]||'#94a3b8'):(COLOR[n.cat]||'#cfd6e0'));
@@ -105,6 +105,9 @@ function build(){
   LINKS.forEach(l=>{NBR[l.s.id].add(l.t.id);NBR[l.t.id].add(l.s.id);});
   // initial positions: cluster by category around center
   const catAng={}; DATA.cats.forEach((c,i)=>catAng[c.key]=i/DATA.cats.length*2*Math.PI);
+  // per-category anchor on a ring → same-color nodes cluster around their own anchor
+  const ringR=Math.min(W,H)*0.36; CATANCHOR={};
+  DATA.cats.forEach(c=>{const a=catAng[c.key];CATANCHOR[c.key]={x:W/2+Math.cos(a)*ringR,y:H/2+Math.sin(a)*ringR};});
   NODES.forEach((n,i)=>{const base=n.cat!=null?catAng[n.cat]||0:0;const a=base+(i%7)*0.3;const rad=n.type==='root'?0:n.type==='dep'?60:n.type==='cat'?150:230+(i%5)*18;n.x=W/2+Math.cos(a)*rad;n.y=H/2+Math.sin(a)*rad;n.vx=0;n.vy=0;});
   const root=BYID['__root']; if(root){root.x=W/2;root.y=H/2;}
   buildDOM(); bindUI();
@@ -140,7 +143,9 @@ function step(){
     for(let j=i+1;j<n;j++){const b=NODES[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy||1;if(d2<90000){const d=Math.sqrt(d2),f=4600/d2,fx=dx/d*f,fy=dy/d*f;a.vx+=fx;a.vy+=fy;if(!b.fixed){b.vx-=fx;b.vy-=fy;}}}
   }
   for(const l of LINKS){const a=l.s,b=l.t;let dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy)||1;const ideal=l.dep?190:(b.type==='rule'||a.type==='rule')?64:(a.type==='root'||b.type==='root')?160:120;const f=(d-ideal)*0.04,fx=dx/d*f,fy=dy/d*f;if(!a.fixed){a.vx+=fx;a.vy+=fy;}if(!b.fixed){b.vx-=fx;b.vy-=fy;}}
-  for(const nd of NODES){if(nd.fixed)continue;nd.vx+=(W/2-nd.x)*0.004;nd.vy+=(H/2-nd.y)*0.004;nd.x+=(nd.vx*=0.82)*alpha*1.4;nd.y+=(nd.vy*=0.82)*alpha*1.4;}
+  // category clustering: pull each colored node toward its category anchor (keeps same-color together)
+  for(const nd of NODES){if(nd.fixed||nd.cat==null)continue;const an=CATANCHOR[nd.cat];if(!an)continue;const k=nd.type==='cat'?0.05:nd.type==='entity'?0.04:0.03;nd.vx+=(an.x-nd.x)*k;nd.vy+=(an.y-nd.y)*k;}
+  for(const nd of NODES){if(nd.fixed)continue;nd.vx+=(W/2-nd.x)*0.002;nd.vy+=(H/2-nd.y)*0.002;nd.x+=(nd.vx*=0.82)*alpha*1.4;nd.y+=(nd.vy*=0.82)*alpha*1.4;}
 }
 function render(){
   vp.setAttribute('transform',`translate(${view.x.toFixed(1)},${view.y.toFixed(1)}) scale(${view.k.toFixed(3)})`);
