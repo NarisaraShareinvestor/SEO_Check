@@ -137,10 +137,10 @@ function loop(){
 function step(){
   const n=NODES.length;
   for(let i=0;i<n;i++){const a=NODES[i];if(a.fixed)continue;
-    for(let j=i+1;j<n;j++){const b=NODES[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy||1;if(d2<40000){const d=Math.sqrt(d2),f=2600/d2,fx=dx/d*f,fy=dy/d*f;a.vx+=fx;a.vy+=fy;if(!b.fixed){b.vx-=fx;b.vy-=fy;}}}
+    for(let j=i+1;j<n;j++){const b=NODES[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy||1;if(d2<90000){const d=Math.sqrt(d2),f=4600/d2,fx=dx/d*f,fy=dy/d*f;a.vx+=fx;a.vy+=fy;if(!b.fixed){b.vx-=fx;b.vy-=fy;}}}
   }
-  for(const l of LINKS){const a=l.s,b=l.t;let dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy)||1;const ideal=l.dep?150:(b.type==='rule'||a.type==='rule')?42:(a.type==='root'||b.type==='root')?120:80;const f=(d-ideal)*0.04,fx=dx/d*f,fy=dy/d*f;if(!a.fixed){a.vx+=fx;a.vy+=fy;}if(!b.fixed){b.vx-=fx;b.vy-=fy;}}
-  for(const nd of NODES){if(nd.fixed)continue;nd.vx+=(W/2-nd.x)*0.006;nd.vy+=(H/2-nd.y)*0.006;nd.x+=(nd.vx*=0.82)*alpha*1.4;nd.y+=(nd.vy*=0.82)*alpha*1.4;}
+  for(const l of LINKS){const a=l.s,b=l.t;let dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy)||1;const ideal=l.dep?190:(b.type==='rule'||a.type==='rule')?64:(a.type==='root'||b.type==='root')?160:120;const f=(d-ideal)*0.04,fx=dx/d*f,fy=dy/d*f;if(!a.fixed){a.vx+=fx;a.vy+=fy;}if(!b.fixed){b.vx-=fx;b.vy-=fy;}}
+  for(const nd of NODES){if(nd.fixed)continue;nd.vx+=(W/2-nd.x)*0.004;nd.vy+=(H/2-nd.y)*0.004;nd.x+=(nd.vx*=0.82)*alpha*1.4;nd.y+=(nd.vy*=0.82)*alpha*1.4;}
 }
 function render(){
   vp.setAttribute('transform',`translate(${view.x.toFixed(1)},${view.y.toFixed(1)}) scale(${view.k.toFixed(3)})`);
