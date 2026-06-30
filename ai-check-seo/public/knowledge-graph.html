@@ -99,10 +99,12 @@ function radial(){
 }
 function init(){
   radial();
-  const shown=DATA.nodes.filter(n=>n.type!=='rule'); // ซ่อน rule dots — ดูกฎใน panel ตอนคลิกกลุ่ม
+  // โชว์แค่โครง: root + กลุ่ม(entity) + dependency · หมวดสื่อด้วย "สี" (ไม่วาด category-node กันป้ายชนกลางจอ) · ซ่อน rule dots
+  const shown=DATA.nodes.filter(n=>n.type==='entity'||n.type==='dep'||n.type==='root');
   let a=1e9,b=1e9,c=-1e9,e=-1e9; shown.forEach(n=>{a=Math.min(a,n.x);b=Math.min(b,n.y);c=Math.max(c,n.x);e=Math.max(e,n.y);});
   const pad=64; shown.forEach(n=>POS[n.id]={x:n.x,y:n.y,r:rOf(n)});
-  const edgesH=DATA.edges.filter(g=>!g[2]).map(g=>{const x=BYID[g[0]],y=BYID[g[1]];if(!x||!y||x.type==='rule'||y.type==='rule')return'';return `<line x1="${x.x.toFixed(1)}" y1="${x.y.toFixed(1)}" x2="${y.x.toFixed(1)}" y2="${y.y.toFixed(1)}" stroke="#e6e6e9" stroke-width="1"/>`;}).join('');
+  const root=BYID['__root'];
+  const edgesH=shown.filter(n=>n.type==='entity'||n.type==='dep').map(n=>`<line x1="${root.x.toFixed(1)}" y1="${root.y.toFixed(1)}" x2="${n.x.toFixed(1)}" y2="${n.y.toFixed(1)}" stroke="${n.type==='dep'?'#cbd5e1':'#ebebee'}" stroke-width="1" ${n.type==='dep'?'stroke-dasharray="2 2"':''}/>`).join('');
   const nodesH=shown.map(n=>{
     const r=rOf(n), hasVer=n.type==='entity'&&ENTVER[n.id];
     const fill=n.type==='root'?'#111':n.type==='dep'?'#475569':(COLOR[n.cat]||'#94a3b8');
