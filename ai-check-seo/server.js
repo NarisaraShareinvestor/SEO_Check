@@ -63,6 +63,30 @@ function emitJob(job) {
 
 // Evidence snapshot — เซฟ raw/rendered HTML ต่อหน้าลง data/evidence/{auditId}/ (พิสูจน์ "หน้านี้เห็นแบบนี้จริง")
 const EVIDENCE_DIR = join(DATA_DIR, '..', 'evidence');
+// สกัด "ข้อมูลที่ตรวจเจอ" (signals) ต่อหน้า จาก page object ที่ engine ดึงมาแล้ว — ใช้แสดงใน Evidence View
+function pageSignals(p) {
+  const heads = p.headings || [];
+  const h1 = heads.filter(h => h.tag === 'h1').map(h => h.text).filter(Boolean);
+  const headingCounts = {};
+  heads.forEach(h => { headingCounts[h.tag] = (headingCounts[h.tag] || 0) + 1; });
+  const imgs = (p.images || []).filter(i => i.src);
+  const ldTypes = new Set();
+  (p.jsonLd || []).forEach(j => {
+    if (!j.ok) return;
+    const c = d => { if (Array.isArray(d)) return d.forEach(c); if (d && typeof d === 'object') { if (d['@type']) [].concat(d['@type']).forEach(t => ldTypes.add(t)); if (d['@graph']) c(d['@graph']); } };
+    c(j.data);
+  });
+  return {
+    title: p.title || '', titleH1Sim: (typeof p.titleH1Sim === 'number' ? p.titleH1Sim : null),
+    h1, headingCounts,
+    metaDescription: (p.metas && p.metas.description) || '',
+    canonical: p.canonical || '', robots: (p.metas && p.metas.robots) || '',
+    lang: p.lang || '', charset: p.charset || '',
+    images: { total: imgs.length, missingAlt: imgs.filter(i => i.alt == null).length, emptyAlt: imgs.filter(i => i.alt === '').length },
+    jsonLdTypes: [...ldTypes], wordCount: p.wordCount || 0, links: (p.links || []).length,
+  };
+}
+
 function writeEvidence(auditId, pages) {
   try {
     const dir = join(EVIDENCE_DIR, auditId);
@@ -71,7 +95,7 @@ function writeEvidence(auditId, pages) {
     for (const p of pages) {
       if (!p.rawSnapshot && !p.renderedSnapshot) continue;
       const slug = ((p.url || '').replace(/^https?:\/\//, '').replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80) || 'page') + '_' + (i++);
-      const entry = { url: p.url, status: p.status };
+      const entry = { url: p.url, status: p.status, signals: pageSignals(p) };
       if (p.rawSnapshot) { writeFileSync(join(dir, slug + '.raw.html'), p.rawSnapshot); entry.raw = slug + '.raw.html'; }
       if (p.renderedSnapshot) { writeFileSync(join(dir, slug + '.rendered.html'), p.renderedSnapshot); entry.rendered = slug + '.rendered.html'; }
       index.push(entry);
@@ -899,6 +923,59 @@ app.get('/api/evidence/:auditId/:file', (req, res) => {
   if (!/^[a-f0-9]+$/i.test(req.params.auditId) || !/^[a-zA-Z0-9._-]+\.html$/.test(req.params.file)) return res.status(400).end();
   try { res.type('html').send(readFileSync(join(EVIDENCE_DIR, req.params.auditId, req.params.file), 'utf8')); }
   catch { res.status(404).end(); }
+});
+
+// Evidence View — แสดง "ข้อมูลที่ตรวจเจอ" ต่อหน้า (signals ที่ engine ดึงมา + highlight จุดปัญหา) ไม่ใช่ HTML ดิบ
+app.get('/evidence/:auditId', (req, res) => {
+  if (!/^[a-f0-9]+$/i.test(req.params.auditId)) return res.status(400).send('bad id');
+  const id = req.params.auditId;
+  let idx;
+  try { idx = JSON.parse(readFileSync(join(EVIDENCE_DIR, id, 'index.json'), 'utf8')); }
+  catch { return res.status(404).send('ไม่มี evidence สำหรับ audit นี้'); }
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const rawLinks = (p) => {
+    const a = [];
+    if (p.raw) a.push(`<a href="/api/evidence/${id}/${esc(p.raw)}" target="_blank" rel="noopener">📄 HTML ดิบ (raw)</a>`);
+    if (p.rendered) a.push(`<a href="/api/evidence/${id}/${esc(p.rendered)}" target="_blank" rel="noopener">🖥️ HTML หลัง render</a>`);
+    return a.length ? `<div class="raw">ดูต้นฉบับ: ${a.join(' · ')}</div>` : '';
+  };
+  const cards = (idx.pages || []).map((p, i) => {
+    const s = p.signals;
+    if (!s) return `<div class="card" id="p${i}"><h2>${esc(p.url)}</h2><p class="note bad">audit นี้เก็บก่อนมี Evidence View — re-run audit เพื่อดูข้อมูลที่ตรวจเจอ</p>${rawLinks(p)}</div>`;
+    const rows = [
+      ['Title', s.title ? esc(s.title) : '<b class="bad">— ไม่มี title</b>'],
+      ['H1', s.h1.length ? s.h1.map(esc).join(' · ') + (s.h1.length > 1 ? ` <b class="bad">(${s.h1.length} ตัว)</b>` : '') : '<b class="bad">— ไม่มี H1</b>'],
+      ['title ↔ H1', s.titleH1Sim == null ? '—' : (s.titleH1Sim < 0.1 ? `<b class="bad">${s.titleH1Sim} — คนละเรื่อง</b>` : `${s.titleH1Sim} (สอดคล้อง)`)],
+      ['Meta description', s.metaDescription ? esc(s.metaDescription) : '<b class="bad">— ไม่มี</b>'],
+      ['Canonical', s.canonical ? esc(s.canonical) : '<b class="warn">— ไม่มี</b>'],
+      ['Robots', esc(s.robots || '(default index,follow)') + (/noindex/i.test(s.robots) ? ' <b class="bad">noindex!</b>' : '')],
+      ['Lang / charset', esc(s.lang || '—') + ' / ' + esc(s.charset || '—')],
+      ['Headings', Object.entries(s.headingCounts).map(([k, v]) => `${k}:${v}`).join('  ') || '—'],
+      ['Images', `${s.images.total} รูป` + (s.images.missingAlt ? ` · <b class="bad">${s.images.missingAlt} ไม่มี alt</b>` : '') + (s.images.emptyAlt ? ` · ${s.images.emptyAlt} ใช้ alt=""` : '')],
+      ['Structured data (JSON-LD)', s.jsonLdTypes.length ? s.jsonLdTypes.map(esc).join(', ') : '<b class="warn">— ไม่มี</b>'],
+      ['Word count', s.wordCount + (s.wordCount < 150 ? ' <b class="bad">(บางเกินไป)</b>' : '')],
+      ['Links', String(s.links)],
+    ];
+    return `<div class="card" id="p${i}">
+      <h2>${esc(p.url)} <span class="st">HTTP ${esc(p.status)}</span></h2>
+      <table>${rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('')}</table>
+      ${rawLinks(p)}
+    </div>`;
+  }).join('');
+  res.type('html').send(`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ข้อมูลที่ตรวจเจอ — ${esc(id)}</title><style>
+:root{--ln:#e2e8f0;--mut:#64748b}*{box-sizing:border-box}body{font-family:-apple-system,'Segoe UI',sans-serif;max-width:920px;margin:0 auto;padding:24px 18px;color:#1e293b;background:#f8fafc;line-height:1.6}
+h1{font-size:22px;margin:0 0 4px}.sub{color:var(--mut);font-size:13px;margin:0 0 20px}
+.card{background:#fff;border:1px solid var(--ln);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+.card h2{font-size:14px;margin:0 0 12px;word-break:break-all;font-weight:600}.st{font-size:11px;color:#15803d;background:#e6f4ea;padding:1px 7px;border-radius:6px;margin-left:6px}
+table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;color:var(--mut);font-weight:500;width:160px;vertical-align:top;padding:5px 10px 5px 0;white-space:nowrap}
+td{padding:5px 0;vertical-align:top;word-break:break-word}tr+tr th,tr+tr td{border-top:1px solid #f1f5f9}
+.bad{color:#c0392b}.warn{color:#b26b00}.note{font-size:13px}
+.raw{margin-top:12px;padding-top:10px;border-top:1px dashed var(--ln);font-size:12px;color:var(--mut)}.raw a{color:#0369a1;text-decoration:none}.raw a:hover{text-decoration:underline}
+</style></head><body>
+<h1>🔎 ข้อมูลที่ตรวจเจอ (Evidence)</h1>
+<p class="sub">audit ${esc(id)} · เก็บเมื่อ ${esc(idx.capturedAt || '')} · ${(idx.pages || []).length} หน้า — นี่คือสิ่งที่ระบบดึงได้จากแต่ละหน้าจริง และใช้เป็นฐานในการตัดสิน (สีแดง = จุดที่เป็นปัญหา)</p>
+${cards}</body></html>`);
 });
 
 app.listen(PORT, () => {

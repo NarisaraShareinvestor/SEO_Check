@@ -285,17 +285,16 @@ const evidenceLink = (pageStr) => {
   const url = Object.keys(evidenceMap).find(u => pageStr === u || pageStr.startsWith(u));
   const e = url && evidenceMap[url];
   if (!e) return '';
-  const parts = [];
-  if (e.raw) parts.push(`<a href="/api/evidence/${id}/${esc(e.raw)}" target="_blank" rel="noopener" title="HTML ดิบที่เซิร์ฟเวอร์ดึงมา ณ เวลาตรวจ">📄 HTML ที่ตรวจ</a>`);
-  if (e.rendered) parts.push(`<a href="/api/evidence/${id}/${esc(e.rendered)}" target="_blank" rel="noopener" title="HTML หลัง render ด้วย browser (เห็นเหมือนที่ Google เห็น)">🖥️ rendered</a>`);
-  return parts.length ? `<span class="evsnap"> · ${parts.join(' · ')}</span>` : '';
+  const anchor = (typeof e.i === 'number') ? `#p${e.i}` : '';
+  // ลิงก์ไป Evidence View ที่อ่านง่าย (signals ที่ดึงได้ + highlight ปัญหา) — raw/rendered HTML อยู่ในนั้น
+  return `<span class="evsnap"> · <a href="/evidence/${id}${anchor}" target="_blank" rel="noopener" title="ข้อมูล SEO ที่ระบบดึงจากหน้านี้จริง และใช้เป็นฐานตัดสิน">🔎 ข้อมูลที่ตรวจเจอ</a></span>`;
 };
 async function loadEvidenceMap(id) {
   evidenceMap = {};
   if (!id) return;
   try {
     const idx = await (await fetch('/api/evidence/' + id)).json();
-    for (const p of (idx.pages || [])) if (p.url) evidenceMap[p.url] = { raw: p.raw, rendered: p.rendered };
+    (idx.pages || []).forEach((p, i) => { if (p.url) evidenceMap[p.url] = { raw: p.raw, rendered: p.rendered, i }; });
     if (Object.keys(evidenceMap).length && currentAudit && currentAudit.id === id) renderChecks(currentAudit, checkFilter);
   } catch { /* audit เก่าไม่มี evidence — ไม่เป็นไร ลิงก์ไม่ขึ้น */ }
 }
