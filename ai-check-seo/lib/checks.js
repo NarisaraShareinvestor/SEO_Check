@@ -102,11 +102,13 @@ export function runChecks(site) {
     const titleMap = new Map();
     okPages.forEach(p => { if (p.title) titleMap.set(p.title, [...(titleMap.get(p.title) || []), p.url]); });
     const dupT = [...titleMap.entries()].filter(([, v]) => v.length > 1);
-    checks.push(dupT.length
-      ? mk('title-duplicate', 'onpage', 'high', 'fail', 'title ซ้ำกันหลายหน้า',
-        `${dupT.length} ชุด title ที่ซ้ำ เช่น "${trunc(dupT[0][0])}" ใช้ใน ${dupT[0][1].length} หน้า — Google สับสนว่าจะจัดอันดับหน้าไหน`,
-        'หน้าที่เป็นคนละเรื่อง: เขียน title เฉพาะของแต่ละหน้า · หน้าที่ต่างกันแค่ query param (เช่น ?page=, ?year=): ใส่ canonical ชี้หน้าหลัก หรือ noindex แทนการเขียน title ใหม่', dupT.flatMap(([, v]) => v), true)
-      : mk('title-duplicate', 'onpage', 'high', 'pass', 'ไม่มี title ซ้ำ', 'แต่ละหน้ามี title ไม่ซ้ำกัน'));
+    if (dupT.length) {
+      const c = mk('title-duplicate', 'onpage', 'high', 'fail', 'title ซ้ำกันหลายหน้า',
+        `พบ title ซ้ำ ${dupT.length} ค่า (รวม ${dupT.reduce((s, [, v]) => s + v.length, 0)} หน้า) — Google สับสนว่าจะจัดอันดับหน้าไหน · ดูด้านล่างว่าค่าไหนซ้ำที่หน้าใดบ้าง`,
+        'หน้าที่เป็นคนละเรื่อง: เขียน title เฉพาะของแต่ละหน้า · หน้าที่ต่างกันแค่ query param (เช่น ?page=, ?year=): ใส่ canonical ชี้หน้าหลัก หรือ noindex แทนการเขียน title ใหม่', dupT.flatMap(([, v]) => v), true);
+      c.groups = dupT.map(([value, pages]) => ({ value, pages }));
+      checks.push(c);
+    } else checks.push(mk('title-duplicate', 'onpage', 'high', 'pass', 'ไม่มี title ซ้ำ', 'แต่ละหน้ามี title ไม่ซ้ำกัน'));
 
     // desc 3-state เหมือน title: raw มี = PASS · JS/SPA สร้าง = WARNING · ไม่มีทั้ง raw+render = FAIL
     const rawNoDesc = okPages.filter(p => !p.metas['description']);
@@ -125,7 +127,11 @@ export function runChecks(site) {
     const descMap = new Map();
     okPages.forEach(p => { const d = p.metas['description']; if (d) descMap.set(d, [...(descMap.get(d) || []), p.url]); });
     const dupD = [...descMap.entries()].filter(([, v]) => v.length > 1);
-    if (dupD.length) checks.push(mk('desc-duplicate', 'onpage', 'med', 'warn', 'meta description ซ้ำกัน', `${dupD.length} ชุดซ้ำกันหลายหน้า`, 'เขียนเฉพาะแต่ละหน้า', dupD.flatMap(([, v]) => v), true));
+    if (dupD.length) {
+      const c = mk('desc-duplicate', 'onpage', 'med', 'warn', 'meta description ซ้ำกัน', `พบ description ซ้ำ ${dupD.length} ค่า (รวม ${dupD.reduce((s, [, v]) => s + v.length, 0)} หน้า) — ดูด้านล่างว่าค่าไหนซ้ำที่หน้าใดบ้าง`, 'เขียน description เฉพาะของแต่ละหน้า', dupD.flatMap(([, v]) => v), true);
+      c.groups = dupD.map(([value, pages]) => ({ value, pages }));
+      checks.push(c);
+    }
 
     // h1 3-state เหมือน title: raw มี = PASS · JS/SPA สร้าง = WARNING · ไม่มีทั้ง raw+render = FAIL
     const rawNoH1 = okPages.filter(p => !p.headings.some(h => h.tag === 'h1'));
@@ -691,7 +697,11 @@ export function runChecks(site) {
     const h1Map = new Map();
     okPages.forEach(p => { const h1 = p.headings.find(h => h.tag === 'h1')?.text; if (h1) h1Map.set(h1, [...(h1Map.get(h1) || []), p.url]); });
     const dupH1 = [...h1Map.entries()].filter(([, v]) => v.length > 1);
-    if (dupH1.length) checks.push(mk('h1-duplicate', 'onpage', 'med', 'warn', 'H1 ซ้ำกันหลายหน้า', `${dupH1.length} ชุด เช่น "${trunc(dupH1[0][0], 60)}" ใช้ ${dupH1[0][1].length} หน้า`, 'H1 ควรเฉพาะของแต่ละหน้าเหมือน title', dupH1.flatMap(([, v]) => v), true));
+    if (dupH1.length) {
+      const c = mk('h1-duplicate', 'onpage', 'med', 'warn', 'H1 ซ้ำกันหลายหน้า', `พบ H1 ซ้ำ ${dupH1.length} ค่า (รวม ${dupH1.reduce((s, [, v]) => s + v.length, 0)} หน้า) — ดูด้านล่างว่าค่าไหนซ้ำที่หน้าใดบ้าง`, 'H1 ควรเฉพาะของแต่ละหน้าเหมือน title', dupH1.flatMap(([, v]) => v), true);
+      c.groups = dupH1.map(([value, pages]) => ({ value, pages }));
+      checks.push(c);
+    }
 
     // heading ว่างเปล่า
     const emptyH = okPages.filter(p => p.emptyHeadings > 0);

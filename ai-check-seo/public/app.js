@@ -557,7 +557,9 @@ function renderChecks(audit, filter) {
         ${ch.recommendation ? `<div class="rec"><b>วิธีแก้</b> — ${esc(stripEmoji(ch.recommendation))}</div>` : ''}
         ${ch.reference ? `<div class="refln"><span class="reftier t${ch.reference.tier}">${esc(ch.reference.type)}</span> <b>อ้างอิง:</b> ${ch.reference.sources.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)} ↗</a>`).join(' · ')}</div>` : ''}
         ${reasonBlock(ch)}
-        ${(ch.evidence || []).length
+        ${(ch.groups || []).length
+          ? `<div class="plist"><b>ค่าที่ซ้ำ — แยกแต่ละจุด:</b>${ch.groups.map(g => `<div class="dupgrp"><div class="dupval">🔁 <b>"${esc(stripEmoji(String(g.value || '(ว่าง)')))}"</b> <span class="n">ซ้ำ ${g.pages.length} หน้า</span></div>${g.pages.map(u => `<div class="evrow"><a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>${evidenceLink(u)}</div>`).join('')}</div>`).join('')}</div>`
+          : (ch.evidence || []).length
           ? `<div class="plist"><b>หลักฐานรายหน้า:</b>${ch.evidence.map(e => `<div class="evrow"><a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.url)}</a>${e.note ? `<span class="evnote"> — ${esc(e.note)}</span>` : ''}${evidenceLink(e.url)}</div>`).join('')}</div>`
           : (ch.pages || []).length ? `<div class="plist">${ch.pages.map(p => `<div class="evrow"><a href="${esc(p)}" target="_blank" rel="noopener">${esc(p)}</a>${evidenceLink(p)}</div>`).join('')}</div>` : ''}
         ${ch.fixable ? `<div class="note">มีไฟล์แก้ในแท็บ Auto-Fix</div>` : ''}
