@@ -939,29 +939,35 @@ app.get('/evidence/:auditId', (req, res) => {
     if (p.rendered) a.push(`<a href="/api/evidence/${id}/${esc(p.rendered)}" target="_blank" rel="noopener">🖥️ HTML หลัง render</a>`);
     return a.length ? `<div class="raw">ดูต้นฉบับ: ${a.join(' · ')}</div>` : '';
   };
+  // focus = แสดงเฉพาะ field ที่เกี่ยวกับ finding ที่กดมา (เช่น title-duplicate → focus=title) · ไม่ส่ง = หลักฐานรวมทุก field
+  const focus = String(req.query.focus || '').toLowerCase();
+  const FOCUS_ROWS = { title: ['title'], h1: ['h1'], titleh1: ['title', 'h1', 'titleh1'], desc: ['desc'], canonical: ['canonical'], robots: ['robots'], images: ['images'], schema: ['schema'], content: ['wordcount'], lang: ['lang'], headings: ['headings'] };
+  const keep = (focus && FOCUS_ROWS[focus]) ? new Set(FOCUS_ROWS[focus]) : null;
   const cards = (idx.pages || []).map((p, i) => {
     const s = p.signals;
     if (!s) return `<div class="card" id="p${i}"><h2>${esc(p.url)}</h2><p class="note bad">audit นี้เก็บก่อนมี Evidence View — re-run audit เพื่อดูข้อมูลที่ตรวจเจอ</p>${rawLinks(p)}</div>`;
     const rows = [
-      ['Title', s.title ? esc(s.title) : '<b class="bad">— ไม่มี title</b>'],
-      ['H1', s.h1.length ? s.h1.map(esc).join(' · ') + (s.h1.length > 1 ? ` <b class="bad">(${s.h1.length} ตัว)</b>` : '') : '<b class="bad">— ไม่มี H1</b>'],
-      ['title ↔ H1', s.titleH1Sim == null ? '—' : (s.titleH1Sim < 0.1 ? `<b class="bad">${s.titleH1Sim} — คนละเรื่อง</b>` : `${s.titleH1Sim} (สอดคล้อง)`)],
-      ['Meta description', s.metaDescription ? esc(s.metaDescription) : '<b class="bad">— ไม่มี</b>'],
-      ['Canonical', s.canonical ? esc(s.canonical) : '<b class="warn">— ไม่มี</b>'],
-      ['Robots', esc(s.robots || '(default index,follow)') + (/noindex/i.test(s.robots) ? ' <b class="bad">noindex!</b>' : '')],
-      ['Lang / charset', esc(s.lang || '—') + ' / ' + esc(s.charset || '—')],
-      ['Headings', Object.entries(s.headingCounts).map(([k, v]) => `${k}:${v}`).join('  ') || '—'],
-      ['Images', `${s.images.total} รูป` + (s.images.missingAlt ? ` · <b class="bad">${s.images.missingAlt} ไม่มี alt</b>` : '') + (s.images.emptyAlt ? ` · ${s.images.emptyAlt} ใช้ alt=""` : '')],
-      ['Structured data (JSON-LD)', s.jsonLdTypes.length ? s.jsonLdTypes.map(esc).join(', ') : '<b class="warn">— ไม่มี</b>'],
-      ['Word count', s.wordCount + (s.wordCount < 150 ? ' <b class="bad">(บางเกินไป)</b>' : '')],
-      ['Links', String(s.links)],
+      ['title', 'Title', s.title ? esc(s.title) : '<b class="bad">— ไม่มี title</b>'],
+      ['h1', 'H1', s.h1.length ? s.h1.map(esc).join(' · ') + (s.h1.length > 1 ? ` <b class="bad">(${s.h1.length} ตัว)</b>` : '') : '<b class="bad">— ไม่มี H1</b>'],
+      ['titleh1', 'title ↔ H1', s.titleH1Sim == null ? '—' : (s.titleH1Sim < 0.1 ? `<b class="bad">${s.titleH1Sim} — คนละเรื่อง</b>` : `${s.titleH1Sim} (สอดคล้อง)`)],
+      ['desc', 'Meta description', s.metaDescription ? esc(s.metaDescription) : '<b class="bad">— ไม่มี</b>'],
+      ['canonical', 'Canonical', s.canonical ? esc(s.canonical) : '<b class="warn">— ไม่มี</b>'],
+      ['robots', 'Robots', esc(s.robots || '(default index,follow)') + (/noindex/i.test(s.robots) ? ' <b class="bad">noindex!</b>' : '')],
+      ['lang', 'Lang / charset', esc(s.lang || '—') + ' / ' + esc(s.charset || '—')],
+      ['headings', 'Headings', Object.entries(s.headingCounts).map(([k, v]) => `${k}:${v}`).join('  ') || '—'],
+      ['images', 'Images', `${s.images.total} รูป` + (s.images.missingAlt ? ` · <b class="bad">${s.images.missingAlt} ไม่มี alt</b>` : '') + (s.images.emptyAlt ? ` · ${s.images.emptyAlt} ใช้ alt=""` : '')],
+      ['schema', 'Structured data (JSON-LD)', s.jsonLdTypes.length ? s.jsonLdTypes.map(esc).join(', ') : '<b class="warn">— ไม่มี</b>'],
+      ['wordcount', 'Word count', s.wordCount + (s.wordCount < 150 ? ' <b class="bad">(บางเกินไป)</b>' : '')],
+      ['links', 'Links', String(s.links)],
     ];
+    const shown = keep ? rows.filter(r => keep.has(r[0])) : rows;
     return `<div class="card" id="p${i}">
       <h2>${esc(p.url)} <span class="st">HTTP ${esc(p.status)}</span></h2>
-      <table>${rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('')}</table>
+      <table>${shown.map(([k, label, v]) => `<tr><th>${label}</th><td>${v}</td></tr>`).join('')}</table>
       ${rawLinks(p)}
     </div>`;
   }).join('');
+  const focusBanner = keep ? `<div class="focusbar">แสดงเฉพาะข้อมูลที่เกี่ยวกับ finding นี้ · <a href="/evidence/${esc(id)}">ดูข้อมูลทั้งหมดของทุกหน้า (หลักฐานรวม) →</a></div>` : '';
   res.type('html').send(`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ข้อมูลที่ตรวจเจอ — ${esc(id)}</title><style>
 :root{--ln:#e2e8f0;--mut:#64748b}*{box-sizing:border-box}body{font-family:-apple-system,'Segoe UI',sans-serif;max-width:920px;margin:0 auto;padding:24px 18px;color:#1e293b;background:#f8fafc;line-height:1.6}
@@ -972,9 +978,11 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;colo
 td{padding:5px 0;vertical-align:top;word-break:break-word}tr+tr th,tr+tr td{border-top:1px solid #f1f5f9}
 .bad{color:#c0392b}.warn{color:#b26b00}.note{font-size:13px}
 .raw{margin-top:12px;padding-top:10px;border-top:1px dashed var(--ln);font-size:12px;color:var(--mut)}.raw a{color:#0369a1;text-decoration:none}.raw a:hover{text-decoration:underline}
+.focusbar{background:#eef6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;padding:9px 12px;font-size:12.5px;margin-bottom:16px}.focusbar a{color:#0369a1;font-weight:600;text-decoration:none}.focusbar a:hover{text-decoration:underline}
 </style></head><body>
 <h1>🔎 ข้อมูลที่ตรวจเจอ (Evidence)</h1>
 <p class="sub">audit ${esc(id)} · เก็บเมื่อ ${esc(idx.capturedAt || '')} · ${(idx.pages || []).length} หน้า — นี่คือสิ่งที่ระบบดึงได้จากแต่ละหน้าจริง และใช้เป็นฐานในการตัดสิน (สีแดง = จุดที่เป็นปัญหา)</p>
+${focusBanner}
 ${cards}</body></html>`);
 });
 

@@ -279,15 +279,31 @@ const reasonBlock = (ch) => {
 };
 // Evidence Drawer: ลิงก์ไป HTML snapshot จริงที่เซิร์ฟเวอร์เก็บไว้ตอนตรวจ → "นี่คือหลักฐานที่เราเห็น ไม่ได้มั่ว"
 // pageStr อาจมี suffix เช่น "https://… (8 รูป)" → จับ url ที่ขึ้นต้นแทน match ตรงตัว
-const evidenceLink = (pageStr) => {
+// map check id → field ที่จะ focus ใน Evidence View (กด finding ไหน เห็นเฉพาะข้อมูลที่เกี่ยว)
+const focusForCheck = (id = '') => {
+  if (/^title-h1/.test(id)) return 'titleh1';
+  if (/^title/.test(id)) return 'title';
+  if (/^h1|^heading|empty-headings/.test(id)) return 'h1';
+  if (/desc|description/.test(id)) return 'desc';
+  if (/canonical/.test(id)) return 'canonical';
+  if (/noindex|robots/.test(id)) return 'robots';
+  if (/^img|image/.test(id)) return 'images';
+  if (/schema|jsonld/.test(id)) return 'schema';
+  if (/content-thin|text-ratio/.test(id)) return 'content';
+  if (/lang/.test(id)) return 'lang';
+  return '';
+};
+const evidenceLink = (pageStr, ch) => {
   const id = currentAudit && currentAudit.id;
   if (!id || !pageStr) return '';
   const url = Object.keys(evidenceMap).find(u => pageStr === u || pageStr.startsWith(u));
   const e = url && evidenceMap[url];
   if (!e) return '';
   const anchor = (typeof e.i === 'number') ? `#p${e.i}` : '';
-  // ลิงก์ไป Evidence View ที่อ่านง่าย (signals ที่ดึงได้ + highlight ปัญหา) — raw/rendered HTML อยู่ในนั้น
-  return `<span class="evsnap"> · <a href="/evidence/${id}${anchor}" target="_blank" rel="noopener" title="ข้อมูล SEO ที่ระบบดึงจากหน้านี้จริง และใช้เป็นฐานตัดสิน">🔎 ข้อมูลที่ตรวจเจอ</a></span>`;
+  const f = ch ? focusForCheck(ch.id) : '';
+  const q = f ? `?focus=${f}` : '';
+  // ลิงก์ไป Evidence View — เฉพาะ field ที่เกี่ยวกับ finding นี้ (full view = ลิงก์ "หลักฐานรวม" ด้านบน)
+  return `<span class="evsnap"> · <a href="/evidence/${id}${q}${anchor}" target="_blank" rel="noopener" title="ข้อมูลที่ระบบดึงจากหน้านี้ เฉพาะส่วนที่เกี่ยวกับ finding นี้">🔎 หลักฐาน</a></span>`;
 };
 async function loadEvidenceMap(id) {
   evidenceMap = {};
@@ -533,7 +549,8 @@ function renderChecks(audit, filter) {
   $('#filterbar').innerHTML = `
     <button class="fbtn ${checkFilter === 'issues' ? 'on' : ''}" onclick="renderChecks(currentAudit,'issues')">เฉพาะปัญหา</button>
     <button class="fbtn ${checkFilter === 'all' ? 'on' : ''}" onclick="renderChecks(currentAudit,'all')">ทั้งหมด</button>
-    ${cats.map(cat => `<button class="fbtn ${checkFilter === cat ? 'on' : ''}" onclick="renderChecks(currentAudit,'${cat}')">${esc(audit.categories[cat] || cat)}</button>`).join('')}`;
+    ${cats.map(cat => `<button class="fbtn ${checkFilter === cat ? 'on' : ''}" onclick="renderChecks(currentAudit,'${cat}')">${esc(audit.categories[cat] || cat)}</button>`).join('')}
+    ${(currentAudit && currentAudit.id && Object.keys(evidenceMap).length) ? `<a class="evidence-all" href="/evidence/${currentAudit.id}" target="_blank" rel="noopener" title="ข้อมูล SEO ที่ดึงได้ครบทุก field ทุกหน้า">🔎 หลักฐานรวมทุกหน้า</a>` : ''}`;
 
   const order = { fail: 0, warn: 1, info: 2, pass: 3 };
   const sevOrder = { high: 0, med: 1, low: 2 };
@@ -558,10 +575,10 @@ function renderChecks(audit, filter) {
         ${ch.reference ? `<div class="refln"><span class="reftier t${ch.reference.tier}">${esc(ch.reference.type)}</span> <b>อ้างอิง:</b> ${ch.reference.sources.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)} ↗</a>`).join(' · ')}</div>` : ''}
         ${reasonBlock(ch)}
         ${(ch.groups || []).length
-          ? `<div class="plist"><b>ค่าที่ซ้ำ — แยกแต่ละจุด:</b>${ch.groups.map(g => `<div class="dupgrp"><div class="dupval">🔁 <b>"${esc(stripEmoji(String(g.value || '(ว่าง)')))}"</b> <span class="n">ซ้ำ ${g.pages.length} หน้า</span></div>${g.pages.map(u => `<div class="evrow"><a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>${evidenceLink(u)}</div>`).join('')}</div>`).join('')}</div>`
+          ? `<div class="plist"><b>ค่าที่ซ้ำ — แยกแต่ละจุด:</b>${ch.groups.map(g => `<div class="dupgrp"><div class="dupval">🔁 <b>"${esc(stripEmoji(String(g.value || '(ว่าง)')))}"</b> <span class="n">ซ้ำ ${g.pages.length} หน้า</span></div>${g.pages.map(u => `<div class="evrow"><a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>${evidenceLink(u, ch)}</div>`).join('')}</div>`).join('')}</div>`
           : (ch.evidence || []).length
-          ? `<div class="plist"><b>หลักฐานรายหน้า:</b>${ch.evidence.map(e => `<div class="evrow"><a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.url)}</a>${e.note ? `<span class="evnote"> — ${esc(e.note)}</span>` : ''}${evidenceLink(e.url)}</div>`).join('')}</div>`
-          : (ch.pages || []).length ? `<div class="plist">${ch.pages.map(p => `<div class="evrow"><a href="${esc(p)}" target="_blank" rel="noopener">${esc(p)}</a>${evidenceLink(p)}</div>`).join('')}</div>` : ''}
+          ? `<div class="plist"><b>หลักฐานรายหน้า:</b>${ch.evidence.map(e => `<div class="evrow"><a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.url)}</a>${e.note ? `<span class="evnote"> — ${esc(e.note)}</span>` : ''}${evidenceLink(e.url, ch)}</div>`).join('')}</div>`
+          : (ch.pages || []).length ? `<div class="plist">${ch.pages.map(p => `<div class="evrow"><a href="${esc(p)}" target="_blank" rel="noopener">${esc(p)}</a>${evidenceLink(p, ch)}</div>`).join('')}</div>` : ''}
         ${ch.fixable ? `<div class="note">มีไฟล์แก้ในแท็บ Auto-Fix</div>` : ''}
       </div>
     </details>`).join('') || '<div class="empty">ไม่มีรายการในหมวดนี้</div>';
