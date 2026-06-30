@@ -39,7 +39,8 @@
   .pmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 2px}
   .pill{font-size:11px;font-weight:600;padding:2px 11px;border-radius:99px}
   .pill.ok{background:var(--ink);color:#fff} .pill.todo{background:var(--chip-bg);color:var(--chip-tx)}
-  .cat{font-size:11px;font-weight:600;color:var(--chip-tx);background:var(--chip-bg);padding:2px 11px;border-radius:99px}
+  .cat{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--chip-tx);background:var(--chip-bg);padding:3px 11px;border-radius:99px}
+  .cat i{width:8px;height:8px;border-radius:50%}
   .pnote{font-size:12px;color:var(--mut);margin-top:2px}
   .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:700;margin:18px 0 7px}
   .body{font-size:13.5px;line-height:1.68}
@@ -49,10 +50,13 @@
   ol.steps li::before{content:counter(s);position:absolute;left:0;top:3px;width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;font-weight:600;font-size:11px;display:grid;place-items:center}
   .rule{background:var(--hover);border:1px solid var(--border);border-radius:9px;padding:9px 12px;font-family:var(--mono);font-size:12px;color:var(--text);margin:6px 0;white-space:pre-wrap;line-height:1.55}
   .chips{display:flex;flex-wrap:wrap;gap:6px}
-  .chip{display:inline-block;background:var(--chip-bg);color:var(--chip-tx);border:1px solid transparent;border-radius:8px;padding:3px 10px;font-size:12px}
-  a.chip{cursor:pointer;text-decoration:none}
-  a.chip:hover{border-color:var(--border2);color:var(--text);background:#fff}
-  a.chip.ver{background:var(--ink);color:#fff}
+  .chip{display:inline-block;border-radius:8px;padding:3px 10px;font-size:12px;border:1px solid transparent}
+  a.chip{cursor:pointer;text-decoration:none;background:color-mix(in srgb,var(--c,#a1a1aa) 10%,#fff);border-color:color-mix(in srgb,var(--c,#a1a1aa) 22%,#fff);color:#3f3f46}
+  a.chip:hover{background:color-mix(in srgb,var(--c,#a1a1aa) 18%,#fff);border-color:var(--c,#a1a1aa);color:#111}
+  a.chip.ver{background:var(--ink);border-color:var(--ink);color:#fff}
+  a.chip.ver:hover{background:var(--ink);border-color:var(--ink);color:#fff;opacity:.85}
+  .catdot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+  .grp-nm{font-size:12px;font-weight:600;color:var(--text)}
   .reflist a{display:block;color:var(--text);text-decoration:underline;text-decoration-color:var(--border2);text-underline-offset:2px;font-size:12.8px;padding:3px 0}
   .reflist a:hover{text-decoration-color:var(--ink)}
   .pending{background:var(--hover);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:12.3px;color:var(--mut);margin:11px 0}
@@ -144,7 +148,7 @@ function summary(){
     <div class="k">ยืนยันถูกต้องแล้ว</div><div class="chips">${ver.map(n=>`<a class="chip ver" onclick="sel('${esc(n.id)}')">${esc(n.label)}</a>`).join('')}</div>
     <div class="k">รอไล่ตรวจ (${todo.length})</div>`;
   for(const ct of DATA.cats){const arr=byCat[ct.key];if(!arr||!arr.length)continue;
-    h+=`<div class="grp"><div class="grp-h"><span class="cat">${esc(ct.label)}</span><span class="body mut">${arr.length}</span></div><div class="chips">${arr.map(n=>`<a class="chip" onclick="sel('${esc(n.id)}')">${esc(n.label)}</a>`).join('')}</div></div>`;}
+    h+=`<div class="grp"><div class="grp-h"><span class="catdot" style="background:${ct.color}"></span><span class="grp-nm">${esc(ct.label)}</span><span class="body mut">${arr.length}</span></div><div class="chips">${arr.map(n=>`<a class="chip" style="--c:${ct.color}" onclick="sel('${esc(n.id)}')">${esc(n.label)}</a>`).join('')}</div></div>`;}
   paint(h);
 }
 function sel(id){
@@ -154,7 +158,7 @@ function sel(id){
   const refs=(n.refs||[]).map(r=>`<a href="${esc(r[1])}" target="_blank" rel="noopener">${esc(r[0])}</a>`).join('')||'<span class="body mut">—</span>';
   let h=`<button class="back" onclick="summary()">‹ ทั้งหมด</button>
     <div class="pname">${esc(n.label)}</div>
-    <div class="pmeta"><span class="cat">${esc(cat.label)}</span><span class="pill ${n.verified?'ok':'todo'}">${n.verified?'ยืนยันถูกต้องแล้ว':'รอตรวจสอบ'}</span></div>
+    <div class="pmeta"><span class="cat"><i style="background:${cat.color||'#a1a1aa'}"></i>${esc(cat.label)}</span><span class="pill ${n.verified?'ok':'todo'}">${n.verified?'ยืนยันถูกต้องแล้ว':'รอตรวจสอบ'}</span></div>
     ${n.note?`<div class="pnote">${esc(n.note)}</div>`:''}`;
   if(!n.verified) h+=`<div class="pending">ยังไม่ได้ไล่ตรวจ false-positive ราย check นี้ — logic ด้านล่างคือสิ่งที่ทำไว้/เสนอ รอยืนยัน</div>`;
   if(n.what) h+=`<div class="k">ตรวจอะไร · What</div><div class="body">${esc(n.what)}</div>`;
