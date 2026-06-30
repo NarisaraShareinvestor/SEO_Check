@@ -15,15 +15,16 @@
   .app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
   header{flex:none;padding:24px 30px 18px;border-bottom:1px solid var(--border)}
   header h1{font-size:25px;font-weight:700;letter-spacing:-.3px}
-  header .sub{font-size:13.5px;color:var(--mut);margin-top:4px;max-width:820px}
+  header .sub{font-size:13.5px;color:var(--mut);margin-top:4px;max-width:840px}
   .board{flex:1;display:flex;min-height:0}
   .graph{flex:1;position:relative;min-width:0;background:#fcfcfd}
-  #svg{position:absolute;inset:0;width:100%;height:100%;cursor:grab}
+  #svg{position:absolute;inset:0;width:100%;height:100%}
   .loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--mut);font-size:13px}
   .legend{position:absolute;left:18px;bottom:16px;background:rgba(255,255,255,.9);backdrop-filter:blur(4px);border:1px solid var(--border);border-radius:12px;padding:9px 13px;display:flex;flex-wrap:wrap;gap:5px 15px;font-size:11.5px;color:var(--mut);max-width:min(640px,74%)}
   .legend span{display:inline-flex;align-items:center;gap:6px}
   .legend i{width:9px;height:9px;border-radius:50%;flex:none}
   .legend i.sq{border-radius:2px;background:#475569}
+  .legend i.ring{background:#fff;border:2px solid #111}
   .legend i.dash{width:16px;height:0;border-radius:0;border-top:1.6px dashed var(--ink)}
   .legend .sep{flex-basis:100%;height:0;gap:0}
   .rail{width:392px;flex:none;background:var(--bg);border-left:1px solid var(--border);overflow-y:auto;padding:24px}
@@ -65,7 +66,7 @@
 <div class="app">
   <header>
     <h1>ตรรกะการตรวจ</h1>
-    <p class="sub">Knowledge Graph 3 ชั้น — หมวด → กลุ่ม (entity เช่น H1/Title) → กฎ (rule) · คลิกดู What · How · Decision Rule · Final URL/Canonical/Language/Page Type เป็น <b>dependency</b> ของกฎ ไม่ใช่ลูก</p>
+    <p class="sub">Knowledge Graph — หมวด → กลุ่ม (entity เช่น H1, Title, Canonical) · คลิกกลุ่มเพื่อดูกฎทั้งหมดในกลุ่ม + What/How/Decision · <b>Final URL/Canonical/Language/Page Type</b> = dependency (สี่เหลี่ยม) คลิกเพื่อดูว่ากฎไหนใช้</p>
   </header>
   <div class="board">
     <section class="graph">
@@ -79,66 +80,72 @@
 <script>
 if(window.self!==window.top)document.documentElement.classList.add('embed');
 const esc=s=>String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-let DATA,POS={},COLOR={},BYID={};
-fetch('/skill-graph.json').then(r=>r.json()).then(d=>{DATA=d;d.cats.forEach(c=>COLOR[c.key]=c.color);d.nodes.forEach(n=>BYID[n.id]=n);init();}).catch(()=>{document.getElementById('loading').textContent='โหลดกราฟไม่สำเร็จ';});
+const rOf=n=>n.type==='root'?14:n.type==='cat'?11:n.type==='entity'?8:n.type==='dep'?8:4;
+let DATA,POS={},COLOR={},BYID={},ENTVER={};
+fetch('/skill-graph.json').then(r=>r.json()).then(d=>{DATA=d;d.cats.forEach(c=>COLOR[c.key]=c.color);d.nodes.forEach(n=>BYID[n.id]=n);d.nodes.filter(n=>n.type==='rule'&&n.verified).forEach(r=>{ENTVER['__ent_'+r.entity]=(ENTVER['__ent_'+r.entity]||0)+1;});init();}).catch(()=>{document.getElementById('loading').textContent='โหลดกราฟไม่สำเร็จ';});
 
-function layout(nodes,edges,W,H){
-  const keys=[...new Set(nodes.filter(n=>n.cat).map(n=>n.cat))];
-  const anchor={};
-  keys.forEach((k,i)=>{const a=i/keys.length*2*Math.PI-Math.PI/2;anchor[k]={x:W/2+Math.cos(a)*W*0.32,y:H/2+Math.sin(a)*H*0.34};});
-  const center={x:W/2,y:H/2};
-  nodes.forEach((n,i)=>{const a=n.cat?anchor[n.cat]:center;n.x=a.x+Math.cos(i*2.399)*44;n.y=a.y+Math.sin(i*2.399)*44;n.vx=n.vy=0;});
-  const map=Object.fromEntries(nodes.map(n=>[n.id,n]));
-  const E=edges.map(e=>[map[e[0]],map[e[1]],e[2]]).filter(e=>e[0]&&e[1]);
-  for(let it=0;it<420;it++){const cool=1-it/520;
-    for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){const a=nodes[i],b=nodes[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy||1,d=Math.sqrt(d2);const rep=1500/d2,fx=dx/d*rep,fy=dy/d*rep;a.vx+=fx;a.vy+=fy;b.vx-=fx;b.vy-=fy;}
-    for(const[a,b,dep]of E){let dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy)||1;const ideal=dep?120:54;const f=(d-ideal)*(dep?0.006:0.03),fx=dx/d*f,fy=dy/d*f;a.vx+=fx;a.vy+=fy;b.vx-=fx;b.vy-=fy;}
-    for(const n of nodes){const a=n.cat?anchor[n.cat]:center;const g=n.type==='dep'?0.004:0.012;n.vx+=(a.x-n.x)*g;n.vy+=(a.y-n.y)*g;}
-    for(const n of nodes){n.x+=Math.max(-9,Math.min(9,n.vx*0.85*cool));n.y+=Math.max(-9,Math.min(9,n.vy*0.85*cool));n.vx*=0.55;n.vy*=0.55;}
-  }
+function radial(){
+  const W=1000,H=720,cx=W/2,cy=H/2,R1=190,R2=345,RD=80;
+  const root=DATA.nodes.find(n=>n.type==='root'); if(root){root.x=cx;root.y=cy;}
+  const ents=DATA.nodes.filter(n=>n.type==='entity'); const total=ents.length||1;
+  ents.forEach((e,k)=>{const ang=k/total*2*Math.PI-Math.PI/2;e.ang=ang;e.x=cx+Math.cos(ang)*R2;e.y=cy+Math.sin(ang)*R2;});
+  DATA.nodes.filter(n=>n.type==='cat').forEach(c=>{
+    const ce=ents.filter(e=>e.cat===c.key);
+    if(ce.length){const ma=Math.atan2(ce.reduce((s,e)=>s+Math.sin(e.ang),0),ce.reduce((s,e)=>s+Math.cos(e.ang),0));c.x=cx+Math.cos(ma)*R1;c.y=cy+Math.sin(ma)*R1;}
+    else{c.x=cx;c.y=cy-R1;}
+  });
+  const deps=DATA.nodes.filter(n=>n.type==='dep');
+  deps.forEach((d,i)=>{const ang=i/deps.length*2*Math.PI+Math.PI/2;d.x=cx+Math.cos(ang)*RD;d.y=cy+Math.sin(ang)*RD;});
 }
 function init(){
-  const W=1000,H=720; layout(DATA.nodes,DATA.edges,W,H);
-  const map=BYID;
-  let a=1e9,b=1e9,c=-1e9,e=-1e9;
-  DATA.nodes.forEach(n=>{a=Math.min(a,n.x);b=Math.min(b,n.y);c=Math.max(c,n.x);e=Math.max(e,n.y);});
-  const pad=50;
-  const rOf=n=>n.type==='root'?13:n.type==='cat'?10:n.type==='entity'?7:n.type==='dep'?8:(n.verified?7.5:3.2);
-  const fillOf=n=>n.type==='root'?'#111':n.type==='dep'?'#475569':(n.verified||n.type==='cat'||n.type==='entity'?(COLOR[n.cat]||'#94a3b8'):(COLOR[n.cat]||'#c4ccd8'));
-  const opOf=n=>(n.type==='rule'&&!n.verified)?.4:1;
-  DATA.nodes.forEach(n=>POS[n.id]={x:n.x,y:n.y,r:rOf(n)});
-  const edgesH=DATA.edges.map(g=>{const x=map[g[0]],y=map[g[1]];if(!x||!y)return'';const dep=g[2]==='dep';return `<line x1="${x.x.toFixed(1)}" y1="${x.y.toFixed(1)}" x2="${y.x.toFixed(1)}" y2="${y.y.toFixed(1)}" stroke="${dep?'#111':'#e4e4e7'}" stroke-width="${dep?1.4:.9}" ${dep?'stroke-dasharray="3 3" stroke-opacity=".7"':''}/>`;}).join('');
-  const nodesH=DATA.nodes.map(n=>{
-    const r=rOf(n),show=n.type!=='rule'||n.verified;
+  radial();
+  const shown=DATA.nodes.filter(n=>n.type!=='rule'); // ซ่อน rule dots — ดูกฎใน panel ตอนคลิกกลุ่ม
+  let a=1e9,b=1e9,c=-1e9,e=-1e9; shown.forEach(n=>{a=Math.min(a,n.x);b=Math.min(b,n.y);c=Math.max(c,n.x);e=Math.max(e,n.y);});
+  const pad=64; shown.forEach(n=>POS[n.id]={x:n.x,y:n.y,r:rOf(n)});
+  const edgesH=DATA.edges.filter(g=>!g[2]).map(g=>{const x=BYID[g[0]],y=BYID[g[1]];if(!x||!y||x.type==='rule'||y.type==='rule')return'';return `<line x1="${x.x.toFixed(1)}" y1="${x.y.toFixed(1)}" x2="${y.x.toFixed(1)}" y2="${y.y.toFixed(1)}" stroke="#e6e6e9" stroke-width="1"/>`;}).join('');
+  const nodesH=shown.map(n=>{
+    const r=rOf(n), hasVer=n.type==='entity'&&ENTVER[n.id];
+    const fill=n.type==='root'?'#111':n.type==='dep'?'#475569':(COLOR[n.cat]||'#94a3b8');
     const lblCls=n.type==='cat'?'hub':n.type==='entity'?'ent':n.type==='dep'?'dep':'';
-    const lbl=show?`<text class="lbl ${lblCls}" x="${n.x.toFixed(1)}" y="${(n.y-r-6).toFixed(1)}" text-anchor="middle">${esc(n.label)}</text>`:'';
-    const clk=n.type==='rule'||n.type==='entity'||n.type==='dep';
+    const lbl=`<text class="lbl ${lblCls}" x="${n.x.toFixed(1)}" y="${(n.y-r-6).toFixed(1)}" text-anchor="middle">${esc(n.label)}${hasVer?'  ✓'+ENTVER[n.id]:''}</text>`;
+    const clk=n.type!=='root';
     const shape=n.type==='dep'
-      ? `<rect id="c-${esc(n.id)}" x="${(n.x-r).toFixed(1)}" y="${(n.y-r).toFixed(1)}" width="${(r*2).toFixed(1)}" height="${(r*2).toFixed(1)}" rx="2.5" fill="${fillOf(n)}" stroke="#fff" stroke-width="1.4"/>`
-      : `<circle id="c-${esc(n.id)}" cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${r}" fill="${fillOf(n)}" fill-opacity="${opOf(n)}" stroke="#fff" stroke-width="1.3"/>`;
-    return `<g class="gnode" ${clk?`onclick="sel('${n.id}')" style="cursor:pointer"`:''}><title>${esc(n.label)}${n.type==='rule'?(n.verified?' — ยืนยันแล้ว':' — รอตรวจ'):n.type==='dep'?' — dependency':''}</title>${shape}${lbl}</g>`;
+      ?`<rect id="c-${esc(n.id)}" x="${(n.x-r).toFixed(1)}" y="${(n.y-r).toFixed(1)}" width="${(r*2).toFixed(1)}" height="${(r*2).toFixed(1)}" rx="2.5" fill="${fill}" stroke="#fff" stroke-width="1.4"/>`
+      :`<circle id="c-${esc(n.id)}" cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${r}" fill="${fill}" stroke="${hasVer?'#111':'#fff'}" stroke-width="${hasVer?2:1.4}"/>`;
+    return `<g class="gnode" ${clk?`onclick="sel('${n.id}')" style="cursor:pointer"`:''}><title>${esc(n.label)}</title>${shape}${lbl}</g>`;
   }).join('');
   const svg=document.getElementById('svg');
   svg.setAttribute('viewBox',`${a-pad} ${b-pad} ${c-a+pad*2} ${e-b+pad*2}`);
   svg.setAttribute('preserveAspectRatio','xMidYMid meet');
-  svg.innerHTML=`<defs><style>.lbl{font-family:'Inter','Noto Sans Thai',sans-serif;font-size:10px;fill:#52525b;paint-order:stroke;stroke:#fcfcfd;stroke-width:3px;stroke-linejoin:round}.lbl.hub{font-size:13px;font-weight:700;fill:#111}.lbl.ent{font-size:11px;font-weight:600;fill:#1f2937}.lbl.dep{font-size:11px;font-weight:700;fill:#1f2937}.gnode circle{transition:r .12s ease-out}</style></defs><circle id="selring" r="0" fill="none" stroke="#111" stroke-width="1.5" opacity="0"/><g>${edgesH}</g><g>${nodesH}</g>`;
+  svg.innerHTML=`<defs><style>.lbl{font-family:'Inter','Noto Sans Thai',sans-serif;font-size:11px;fill:#52525b;paint-order:stroke;stroke:#fcfcfd;stroke-width:3.5px;stroke-linejoin:round}.lbl.hub{font-size:14px;font-weight:700;fill:#111}.lbl.ent{font-size:12px;font-weight:600;fill:#1f2937}.lbl.dep{font-size:11.5px;font-weight:700;fill:#1f2937}</style></defs><g id="depedges"></g><g>${edgesH}</g><g>${nodesH}</g><circle id="selring" r="0" fill="none" stroke="#111" stroke-width="1.6" opacity="0"/>`;
   document.getElementById('loading').style.display='none'; svg.style.display='block';
   document.getElementById('legend').innerHTML=DATA.cats.map(c=>`<span><i style="background:${c.color}"></i>${esc(c.label)}</span>`).join('')
-    +`<span class="sep"></span><span>ใหญ่=หมวด · กลาง=กลุ่ม(entity) · เล็ก=กฎ (ทึบ=ยืนยัน · จาง=รอตรวจ)</span><span><i class="sq"></i>dependency</span><span><i class="dash"></i>depends_on</span>`;
+    +`<span class="sep"></span><span>ใหญ่=หมวด · กลาง=กลุ่ม (คลิกดูกฎ)</span><span><i class="ring"></i>กลุ่มที่มีกฎ verified</span><span><i class="sq"></i>dependency</span><span><i class="dash"></i>depends_on (คลิกเพื่อดู)</span>`;
   summary();
 }
 function setSel(id){const p=POS[id],r=document.getElementById('selring');if(!r)return;if(p){r.setAttribute('cx',p.x);r.setAttribute('cy',p.y);r.setAttribute('r',p.r+5);r.setAttribute('opacity','1');}else r.setAttribute('opacity','0');}
+function showDeps(id){
+  const el=document.getElementById('depedges'); if(!el)return; el.innerHTML='';
+  const n=BYID[id]; if(!n)return;
+  const pairs=[];
+  if(n.type==='dep'){ const seen=new Set();
+    DATA.edges.filter(e=>e[2]==='dep'&&e[1]===id).forEach(e=>{const r=BYID[e[0]];if(r){const eid='__ent_'+r.entity;if(!seen.has(eid)){seen.add(eid);if(POS[eid])pairs.push([POS[id],POS[eid]]);}}});
+  } else if(n.type==='entity'){ const deps=new Set();
+    DATA.nodes.filter(r=>r.type==='rule'&&r.entity===id.replace('__ent_','')).forEach(r=>DATA.edges.filter(e=>e[2]==='dep'&&e[0]===r.id).forEach(e=>deps.add(e[1])));
+    deps.forEach(d=>{if(POS[d]&&POS[id])pairs.push([POS[id],POS[d]]);});
+  }
+  el.innerHTML=pairs.map(([s,t])=>`<line x1="${s.x.toFixed(1)}" y1="${s.y.toFixed(1)}" x2="${t.x.toFixed(1)}" y2="${t.y.toFixed(1)}" stroke="#111" stroke-dasharray="3 3" stroke-opacity=".55" stroke-width="1.3"/>`).join('');
+}
 function summary(){
-  setSel(null);
+  setSel(null); showDeps(null);
   const rules=DATA.nodes.filter(n=>n.type==='rule');
   const ver=rules.filter(n=>n.verified),todo=rules.filter(n=>!n.verified);
   const pct=Math.round(ver.length/rules.length*100);
-  // group backlog ตาม entity (ตอบ "กลุ่มนี้มี rule อะไร")
   const ents=DATA.nodes.filter(n=>n.type==='entity');
   let h=`<div class="pname">สถานะการยืนยัน</div>
     <div class="ban"><span class="v">${ver.length}</span><span class="l">กฎที่ยืนยันความถูกต้องแล้ว<br>(deep-review + เว็บจริง)</span></div>
     <div class="progress"><i style="width:${pct}%"></i></div>
-    <div class="body mut">จาก ${rules.length} กฎ — เหลือ ${todo.length} รอไล่ตรวจ false-positive · คลิก node (กลุ่ม/กฎ/dependency) เพื่อดูรายละเอียด</div>
+    <div class="body mut">จาก ${rules.length} กฎ — เหลือ ${todo.length} รอไล่ตรวจ · คลิกกลุ่มในกราฟเพื่อดูกฎ หรือเลือกจากรายการด้านล่าง</div>
     <div class="k">ยืนยันถูกต้องแล้ว</div><div class="chips">${ver.map(n=>`<a class="chip ver" onclick="sel('${esc(n.id)}')">${esc(n.label)}</a>`).join('')}</div>
     <div class="k">รอไล่ตรวจ — แยกตามกลุ่ม (entity)</div>`;
   for(const en of ents){
@@ -149,15 +156,16 @@ function summary(){
   paint(h);
 }
 function sel(id){
-  const n=BYID[id]; if(!n)return; setSel(id);
+  const n=BYID[id]; if(!n)return; setSel(id); showDeps(id);
   if(n.type==='entity') return selEntity(n);
   if(n.type==='dep') return selDep(n);
+  if(n.type==='cat') return selCat(n);
   const cat=(DATA.cats||[]).find(x=>x.key===n.cat)||{label:n.cat,color:'#999'};
   const ent=BYID['__ent_'+n.entity];
   const pend=n.verified?'':' · เสนอ (รอ review)';
   const refs=(n.refs||[]).map(r=>`<a href="${esc(r[1])}" target="_blank" rel="noopener">${esc(r[0])}</a>`).join('')||'<span class="body mut">—</span>';
   const deps=DATA.edges.filter(e=>e[0]===id&&e[2]==='dep').map(e=>BYID[e[1]]).filter(Boolean);
-  let h=`<button class="back" onclick="summary()">‹ ทั้งหมด</button>
+  let h=`<button class="back" onclick="${ent?`sel('${esc(ent.id)}')`:'summary()'}">‹ ${ent?esc(ent.label):'ทั้งหมด'}</button>
     <div class="crumb">${esc(cat.label)} › ${esc(ent?ent.label:'')}</div>
     <div class="pname">${esc(n.label)}</div>
     <div class="pmeta"><span class="cat"><i style="background:${cat.color}"></i>${esc(cat.label)}</span><span class="pill ${n.verified?'ok':'todo'}">${n.verified?'ยืนยันถูกต้องแล้ว':'รอตรวจสอบ'}</span></div>
@@ -167,7 +175,7 @@ function sel(id){
   if(n.why) h+=`<div class="k">ทำไมต้องตรวจ</div><div class="body mut">${esc(n.why)}</div>`;
   if(n.how) h+=`<div class="k">ตรวจอย่างไร · How${pend}</div><ol class="steps">${n.how.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`;
   if(n.rule) h+=`<div class="k">กฎการตัดสิน · Decision Rule${pend}</div>${n.rule.map(s=>`<div class="rule">${esc(s)}</div>`).join('')}`;
-  if(!n.how&&!n.rule&&n.what) h+=`<div class="pending">ยังไม่ได้เขียน workflow/decision ละเอียด — แสดง What + อ้างอิง (เติมตอนไล่ตรวจ)</div>`;
+  if(!n.how&&!n.rule&&n.what) h+=`<div class="pending">ยังไม่ได้เขียน workflow/decision ละเอียด — แสดง What + อ้างอิง</div>`;
   if(deps.length) h+=`<div class="k">Dependencies (ต้องผ่านก่อน)</div><div class="chips">${deps.map(d=>`<a class="chip dep" onclick="sel('${esc(d.id)}')">${esc(d.label)}</a>`).join('')}</div>`;
   h+=`<div class="k">มาตรฐานอ้างอิง</div><div class="reflist">${refs}</div>`;
   if(n.conf!=null||n.tier!=null) h+=`<div class="k">Confidence</div><div class="body">${n.conf!=null?n.conf+'%':'—'}${n.tier?` · Tier ${n.tier}`:''}</div>`;
@@ -178,18 +186,17 @@ function selEntity(n){
   const kids=DATA.nodes.filter(r=>r.type==='rule'&&r.entity===n.id.replace('__ent_',''));
   const v=kids.filter(k=>k.verified).length;
   let h=`<button class="back" onclick="summary()">‹ ทั้งหมด</button>
-    <div class="crumb">${esc(cat.label)} › กลุ่ม (entity)</div>
+    <div class="crumb">${esc(cat.label)} › กลุ่ม</div>
     <div class="pname">${esc(n.label)}</div>
-    <div class="pmeta"><span class="cat"><i style="background:${cat.color}"></i>${esc(cat.label)}</span><span class="pill ent">กลุ่ม · ${kids.length} กฎ (${v} ยืนยัน)</span></div>
-    <div class="k">กฎทั้งหมดในกลุ่มนี้</div><div class="chips">${kids.map(k=>`<a class="chip ${k.verified?'ver':''}" style="--c:${cat.color}" onclick="sel('${esc(k.id)}')">${esc(k.label)}</a>`).join('')}</div>
-    <div class="body mut" style="margin-top:14px">คลิกกฎเพื่อดู What / How / Decision Rule + dependencies</div>`;
+    <div class="pmeta"><span class="cat"><i style="background:${cat.color}"></i>${esc(cat.label)}</span><span class="pill ent">${kids.length} กฎ · ${v} ยืนยัน</span></div>
+    <div class="k">กฎทั้งหมดในกลุ่มนี้ (คลิกดู What/How/Decision)</div><div class="chips">${kids.map(k=>`<a class="chip ${k.verified?'ver':''}" style="--c:${cat.color}" onclick="sel('${esc(k.id)}')">${esc(k.label)}</a>`).join('')}</div>`;
   paint(h);
 }
 function selDep(n){
   const usedBy=DATA.edges.filter(e=>e[2]==='dep'&&e[1]===n.id).map(e=>BYID[e[0]]).filter(Boolean);
   const refs=(n.refs||[]).map(r=>`<a href="${esc(r[1])}" target="_blank" rel="noopener">${esc(r[0])}</a>`).join('')||'<span class="body mut">—</span>';
   let h=`<button class="back" onclick="summary()">‹ ทั้งหมด</button>
-    <div class="crumb">Dependency (input ของกฎ — ไม่ใช่กฎ)</div>
+    <div class="crumb">Dependency — input ของกฎ (ไม่ใช่กฎ)</div>
     <div class="pname">${esc(n.label)}</div>
     <div class="pmeta"><span class="pill dep">dependency</span>${n.verified?`<span class="pill ok">ยืนยันแล้ว</span>`:''}</div>
     ${n.note?`<div class="pnote">${esc(n.note)}</div>`:''}`;
@@ -198,6 +205,15 @@ function selDep(n){
   if(n.rule) h+=`<div class="k">กฎ</div>${n.rule.map(s=>`<div class="rule">${esc(s)}</div>`).join('')}`;
   h+=`<div class="k">เป็น dependency ของกฎ</div><div class="chips">${usedBy.map(r=>`<a class="chip ${r.verified?'ver':''}" style="--c:${COLOR[r.cat]||'#999'}" onclick="sel('${esc(r.id)}')">${esc(r.label)}</a>`).join('')||'—'}</div>`;
   if((n.refs||[]).length) h+=`<div class="k">มาตรฐานอ้างอิง</div><div class="reflist">${refs}</div>`;
+  paint(h);
+}
+function selCat(n){
+  const ents=DATA.nodes.filter(e=>e.type==='entity'&&e.cat===n.cat);
+  let h=`<button class="back" onclick="summary()">‹ ทั้งหมด</button>
+    <div class="crumb">หมวด</div>
+    <div class="pname">${esc(n.label)}</div>
+    <div class="pmeta"><span class="cat"><i style="background:${COLOR[n.cat]||'#999'}"></i>${ents.length} กลุ่ม</span></div>
+    <div class="k">กลุ่ม (entity) ในหมวดนี้</div><div class="chips">${ents.map(e=>`<a class="chip" style="--c:${COLOR[n.cat]||'#999'}" onclick="sel('${esc(e.id)}')">${esc(e.label)}${ENTVER[e.id]?'  ✓'+ENTVER[e.id]:''}</a>`).join('')}</div>`;
   paint(h);
 }
 function paint(h){const p=document.getElementById('panel');p.innerHTML=h;p.classList.remove('fade');void p.offsetWidth;p.classList.add('fade');}
