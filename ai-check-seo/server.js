@@ -294,6 +294,7 @@ async function runAudit(job, url, maxPages, competitorUrl) {
       engineVersion: ENGINE_VERSION,
       pagesAnalyzed: tech.pagesAnalyzed,
       pagesCrawled: site.pages.length,
+      dedupedByFinalUrl: site.dedupedByFinalUrl || 0, // จำนวนหน้าที่ยุบเพราะ redirect ไป Final URL เดียวกัน
       sitemapUrls: site.sitemapUrls.length,
       brokenLinks: site.brokenLinks,
       renderedAvailable: !!site.rendered?.available,
