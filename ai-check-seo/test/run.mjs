@@ -629,6 +629,38 @@ console.log('▸ surgical patcher: patch head + คง body เดิม');
   }
 }
 
+// ── dedupe by Final URL — redirect ไปหน้าเดียวกัน ต้องไม่นับซ้ำ/ไม่ false-positive duplicate (เคส vgi) ──
+{
+  console.log('▸ dedupe by Final URL (/ 301→ /en/home = หน้าเดียวกัน)');
+  const realFetch = globalThis.fetch;
+  const HOME = '<!doctype html><html lang="th"><head><title>HOME</title><meta name="description" content="หน้าแรกของเว็บ"></head><body><h1>Welcome</h1><a href="/en/home">home</a> <a href="/about">about</a></body></html>';
+  const ABOUT = '<!doctype html><html lang="th"><head><title>About Us</title><meta name="description" content="เกี่ยวกับบริษัท"></head><body><h1>About</h1></body></html>';
+  globalThis.fetch = async (input) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (url.endsWith('/robots.txt')) return new Response('User-agent: *', { status: 200, headers: { 'content-type': 'text/plain' } });
+    if (url.endsWith('/llms.txt') || url.endsWith('/sitemap.xml') || url.endsWith('/favicon.ico')) return new Response('', { status: 404 });
+    if (url === 'https://x.test/') return new Response('', { status: 301, headers: { location: 'https://x.test/en/home' } });
+    if (url === 'https://x.test/en/home') return new Response(HOME, { status: 200, headers: { 'content-type': 'text/html; charset=UTF-8' } });
+    if (url === 'https://x.test/about') return new Response(ABOUT, { status: 200, headers: { 'content-type': 'text/html; charset=UTF-8' } });
+    return new Response('', { status: 404 });
+  };
+  try {
+    const site = await crawlSite('https://x.test/', { maxPages: 5, onProgress: () => {} });
+    const { checks } = runChecks(site);
+    const finals = site.pages.map(p => (p.finalUrl || p.url).replace(/\/$/, ''));
+    const noDupFinal = finals.length === new Set(finals).size;
+    const titleDup = checks.find(c => c.id === 'title-duplicate');
+    assert(noDupFinal, 'dedupe :: ไม่มี finalUrl ซ้ำใน site.pages', `finals=${JSON.stringify(finals)}`);
+    assert(site.dedupedByFinalUrl >= 1, 'dedupe :: ยุบหน้าที่ redirect ซ้ำ', `dedupedByFinalUrl=${site.dedupedByFinalUrl}`);
+    assert(titleDup?.status !== 'fail', 'dedupe :: title-duplicate ไม่ false-positive จาก redirect', `title-duplicate=${titleDup?.status ?? '(absent)'}`);
+    console.log(`    ${noDupFinal ? '✅' : '❌'} ไม่มี finalUrl ซ้ำ (${finals.length} หน้า)`);
+    console.log(`    ${site.dedupedByFinalUrl >= 1 ? '✅' : '❌'} ยุบ redirect-duplicate ${site.dedupedByFinalUrl || 0} หน้า`);
+    console.log(`    ${titleDup?.status !== 'fail' ? '✅' : '❌'} title-duplicate = ${titleDup?.status ?? '(absent)'} (ไม่ fail)\n`);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+}
+
 // ── หลักฐานรายหน้า (per-page evidence) — พิสูจน์ว่า "หน้านี้ไม่มีจริง" ──
 {
   console.log('▸ หลักฐานรายหน้า (evidence)');

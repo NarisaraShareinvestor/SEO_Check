@@ -900,6 +900,28 @@ export async function crawlSite(startUrl, { maxPages = 30, onProgress = () => {}
     }
   }
 
+  // 4.6 Dedupe by Final URL — หลาย requested URL อาจ 301/302 ไปหน้าเดียวกัน (เช่น / → /en/home, http → https,
+  //     www → non-www) ทำให้ได้ page object ซ้ำที่เป็น "หน้าเดียวกันจริง" → ต้องยุบเป็นหน้าเดียว ก่อนรัน checks
+  //     ไม่งั้น duplicate-title/h1/desc + การนับจำนวนหน้า จะ false positive (หลัก Screaming Frog/Ahrefs: นับจาก Final URL)
+  if (Array.isArray(site.pages) && site.pages.length > 1) {
+    const byFinal = new Map(); let merged = 0;
+    for (const p of site.pages) {
+      const fin = p.finalUrl || p.url;
+      const key = (normalizeUrl(fin, fin) || fin);
+      const ex = byFinal.get(key);
+      if (!ex) { byFinal.set(key, p); continue; }
+      merged++;
+      // เก็บตัวที่เข้าถึงตรง (ไม่ผ่าน redirect: requested URL == final URL) เป็นตัวแทน
+      const pDirect = (normalizeUrl(p.url, p.url) === key);
+      const exDirect = (normalizeUrl(ex.url, ex.url) === key);
+      if (pDirect && !exDirect) byFinal.set(key, p);
+    }
+    if (merged > 0) {
+      site.pages = [...byFinal.values()];
+      site.dedupedByFinalUrl = merged; // จำนวนหน้าที่ยุบเพราะ redirect ไปหน้าเดียวกัน
+    }
+  }
+
   // 5. ตรวจ broken internal links (sample จากลิงก์ที่ยังไม่ crawl)
   onProgress('กำลังตรวจหา broken links...');
   const linkTargets = new Map();
