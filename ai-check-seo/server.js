@@ -47,6 +47,7 @@ app.use(express.static(join(__dirname, 'public')));
 app.use('/demo', express.static(join(__dirname, 'demo-site'), { extensions: ['html'] }));
 app.get('/methodology', (_req, res) => res.sendFile(join(__dirname, 'public', 'methodology.html')));
 app.get('/architecture', (_req, res) => res.sendFile(join(__dirname, 'public', 'architecture.html')));
+app.get('/knowledge-graph', (_req, res) => res.sendFile(join(__dirname, 'public', 'knowledge-graph.html')));
 app.get('/reaudit', (_req, res) => res.sendFile(join(__dirname, 'public', 'reaudit.html')));
 
 // in-memory job state (ผลถาวรเก็บเป็นไฟล์ JSON)
