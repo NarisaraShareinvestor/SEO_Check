@@ -84,22 +84,40 @@ function init(){
   let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9;
   DATA.nodes.forEach(n=>{ minX=Math.min(minX,n.x);minY=Math.min(minY,n.y);maxX=Math.max(maxX,n.x);maxY=Math.max(maxY,n.y); });
   const pad=40, vb=`${minX-pad} ${minY-pad} ${maxX-minX+pad*2} ${maxY-minY+pad*2}`;
-  const rOf=n=>n.id==='__root'?13:n.hub?10:(n.done?6.5:5);
-  const edgesH=DATA.edges.map(e=>{const a=map[e[0]],b=map[e[1]];if(!a||!b)return'';const dep=e[2]==='dep';return `<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${dep?'#e07a4e':'#d7dde6'}" stroke-width="${dep?1.8:1}" ${dep?'stroke-dasharray="4 3"':''}/>`;}).join('');
+  const rOf=n=>n.id==='__root'?13:n.hub?10:(n.verified?8.5:4.5);
+  const edgesH=DATA.edges.map(e=>{const a=map[e[0]],b=map[e[1]];if(!a||!b)return'';const dep=e[2]==='dep';return `<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${dep?'#e07a4e':'#e2e8f0'}" stroke-width="${dep?2:1}" ${dep?'stroke-dasharray="4 3"':''}/>`;}).join('');
   const nodesH=DATA.nodes.map(n=>{
-    const c=COLOR[n.cat]||'#94a3b8';
-    const lbl=(n.hub||n.id==='__root')?`<text class="glabel hub" x="${n.x.toFixed(1)}" y="${(n.y-rOf(n)-4).toFixed(1)}" text-anchor="middle">${esc(n.label)}</text>`
-      :`<text class="glabel" x="${n.x.toFixed(1)}" y="${(n.y-rOf(n)-2).toFixed(1)}" text-anchor="middle">${esc(n.label)}</text>`;
+    const isHub=n.hub||n.id==='__root';
+    const c=isHub?(COLOR[n.cat]||'#94a3b8'):(n.verified?(COLOR[n.cat]||'#94a3b8'):'#c3ccd8');
+    const op=isHub?.9:(n.verified?1:.42);
+    const showLbl=isHub||n.verified;
+    const lbl=showLbl?(isHub
+      ?`<text class="glabel hub" x="${n.x.toFixed(1)}" y="${(n.y-rOf(n)-4).toFixed(1)}" text-anchor="middle">${esc(n.label)}</text>`
+      :`<text class="glabel" style="font-size:9.5px;fill:#16223d;font-weight:700" x="${n.x.toFixed(1)}" y="${(n.y-rOf(n)-3).toFixed(1)}" text-anchor="middle">${esc(n.label)} ✓</text>`):'';
     const clickable=!String(n.id).startsWith('__');
-    return `<g class="gnode" ${clickable?`onclick="sel('${n.id}')"`:''}>
-      <circle id="c-${esc(n.id)}" cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${rOf(n)}" fill="${c}" fill-opacity="${n.hub||n.id==='__root'?1:.82}" stroke="#fff" stroke-width="1.4"/>${lbl}</g>`;
+    return `<g class="gnode" ${clickable?`onclick="sel('${n.id}')"`:''}><title>${esc(n.label)}${n.verified?' ✓ ยืนยันแล้ว':' · รอตรวจ'}</title>
+      <circle id="c-${esc(n.id)}" cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${rOf(n)}" fill="${c}" fill-opacity="${op}" stroke="${n.verified?'#16223d':'#fff'}" stroke-width="${n.verified?2:1.2}"/>${lbl}</g>`;
   }).join('');
   const svg=document.getElementById('svg');
   svg.setAttribute('viewBox',vb);
   svg.innerHTML=`<g>${edgesH}</g><g>${nodesH}</g>`;
   document.getElementById('loading').style.display='none'; svg.style.display='block';
-  document.getElementById('legend').innerHTML=DATA.cats.map(c=>`<span><i style="background:${c.color}"></i>${esc(c.label)}</span>`).join('')+`<span><i style="background:#e07a4e"></i>เส้นประส้ม = dependency (ผ่าน Final URL ก่อน)</span>`;
-  sel('final-url');
+  document.getElementById('legend').innerHTML=DATA.cats.map(c=>`<span><i style="background:${c.color}"></i>${esc(c.label)}</span>`).join('')+`<span><i style="background:#e07a4e"></i>เส้นประ = dependency (Final URL)</span> <span style="color:var(--mut)">· node ทึบ+✓ = ยืนยันแล้ว · node จาง = รอตรวจ</span>`;
+  summary();
+}
+function summary(){
+  const checks=DATA.nodes.filter(n=>!String(n.id).startsWith('__'));
+  const ver=checks.filter(n=>n.verified), todo=checks.filter(n=>!n.verified);
+  const byCat={}; todo.forEach(n=>{(byCat[n.cat]=byCat[n.cat]||[]).push(n);});
+  let h=`<div class="pname">สถานะการยืนยันความถูกต้อง</div>
+    <div class="fld"><span class="badge done">✅ ยืนยันแล้ว ${ver.length}</span> <span class="badge todo">🔍 รอไล่ตรวจ ${todo.length}</span></div>
+    <div class="hintp">โชว์เด่นเฉพาะ node ที่ตรวจสอบความถูกต้องด้วยมือ + ยืนยันบนเว็บจริงแล้ว · ที่เหลือทำงานอยู่แต่ยังไม่ deep-review false-positive → ไล่ทีละตัว (คลิกชื่อเพื่อดู logic ที่เสนอ)</div>
+    <div class="fld"><div class="k">✅ ยืนยันถูกต้องแล้ว</div>${ver.map(n=>`<a onclick="sel('${esc(n.id)}')" style="cursor:pointer;color:#15803d;font-weight:600;display:block">${esc(n.label)}</a>`).join('')}</div>
+    <div class="fld"><div class="k">🔍 รอไล่ตรวจความถูกต้อง (${todo.length})</div>`;
+  for(const c of DATA.cats){ const arr=byCat[c.key]; if(!arr||!arr.length)continue;
+    h+=`<div style="margin:7px 0"><span class="pcat" style="background:${c.color}">${esc(c.label)}</span> <span class="hintp">${arr.length}</span><div style="margin-top:4px">${arr.map(n=>`<a onclick="sel('${esc(n.id)}')" class="chip" style="cursor:pointer">${esc(n.label)}</a>`).join('')}</div></div>`; }
+  h+=`</div>`;
+  document.getElementById('panel').innerHTML=h;
 }
 function sel(id){
   const n=(DATA.nodes||[]).find(x=>x.id===id); if(!n)return;
@@ -107,13 +125,16 @@ function sel(id){
   const c=document.getElementById('c-'+id); if(c){c.setAttribute('stroke','#16223d');c.setAttribute('stroke-width','2.6');}
   const cat=(DATA.cats||[]).find(x=>x.key===n.cat)||{label:n.cat,color:'#64748b'};
   const refHtml=(n.refs||[]).map(r=>`<a href="${esc(r[1])}" target="_blank" rel="noopener">${esc(r[0])} ↗</a>`).join(' · ')||'—';
-  let h=`<div class="pname">${esc(n.label)} <span class="badge ${n.done?'done':'todo'}">${n.done?'✅ ทำแล้ว':'check ปกติ'}</span></div>
+  const pend=n.verified?'':' (เสนอ — รอ review)';
+  let h=`<div style="margin-bottom:6px"><a onclick="summary()" style="cursor:pointer;color:#0369a1;font-size:12.5px">← กลับไปรายการ</a></div>
+    <div class="pname">${esc(n.label)} <span class="badge ${n.verified?'done':'todo'}">${n.verified?'✅ ยืนยันถูกต้องแล้ว':'🔍 รอตรวจสอบ'}</span></div>
     <div style="margin-bottom:8px"><span class="pcat" style="background:${cat.color}">${esc(cat.label)}</span>${n.note?`<span class="hintp"> · ${esc(n.note)}</span>`:''}</div>`;
+  if(!n.verified) h+=`<div class="hintp" style="background:#f8fafc;border:1px solid var(--ln);border-radius:8px;padding:8px 10px;margin-bottom:8px">🔍 ยังไม่ได้ไล่ตรวจความถูกต้อง (false-positive) ราย check นี้ — logic ด้านล่างคือ “ที่เสนอ/ทำไว้” รอ confirm</div>`;
   if(n.what) h+=`<div class="fld"><div class="k">What — ตรวจอะไร</div><div>${esc(n.what)}</div></div>`;
   if(n.why) h+=`<div class="fld"><div class="k">ทำไมต้องตรวจ</div><div class="hintp">${esc(n.why)}</div></div>`;
-  if(n.how) h+=`<div class="fld"><div class="k">How — ตรวจอย่างไร</div><ol>${n.how.map(s=>`<li>${esc(s)}</li>`).join('')}</ol></div>`;
-  if(n.rule) h+=`<div class="fld"><div class="k">Decision Rule — ตัดสินด้วยกฎอะไร</div>${n.rule.map(s=>`<div class="rule">${esc(s)}</div>`).join('')}</div>`;
-  if(!n.how && !n.rule && n.what) h+=`<div class="hintp" style="margin:8px 0">ℹ️ check นี้ยังไม่ได้เขียน workflow/decision ละเอียดในกราฟ (โชว์ What + อ้างอิง) — เติมได้</div>`;
+  if(n.how) h+=`<div class="fld"><div class="k">How — ตรวจอย่างไร${pend}</div><ol>${n.how.map(s=>`<li>${esc(s)}</li>`).join('')}</ol></div>`;
+  if(n.rule) h+=`<div class="fld"><div class="k">Decision Rule${pend}</div>${n.rule.map(s=>`<div class="rule">${esc(s)}</div>`).join('')}</div>`;
+  if(!n.how && !n.rule && n.what) h+=`<div class="hintp" style="margin:8px 0">ℹ️ ยังไม่ได้เขียน workflow/decision ละเอียด — โชว์ What + อ้างอิง (เติมตอนไล่ตรวจ)</div>`;
   h+=`<div class="fld"><div class="k">Reference — มาตรฐานอ้างอิง</div><div class="ref">${refHtml}</div></div>`;
   if(n.conf!=null||n.tier!=null) h+=`<div class="fld"><div class="k">Confidence</div><div>${n.conf!=null?n.conf+'%':'—'}${n.tier?` · Tier ${n.tier}`:''}</div></div>`;
   document.getElementById('panel').innerHTML=h;
