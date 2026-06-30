@@ -30,6 +30,7 @@
   .legend i{width:9px;height:9px;border-radius:50%;flex:none}
   .legend i.hollow{background:#fff;border:1.4px solid var(--faint)}
   .legend i.dash{width:16px;height:0;border-radius:0;border-top:1.6px dashed var(--ink)}
+  .legend .sep{flex-basis:100%;height:0;gap:0}
 
   .rail{width:392px;flex:none;background:var(--bg);border-left:1px solid var(--border);overflow-y:auto;padding:24px}
   .back{appearance:none;background:none;border:0;color:var(--mut);font:inherit;font-size:12.5px;cursor:pointer;padding:0;margin-bottom:16px;display:inline-flex;align-items:center;gap:5px}
@@ -85,8 +86,8 @@
 <script>
 if(window.self!==window.top)document.documentElement.classList.add('embed');
 const esc=s=>String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-let DATA,POS={};
-fetch('/skill-graph.json').then(r=>r.json()).then(d=>{DATA=d;init();}).catch(()=>{document.getElementById('loading').textContent='โหลดกราฟไม่สำเร็จ';});
+let DATA,POS={},COLOR={};
+fetch('/skill-graph.json').then(r=>r.json()).then(d=>{DATA=d;d.cats.forEach(c=>COLOR[c.key]=c.color);init();}).catch(()=>{document.getElementById('loading').textContent='โหลดกราฟไม่สำเร็จ';});
 
 function layout(nodes,edges,W,H){
   const keys=[...new Set(nodes.map(n=>n.cat))].filter(k=>k!=='root');
@@ -110,22 +111,23 @@ function init(){
   DATA.nodes.forEach(n=>{a=Math.min(a,n.x);b=Math.min(b,n.y);c=Math.max(c,n.x);e=Math.max(e,n.y);});
   const pad=48;
   const rOf=n=>n.id==='__root'?12:n.hub?8.5:(n.verified?8:3.2);
-  // monochrome: ดำ=ยืนยัน/hub/root · เทาจาง=รอตรวจ
-  const fillOf=n=>{if(n.id==='__root')return'#111';if(n.hub)return'#71717a';if(n.verified)return'#111';return'#d4d4d8';};
+  // ใส่สีแยกตามหมวด (เฉพาะกราฟ) · ยืนยัน/hub = ทึบ · รอตรวจ = จาง
+  const fillOf=n=>n.id==='__root'?'#111':(COLOR[n.cat]||'#a1a1aa');
+  const opOf=n=>(n.hub||n.id==='__root'||n.verified)?1:.4;
   DATA.nodes.forEach(n=>POS[n.id]={x:n.x,y:n.y,r:rOf(n)});
   const edgesH=DATA.edges.map(g=>{const x=map[g[0]],y=map[g[1]];if(!x||!y)return'';const dep=g[2]==='dep';return `<line x1="${x.x.toFixed(1)}" y1="${x.y.toFixed(1)}" x2="${y.x.toFixed(1)}" y2="${y.y.toFixed(1)}" stroke="${dep?'#111':'#e4e4e7'}" stroke-width="${dep?1.5:.9}" ${dep?'stroke-dasharray="3 3"':''}/>`;}).join('');
   const nodesH=DATA.nodes.map(n=>{
     const isHub=n.hub||n.id==='__root', r=rOf(n), show=isHub||n.verified;
     const lbl=show?`<text class="lbl ${isHub?'hub':''}" x="${n.x.toFixed(1)}" y="${(n.y-r-6).toFixed(1)}" text-anchor="middle">${esc(n.label)}</text>`:'';
     const clk=!String(n.id).startsWith('__');
-    return `<g class="gnode" ${clk?`onclick="sel('${n.id}')" style="cursor:pointer"`:''}><title>${esc(n.label)}${n.verified?' — ยืนยันแล้ว':String(n.id).startsWith('__')?'':' — รอตรวจ'}</title><circle id="c-${esc(n.id)}" cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${r}" fill="${fillOf(n)}" stroke="#fff" stroke-width="1.3"/>${lbl}</g>`;
+    return `<g class="gnode" ${clk?`onclick="sel('${n.id}')" style="cursor:pointer"`:''}><title>${esc(n.label)}${n.verified?' — ยืนยันแล้ว':String(n.id).startsWith('__')?'':' — รอตรวจ'}</title><circle id="c-${esc(n.id)}" cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${r}" fill="${fillOf(n)}" fill-opacity="${opOf(n)}" stroke="#fff" stroke-width="1.3"/>${lbl}</g>`;
   }).join('');
   const svg=document.getElementById('svg');
   svg.setAttribute('viewBox',`${a-pad} ${b-pad} ${c-a+pad*2} ${e-b+pad*2}`);
   svg.setAttribute('preserveAspectRatio','xMidYMid meet');
   svg.innerHTML=`<defs><style>.lbl{font-family:'Inter','Noto Sans Thai',sans-serif;font-size:10.5px;fill:#52525b;paint-order:stroke;stroke:#fcfcfd;stroke-width:3px;stroke-linejoin:round}.lbl.hub{font-size:12px;font-weight:700;fill:#111}.gnode circle{transition:r .12s ease-out}.gnode:hover circle{r:9.5}</style></defs><circle id="selring" r="0" fill="none" stroke="#111" stroke-width="1.5" opacity="0"/><g>${edgesH}</g><g>${nodesH}</g>`;
   document.getElementById('loading').style.display='none'; svg.style.display='block';
-  document.getElementById('legend').innerHTML=`<span><i style="background:#111"></i>ยืนยันแล้ว</span><span><i class="hollow"></i>รอตรวจ</span><span><i style="background:#71717a"></i>หมวด (hub)</span><span><i class="dash"></i>dependency (Final URL)</span>`;
+  document.getElementById('legend').innerHTML=DATA.cats.map(c=>`<span><i style="background:${c.color}"></i>${esc(c.label)}</span>`).join('')+`<span class="sep"></span><span>ทึบ = ยืนยันแล้ว · จาง = รอตรวจ</span><span><i class="dash"></i>dependency (Final URL)</span>`;
   summary();
 }
 function setSel(id){const p=POS[id],r=document.getElementById('selring');if(!r)return;if(p){r.setAttribute('cx',p.x);r.setAttribute('cy',p.y);r.setAttribute('r',p.r+5);r.setAttribute('opacity','1');}else r.setAttribute('opacity','0');}
