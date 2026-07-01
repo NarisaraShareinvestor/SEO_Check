@@ -5,7 +5,7 @@ import { validateSchemaNodes } from './schema-validate.js';
 
 // เวอร์ชันของ "วิธีตรวจ" — bump เมื่อ logic ของ check เปลี่ยน (เช่น img-alt 3-state)
 // ใช้ตอนเทียบก่อน/หลัง: ถ้า audit 2 ครั้งคนละเวอร์ชัน → การเปลี่ยนบางอย่างมาจากการอัปเกรดระบบ ไม่ใช่การแก้เว็บ
-export const ENGINE_VERSION = 10;
+export const ENGINE_VERSION = 11;
 
 const CATS = {
   onpage: 'Meta & เนื้อหา',
@@ -78,16 +78,25 @@ export function runChecks(site) {
   const normDup = s => (s || '').normalize('NFC').toLowerCase().replace(/[​-‍﻿]/g, '').replace(/\s+/g, ' ').trim();
   // ยุบ locale prefix ใน path (/th/about → /about) เพื่อตัดคู่ "หน้าเดียวกันคนละภาษา" ออกจากการนับซ้ำ
   const stripLocale = u => { try { const x = new URL(u); return x.origin + (x.pathname.replace(/^\/[a-z]{2}(-[a-z]{2})?(?=\/|$)/i, '') || '/'); } catch { return u; } };
+  // ภาษาของหน้า — ใช้ <html lang> ก่อน (สัญญาณจริง) แล้ว fallback locale ใน path · ใช้ scope การเทียบ duplicate ให้อยู่ภายในภาษาเดียวกัน
+  // (หน้าแปลควรมี title คนละภาษาแต่ความหมายตรง จึงไม่ควรเอามาเทียบข้ามภาษา)
+  const langOf = p => {
+    const l = (p.lang || '').toLowerCase().split(/[-_]/)[0];
+    if (l) return l;
+    try { const m = new URL(p.url).pathname.match(/^\/([a-z]{2})(?:-[a-z]{2})?(?=\/|$)/i); if (m) return m[1].toLowerCase(); } catch { /* keep */ }
+    return ''; // ไม่รู้ภาษา → รวมกอง (อาศัย stripLocale กันหน้าแปลแบบ path)
+  };
   // dupEligible = pageEligible (Final URL + ตัด noindex/canonical-away) + ตัด pagination/search/filter (ซ้ำโดยชอบ)
   const dupEligible = pageEligible.filter(p => {
     let path = '', search = ''; try { const u = new URL(p.url); path = u.pathname; search = u.search; } catch { /* keep */ }
     if (/[?&](page|p|start|offset|sort|filter|q|s|search|tag|year|ref)=/i.test(search) || /\/page\/\d/i.test(path)) return false;
     return true;
   });
-  // group dupEligible ตาม key (normalize แล้ว) → คืนเฉพาะกลุ่มที่ซ้ำจริง (>1) และตัด localization variants ออก
+  // group ตาม (ภาษา + key ที่ normalize) → เทียบ title/desc/h1 เฉพาะภายในภาษาเดียวกัน (ไม่เอาหน้าแปลข้ามภาษามาเทียบ)
+  // + ตัด localization variants แบบ path (belt & suspenders สำหรับหน้าที่ไม่ประกาศ lang)
   const dupGroups = keyFn => {
     const m = new Map();
-    dupEligible.forEach(p => { const k = keyFn(p); if (k) m.set(k, [...(m.get(k) || []), p]); });
+    dupEligible.forEach(p => { const k = keyFn(p); if (k) { const g = langOf(p) + ' ' + k; m.set(g, [...(m.get(g) || []), p]); } });
     return [...m.entries()].filter(([, v]) => v.length > 1)
       .filter(([, pages]) => new Set(pages.map(p => stripLocale(p.finalUrl || p.url))).size === pages.length);
   };
