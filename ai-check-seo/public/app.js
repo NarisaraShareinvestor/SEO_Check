@@ -238,7 +238,7 @@ function render(audit) {
   }
   renderDelta(audit);
   renderAi(audit.analysis);
-  renderChecks(audit, 'issues');
+  renderChecks(audit);
   loadEvidenceMap(audit.id);   // async — เมื่อโหลด index เสร็จ จะ re-render checks พร้อมลิงก์ HTML snapshot
   renderPages(audit);
   renderCompare(audit);
@@ -313,7 +313,7 @@ async function loadEvidenceMap(id) {
   try {
     const idx = await (await fetch('/api/evidence/' + id)).json();
     (idx.pages || []).forEach((p, i) => { if (p.url) evidenceMap[p.url] = { raw: p.raw, rendered: p.rendered, i }; });
-    if (Object.keys(evidenceMap).length && currentAudit && currentAudit.id === id) renderChecks(currentAudit, checkFilter);
+    if (Object.keys(evidenceMap).length && currentAudit && currentAudit.id === id) renderChecks(currentAudit);
   } catch { /* audit เก่าไม่มี evidence — ไม่เป็นไร ลิงก์ไม่ขึ้น */ }
 }
 
@@ -544,47 +544,180 @@ function renderAi(a) {
     ${a.strategicAdvice ? `<div class="strategy"><b>กลยุทธ์</b> — ${esc(stripEmoji(a.strategicAdvice))}</div>` : ''}`;
 }
 
-let checkFilter = 'issues';
-function renderChecks(audit, filter) {
-  checkFilter = filter || checkFilter;
-  const cats = [...new Set(audit.checks.map(ch => ch.category))];
-  $('#filterbar').innerHTML = `
-    <button class="fbtn ${checkFilter === 'issues' ? 'on' : ''}" onclick="renderChecks(currentAudit,'issues')">เฉพาะปัญหา</button>
-    <button class="fbtn ${checkFilter === 'all' ? 'on' : ''}" onclick="renderChecks(currentAudit,'all')">ทั้งหมด</button>
-    ${cats.map(cat => `<button class="fbtn ${checkFilter === cat ? 'on' : ''}" onclick="renderChecks(currentAudit,'${cat}')">${esc(audit.categories[cat] || cat)}</button>`).join('')}
-    ${(currentAudit && currentAudit.id && Object.keys(evidenceMap).length) ? `<a class="evidence-all" href="/evidence/${currentAudit.id}" target="_blank" rel="noopener" title="ข้อมูล SEO ที่ดึงได้ครบทุก field ทุกหน้า">🔎 หลักฐานรวมทุกหน้า</a>` : ''}`;
-
-  const order = { fail: 0, warn: 1, info: 2, pass: 3 };
-  const sevOrder = { high: 0, med: 1, low: 2 };
-  let list = [...audit.checks].sort((a, b) => (order[a.status] - order[b.status]) || (sevOrder[a.severity] - sevOrder[b.severity]));
-  if (checkFilter === 'issues') list = list.filter(ch => ch.status === 'fail' || ch.status === 'warn');
-  else if (checkFilter !== 'all') list = list.filter(ch => ch.category === checkFilter);
-
-  const stTh = { fail: 'Fail', warn: 'Warn', pass: 'Pass', info: 'Info' };
-  const sevTh = { high: 'สำคัญสูง', med: 'กลาง', low: 'ต่ำ' };
-  $('#checksList').innerHTML = list.map(ch => `
-    <details class="check" ${ch.status === 'fail' ? 'open' : ''}>
-      <summary>
-        <span class="chip ${ch.status}">${stTh[ch.status]}</span>
-        <b>${esc(stripEmoji(ch.title))}</b>
-        ${ch.affectedCount ? `<span class="n">${ch.affectedCount} รายการ</span>` : ''}
-        <span class="sev">${sevTh[ch.severity] || ch.severity}</span>
-        ${confBadge(ch)}${evConfChip(ch)}
-      </summary>
-      <div class="body">
-        <div>${esc(stripEmoji(ch.detail))}</div>
-        ${ch.recommendation ? `<div class="rec"><b>วิธีแก้</b> — ${esc(stripEmoji(ch.recommendation))}</div>` : ''}
-        ${ch.reference ? `<div class="refln"><span class="reftier t${ch.reference.tier}">${esc(ch.reference.type)}</span> <b>อ้างอิง:</b> ${ch.reference.sources.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)} ↗</a>`).join(' · ')}</div>` : ''}
-        ${reasonBlock(ch)}
-        ${(ch.groups || []).length
-          ? `<div class="plist"><b>ค่าที่ซ้ำ — แยกแต่ละจุด:</b>${ch.groups.map(g => `<div class="dupgrp"><div class="dupval">🔁 <b>"${esc(stripEmoji(String(g.value || '(ว่าง)')))}"</b> <span class="n">ซ้ำ ${g.pages.length} หน้า</span></div>${g.pages.map(u => `<div class="evrow"><a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>${evidenceLink(u, ch)}</div>`).join('')}</div>`).join('')}</div>`
-          : (ch.evidence || []).length
-          ? `<div class="plist"><b>หลักฐานรายหน้า:</b>${ch.evidence.map(e => `<div class="evrow"><a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.url)}</a>${e.note ? `<span class="evnote"> — ${esc(e.note)}</span>` : ''}${evidenceLink(e.url, ch)}</div>`).join('')}</div>`
-          : (ch.pages || []).length ? `<div class="plist">${ch.pages.map(p => `<div class="evrow"><a href="${esc(p)}" target="_blank" rel="noopener">${esc(p)}</a>${evidenceLink(p, ch)}</div>`).join('')}</div>` : ''}
-        ${ch.fixable ? `<div class="note">มีไฟล์แก้ในแท็บ Auto-Fix</div>` : ''}
-      </div>
-    </details>`).join('') || '<div class="empty">ไม่มีรายการในหมวดนี้</div>';
+let statusFilter = 'all', catFilter = '', KG = {};
+async function loadSkillGraph() {
+  if (Object.keys(KG).length) return;
+  try {
+    const d = await (await fetch('/skill-graph.json')).json();
+    (d.nodes || []).forEach(n => { if (n.type === 'rule') KG[n.id] = n; });
+    if (currentAudit) renderChecks(currentAudit);
+  } catch { /* ไม่มีก็ข้าม */ }
 }
+const SEV_ICON = { fail: '✕', warn: '!', pass: '✓', info: 'ⓘ' };
+const ST_TH = { fail: 'Fail', warn: 'Warning', pass: 'Pass', info: 'Info' };
+const clsOf = st => (st === 'fail' || st === 'warn' || st === 'pass') ? st : 'info';
+function confPctOf(ch) {
+  if (ch.confidence != null) return Math.round(ch.confidence * 100);
+  if (ch._confidence != null) return ch._confidence;
+  const k = KG[ch.id]; return k && k.conf != null ? k.conf : null;
+}
+function countOf(ch) {
+  if (ch.affectedCount != null) return ch.affectedCount;
+  if ((ch.groups || []).length) return ch.groups.reduce((s, g) => s + (g.pages || []).length, 0);
+  return (ch.pages || []).length;
+}
+function firstPageOf(ch) {
+  if ((ch.groups || []).length) return (ch.groups[0].pages || [])[0];
+  if ((ch.evidence || []).length) return ch.evidence[0].url;
+  return (ch.pages || [])[0];
+}
+function entityWord(ch) {
+  const id = ch.id || '';
+  if (/title/.test(id)) return 'title'; if (/desc/.test(id)) return 'description';
+  if (/h1|heading/.test(id)) return 'H1'; return 'ค่า';
+}
+function setStatusFilter(k) { statusFilter = k; renderChecks(currentAudit); }
+function setCatFilter(k) { catFilter = (catFilter === k ? '' : k); renderChecks(currentAudit); }
+function toggleFinding(bar) { bar.closest('.finding').classList.toggle('open'); }
+
+function evPageRow(u, ch) {
+  return `<div class="evrow"><a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a><span style="display:flex;gap:8px;align-items:center">${evidenceLink(u, ch)}<a class="seebtn" href="${esc(u)}" target="_blank" rel="noopener">ดูหน้า</a></span></div>`;
+}
+function evGroupsHTML(ch) {
+  const g = ch.groups || [];
+  const totalPages = g.reduce((s, x) => s + (x.pages || []).length, 0);
+  const head = `<div class="eh"><b>${esc(entityWord(ch))}</b> ที่ซ้ำกัน — <b>${g.length} ค่า</b> (รวม ${totalPages} หน้า) · คลิกแต่ละค่าเพื่อกาง/พับ</div>`;
+  const body = g.map((grp, i) => `<details class="dgroup" ${i === 0 ? 'open' : ''}><summary><span class="dchev">▾</span><span class="dval" title="${esc(String(grp.value || ''))}">"${esc(stripEmoji(String(grp.value || '(ว่าง)')))}"</span><span class="dn">ซ้ำ ${grp.pages.length} หน้า</span></summary><div class="dgb">${grp.pages.map(u => evPageRow(u, ch)).join('')}</div></details>`).join('');
+  return `<div class="evbox">${head}${body}</div>`;
+}
+function evPagesHTML(ch) {
+  const rows = (ch.evidence || []).length
+    ? ch.evidence.map(e => `<div class="evrow"><a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.url)}</a><span style="display:flex;gap:8px;align-items:center">${e.note ? `<span style="font-size:11px;color:var(--mut)">${esc(e.note)}</span>` : ''}${evidenceLink(e.url, ch)}<a class="seebtn" href="${esc(e.url)}" target="_blank" rel="noopener">ดูหน้า</a></span></div>`).join('')
+    : (ch.pages || []).map(p => evPageRow(p, ch)).join('');
+  if (!rows) return '<div class="dbody-empty">— ไม่มีรายการหน้า —</div>';
+  const label = ch.status === 'pass' ? 'หน้าที่ตรวจ' : 'หน้าที่พบ';
+  return `<div class="evbox"><div class="eh">${label} (${(ch.evidence || ch.pages || []).length})</div>${rows}</div>`;
+}
+function evidenceInline(ch) {
+  return (ch.groups || []).length ? evGroupsHTML(ch) : evPagesHTML(ch);
+}
+
+function findingCard(ch) {
+  const st = ch.status, cls = clsOf(st), open = st === 'fail';
+  const cp = confPctOf(ch), n = countOf(ch), fp = firstPageOf(ch);
+  const sub = st === 'pass' ? 'ที่ตรวจ' : 'ที่พบปัญหา';
+  const acts = `<div class="factions"><button class="abtn primary" onclick="event.stopPropagation();openDrawer('${esc(ch.id)}','evidence')">ดูหลักฐาน</button>${fp ? `<a class="abtn" href="${esc(fp)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">เปิดหน้าที่พบ ↗</a>` : ''}${ch.recommendation ? `<button class="abtn" onclick="event.stopPropagation();openDrawer('${esc(ch.id)}','fix')">วิธีแก้ไข</button>` : ''}</div>`;
+  const body = `<div class="fbody">${evidenceInline(ch)}${ch.fixable ? '<div class="detected">มีไฟล์แก้ในแท็บ Auto-Fix</div>' : ''}</div>`;
+  return `<div class="finding ${cls} ${open ? 'open' : ''}"><div class="fbar" onclick="toggleFinding(this)"><div class="fico">${SEV_ICON[st] || 'ⓘ'}</div><div class="fmain"><div class="ftop"><span class="ftitle">${esc(stripEmoji(ch.title))}</span><span class="fbadge ${cls}">${ST_TH[st] || st}</span></div><div class="fdesc">${esc(stripEmoji(ch.detail || ''))}</div><span class="frelate">เกี่ยวข้องกับ SEO</span></div><div class="fright"><div class="big">${n} หน้า</div><div class="sub">${sub}</div>${cp != null ? `<div class="conf ${cp < 80 ? 'warn' : ''}">${cp}%</div>` : ''}</div><span class="chev">▾</span></div>${acts}${body}</div>`;
+}
+
+function renderChecks(audit) {
+  if (!audit) return;
+  const checks = audit.checks || [];
+  const cnt = { fail: 0, warn: 0, pass: 0, info: 0 };
+  checks.forEach(c => { if (cnt[c.status] != null) cnt[c.status]++; });
+  const chip = (key, cls, ic, lbl, num) => `<span class="rstat ${cls} ${statusFilter === key ? 'on' : ''}" onclick="setStatusFilter('${key}')"><span class="ic">${ic}</span><span class="num">${num}</span> <span class="lbl">${lbl}</span></span>`;
+  const sumrow = `<div class="sumrow">${chip('all', 'all', '⊕', 'ทั้งหมด', checks.length)}${chip('fail', 'crit', '⚠', 'สำคัญ', cnt.fail)}${chip('warn', 'fix', '◑', 'ต้องแก้ไข', cnt.warn)}${chip('pass', 'pass2', '✓', 'ผ่านแล้ว', cnt.pass)}${chip('info', 'info2', 'ⓘ', 'ข้อมูล', cnt.info)}</div>`;
+  const cats = Object.keys(audit.categories || {}).filter(cat => checks.some(c => c.category === cat));
+  const pills = `<div class="pills"><span class="pill ${!catFilter ? 'on' : ''}" onclick="setCatFilter('')">ทั้งหมด</span>${cats.map(cat => `<span class="pill ${catFilter === cat ? 'on' : ''}" onclick="setCatFilter('${cat}')">${esc(audit.categories[cat] || cat)}</span>`).join('')}</div>`;
+  const evAll = (currentAudit && currentAudit.id && Object.keys(evidenceMap).length) ? `<a class="sel" href="/evidence/${currentAudit.id}" target="_blank" rel="noopener" style="text-decoration:none">🔎 หลักฐานรวมทุกหน้า</a>` : '';
+  const sortbar = `<div class="sortbar"><span>เรียงตาม:</span><span class="sel">ความรุนแรง</span>${evAll}</div>`;
+  $('#filterbar').innerHTML = sumrow + pills + sortbar;
+
+  let list = checks.filter(c => (statusFilter === 'all' || c.status === statusFilter) && (!catFilter || c.category === catFilter));
+  const order = { fail: 0, warn: 1, info: 2, pass: 3 }, sevO = { high: 0, med: 1, low: 2 };
+  list.sort((a, b) => (order[a.status] - order[b.status]) || ((sevO[a.severity] ?? 1) - (sevO[b.severity] ?? 1)));
+
+  const shownCats = cats.filter(cat => list.some(c => c.category === cat));
+  const html = shownCats.map(cat => {
+    const items = list.filter(c => c.category === cat);
+    const issues = items.filter(c => c.status === 'fail' || c.status === 'warn').length;
+    const cntBadge = issues ? `<span class="cnt">พบ ${issues} ปัญหา</span>` : `<span class="cnt ok">ผ่าน</span>`;
+    return `<div class="sechead"><h3>${esc(audit.categories[cat] || cat)}</h3>${cntBadge}</div>${items.map(findingCard).join('')}`;
+  }).join('');
+  $('#checksList').innerHTML = html || '<div class="emptyfind">ไม่มีรายการตามตัวกรองนี้</div>';
+}
+
+// ── Detail Drawer ──
+let drawerId = null, drawerTab = 'evidence';
+function openDrawer(id, tab) {
+  drawerId = id; drawerTab = tab || 'evidence';
+  renderDrawer();
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerBd').classList.add('open');
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerBd').classList.remove('open');
+}
+function setDrawerTab(t) { drawerTab = t; renderDrawer(); }
+function renderDrawer() {
+  const ch = ((currentAudit && currentAudit.checks) || []).find(c => c.id === drawerId); if (!ch) return;
+  const k = KG[ch.id] || {}; const cls = clsOf(ch.status); const cp = confPctOf(ch);
+  const tabs = [['evidence', 'หลักฐาน'], ['reason', 'เหตุผล'], ['rule', 'กฎที่ใช้ตรวจ'], ['fix', 'วิธีแก้ไข']];
+  let body = drawerTab === 'reason' ? drawerReason(ch, k) : drawerTab === 'rule' ? drawerRule(ch, k) : drawerTab === 'fix' ? drawerFix(ch, k) : drawerEvidence(ch, k);
+  document.getElementById('drawer').innerHTML =
+    `<div class="dhead"><h2>${esc(stripEmoji(ch.title))} <span class="fbadge ${cls}" style="vertical-align:middle">${ST_TH[ch.status] || ch.status}</span></h2><button class="dclose" onclick="closeDrawer()">✕</button></div>` +
+    `<div class="dsum"><div class="txt">${esc(stripEmoji(ch.detail || ''))}</div>${cp != null ? `<div><div class="conflab">ความมั่นใจ</div><span class="confnum ${cp < 80 ? 'warn' : ''}">${cp}%</span></div>` : ''}</div>` +
+    `<div class="drelate">เกี่ยวข้องกับ <b>SEO</b></div>` +
+    `<div class="dtabs">${tabs.map(([t, l]) => `<button class="dtab ${drawerTab === t ? 'on' : ''}" onclick="setDrawerTab('${t}')">${l}</button>`).join('')}</div>` +
+    body;
+  if (drawerTab === 'evidence') loadDrawerCode(ch);
+}
+function drawerEvidence(ch, k) {
+  const code = `<div class="dsec" id="dcodeSec" style="display:none"><div class="codehead"><div class="st">ตัวอย่างโค้ดจากหน้าเว็บ <span class="muted">(หน้าแรกในกลุ่มนี้)</span></div></div><pre class="dcode" id="dcodeSlot"></pre></div>`;
+  return `<div class="dsec">${evidenceInline(ch)}</div>${code}${verifyTiles(ch)}<div class="dnote"><b>หมายเหตุ:</b> การตรวจสอบยึดตาม HTML ที่ระบบเก็บได้ตอน crawl อาจต่างจากที่เห็นในเบราว์เซอร์</div>`;
+}
+function drawerReason(ch, k) {
+  return `<div class="dsec"><div class="st">ทำไมต้องตรวจ</div><div style="font-size:13.5px;line-height:1.75;color:#374151">${esc(k.why || stripEmoji(ch.detail || '—'))}</div></div>` +
+    (k.what ? `<div class="dsec"><div class="st">ตรวจอะไร</div><div style="font-size:13.5px;line-height:1.75;color:#374151">${esc(k.what)}</div></div>` : '') +
+    (ch.reasoning ? `<div class="dsec">${reasonBlock(ch)}</div>` : '');
+}
+function drawerRule(ch, k) {
+  const m = k.measure;
+  if (!m) return `<div class="dbody-empty">ยังไม่มีรายละเอียดวิธีตรวจของกฎนี้</div>`;
+  const how = (m.how || []).map(s => { const d = typeof s === 'string' ? s : (s.do || ''); const w = (s && typeof s === 'object' && s.why) || ''; return `<li style="margin:5px 0">${esc(d)}${w ? ` <span style="color:var(--mut)">— ${esc(w)}</span>` : ''}</li>`; }).join('');
+  const dec = (m.decision || []).map(s => `<li style="margin:3px 0;color:#374151">${esc(s)}</li>`).join('');
+  return `<div class="dsec"><div class="st">ตรวจอย่างไร (ตอนนี้)${m.line ? ` <span class="muted">· โค้ด line ${esc(m.line)}</span>` : ''}</div><ol style="padding-left:20px;font-size:13.5px;margin:0">${how}</ol></div>` +
+    (dec ? `<div class="dsec"><div class="st">เกณฑ์ตัดสิน</div><ul style="padding-left:18px;font-size:13px;margin:0">${dec}</ul></div>` : '') +
+    (m.gap ? `<div class="dsec"><div class="st">ข้อสังเกต</div><div style="font-size:13px;color:var(--mut)">${esc(m.gap)}</div></div>` : '');
+}
+function drawerFix(ch, k) {
+  const refs = (ch.reference && ch.reference.sources) || (k.refs ? k.refs.map(r => ({ label: r[0], url: r[1] })) : []);
+  return `<div class="dsec"><div class="st">วิธีแก้ไข</div><div style="font-size:13.5px;line-height:1.75;color:#374151">${ch.recommendation ? esc(stripEmoji(ch.recommendation)) : '—'}</div></div>` +
+    (refs && refs.length ? `<div class="dsec"><div class="st">มาตรฐานอ้างอิง</div>${refs.map(s => `<div style="margin:5px 0"><a href="${esc(s.url)}" target="_blank" rel="noopener" style="color:var(--f-slate);font-size:13px;text-decoration:none">${esc(s.label)} ↗</a></div>`).join('')}</div>` : '') +
+    (ch.fixable ? `<div class="dnote">ไฟล์แก้อัตโนมัติมีในแท็บ Auto-Fix</div>` : '');
+}
+function verifyTiles(ch) {
+  const fp = firstPageOf(ch); if (!fp) return '';
+  const id = currentAudit && currentAudit.id;
+  const key = Object.keys(evidenceMap).find(u => fp === u || fp.startsWith(u));
+  const em = key && evidenceMap[key];
+  const rawHref = (id && em && em.raw) ? `/api/evidence/${id}/${em.raw}` : ('view-source:' + fp);
+  const evBase = (id && em) ? `/evidence/${id}?p=${em.i}` : '';
+  const tile = (href, ic, nm) => `<a class="tile" href="${esc(href)}" target="_blank" rel="noopener"><div class="tic">${ic}</div><div class="tn">${nm}</div></a>`;
+  return `<div class="verifybox"><div class="vh">ตรวจสอบบนเว็บไซต์</div><div class="vsub">คลิกเพื่อเปิดหน้าเว็บและตรวจสอบด้วยตนเอง</div><div class="tiles">${tile(fp, '🌐', 'เปิดหน้าเว็บ')}${tile(rawHref, '&lt;/&gt;', 'ดู Source')}${evBase ? tile(evBase + '&focus=title', 'T', 'ตรวจ Title') : ''}${evBase ? tile(evBase + '&focus=h1', 'H1', 'ตรวจ H1') : ''}${evBase ? tile(evBase + '&focus=canonical', '🔗', 'ตรวจ Canonical') : ''}</div></div>`;
+}
+function _hlCode(s) {
+  return esc(s).replace(/(&lt;\/?[a-zA-Z0-9]+)/g, '<span class="tg">$1</span>').replace(/([a-zA-Z-]+)=("[^"]*")/g, '<span class="at">$1</span>=<span class="st2">$2</span>');
+}
+async function loadDrawerCode(ch) {
+  const fp = firstPageOf(ch); const id = currentAudit && currentAudit.id; if (!fp || !id) return;
+  const key = Object.keys(evidenceMap).find(u => fp === u || fp.startsWith(u)); const em = key && evidenceMap[key];
+  if (!em || !em.raw) return;
+  try {
+    const html = await (await fetch(`/api/evidence/${id}/${em.raw}`)).text();
+    const pick = []; const grab = re => { const m = html.match(re); if (m) pick.push(m[0]); };
+    grab(/<title[^>]*>[\s\S]*?<\/title>/i);
+    grab(/<link[^>]*rel=["']canonical["'][^>]*>/i);
+    grab(/<meta[^>]*name=["']description["'][^>]*>/i);
+    grab(/<h1[^>]*>[\s\S]*?<\/h1>/i);
+    if (!pick.length) return;
+    const slot = document.getElementById('dcodeSlot'), sec = document.getElementById('dcodeSec');
+    if (slot && drawerTab === 'evidence') { slot.innerHTML = pick.map(l => `<span class="row">${_hlCode(l.replace(/\s+/g, ' ').trim().slice(0, 300))}</span>`).join(''); sec.style.display = ''; }
+  } catch { /* ข้าม */ }
+}
+loadSkillGraph();
 
 const chip = (cls, text) => `<span class="chip ${cls}">${text}</span>`;
 function renderPages(audit) {
