@@ -80,6 +80,13 @@
   .grp{margin:13px 0}.grp-h{display:flex;align-items:center;gap:8px;margin-bottom:6px}.grp-nm{font-size:12.5px;font-weight:600;color:var(--text)}
   .reflist a{display:block;color:var(--text);text-decoration:underline;text-decoration-color:var(--border2);text-underline-offset:2px;font-size:12.8px;padding:3px 0}.reflist a:hover{text-decoration-color:var(--ink)}
   .pending{background:var(--hover);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:12.3px;color:var(--mut);margin:11px 0}
+  .measurebox{background:#f0f4f8;border:1px solid #d4dde8;border-radius:10px;padding:11px 13px;margin:6px 0}
+  .measurebox code{font-family:var(--mono);font-size:11.5px;background:#e2eaf2;padding:1px 4px;border-radius:4px}
+  .msub{font-size:10.5px;font-weight:700;letter-spacing:.04em;color:#3a5a8a;margin:9px 0 3px}
+  .msub.gap{color:#8a5a00;border-top:1px dashed #c4d0dd;padding-top:8px;margin-top:10px}
+  ul.mcond{list-style:none;margin:0;padding:0}
+  ul.mcond li{position:relative;padding:2px 0 2px 15px;font-size:12.5px;color:var(--text);line-height:1.55}
+  ul.mcond li::before{content:"▸";position:absolute;left:0;color:#8a98a8;font-size:10px;top:3px}
   .ban{display:flex;align-items:baseline;gap:10px;margin:14px 0 0}.ban .v{font-size:30px;font-weight:700;letter-spacing:-1px}.ban .l{font-size:12.5px;color:var(--mut)}
   .progress{height:6px;border-radius:99px;background:#f1f1f3;overflow:hidden;margin:10px 0 2px}.progress i{display:block;height:100%;background:var(--ink)}
   .fade{animation:fade .2s cubic-bezier(.22,1,.36,1)}@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
@@ -220,9 +227,17 @@ function selRule(n){
   if(!n.verified)h+=`<div class="pending">ยังไม่ได้ไล่ตรวจ false-positive ราย check นี้ — logic ด้านล่างคือสิ่งที่ทำไว้/เสนอ</div>`;
   if(n.what)h+=`<div class="k">ตรวจอะไร · What</div><div class="body">${esc(n.what)}</div>`;
   if(n.why)h+=`<div class="k">ทำไมต้องตรวจ</div><div class="body mut">${esc(n.why)}</div>`;
-  if(n.how)h+=`<div class="k">ตรวจอย่างไร · How${pend}</div><ol class="steps">${n.how.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`;
-  if(n.rule)h+=`<div class="k">กฎการตัดสิน · Decision Rule${pend}</div>${n.rule.map(s=>`<div class="rule">${esc(s)}</div>`).join('')}`;
-  if(!n.how&&!n.rule&&n.what)h+=`<div class="pending">ยังไม่ได้เขียน workflow/decision ละเอียด</div>`;
+  if(n.measure){const m=n.measure;
+    h+=`<div class="k">⚙ กฎที่ใช้ตัดสินตอนนี้ · จากโค้ด${m.line?` · line ${esc(m.line)}`:''}</div><div class="measurebox">`;
+    if(m.summary)h+=`<div class="body">${esc(m.summary)}</div>`;
+    if(m.reads)h+=`<div class="body mut" style="margin-top:4px">อ่านจาก: <code>${esc(m.reads)}</code></div>`;
+    if(m.conditions&&m.conditions.length)h+=`<div class="msub">เงื่อนไขการตรวจ</div><ul class="mcond">${m.conditions.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`;
+    if(m.notes&&m.notes.length)h+=`<div class="msub gap">ข้อสังเกต / ควรเพิ่ม</div><ul class="mcond">${m.notes.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`;
+    h+=`</div>`;
+  }
+  if(n.how)h+=`<div class="k">ตรวจอย่างไร · How (deep)${pend}</div><ol class="steps">${n.how.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`;
+  if(n.rule)h+=`<div class="k">กฎการตัดสิน · Decision Rule (deep)${pend}</div>${n.rule.map(s=>`<div class="rule">${esc(s)}</div>`).join('')}`;
+  if(!n.how&&!n.rule&&!n.measure&&n.what)h+=`<div class="pending">ยังไม่ได้เขียน workflow/decision ละเอียด</div>`;
   if(deps.length)h+=`<div class="k">Dependencies (ต้องผ่านก่อน)</div><div class="chips">${deps.map(d=>`<a class="chip dep" onclick="select('${esc(d.id)}')">${esc(d.label)}</a>`).join('')}</div>`;
   h+=`<div class="k">มาตรฐานอ้างอิง</div><div class="reflist">${refs}</div>`;
   if(n.conf!=null||n.tier!=null)h+=`<div class="k">Confidence</div><div class="body">${n.conf!=null?n.conf+'%':'—'}${n.tier?` · Tier ${n.tier}`:''}</div>`;
