@@ -695,7 +695,7 @@ function renderLocator(ch, loc) {
   if (loc.kind === 'file') {
     return `<div class="evloc"><div class="st">🔎 ตรวจสอบเอง (5 วินาที)</div><div class="locrow"><span class="lk">เปิดไฟล์</span><a class="lv" href="${esc(loc.fileUrl)}" target="_blank" rel="noopener">${esc(loc.fileUrl)}</a></div>${loc.ctrlF ? locRow('Ctrl+F หา', loc.ctrlF, true) : ''}<a class="abtn" href="${esc(loc.fileUrl)}" target="_blank" rel="noopener" style="margin-top:9px">เปิดไฟล์ ↗</a></div>`;
   }
-  return `<div class="evloc"><div class="st">🔎 ตรวจสอบเอง (5 วินาที) <span class="muted">— หน้าแรกในกลุ่ม</span></div>` +
+  return `<div class="evloc"><div class="st">🔎 ตรวจสอบเอง (5 วินาที) <span class="muted">— ${firstPageOf(ch) ? 'หน้าแรกในกลุ่ม' : 'หน้าตัวอย่าง'}</span></div>` +
     locRow('เปิดหน้าแล้ว Ctrl+F หา', loc.ctrlF, true) +
     locRow('CSS Selector', loc.selector, true) +
     locRow('XPath', loc.xpath, false) +
@@ -741,30 +741,27 @@ function _hlCode(s) {
   return esc(s).replace(/([a-zA-Z-]+)=("[^"]*")/g, '<span class="at">$1</span>=<span class="st2">$2</span>').replace(/(&lt;\/?[a-zA-Z0-9]+)/g, '<span class="tg">$1</span>');
 }
 async function loadDrawerCode(ch) {
-  const fp = firstPageOf(ch); const id = currentAudit && currentAudit.id; if (!fp || !id) return;
-  const key = Object.keys(evidenceMap).find(u => fp === u || fp.startsWith(u)); const em = key && evidenceMap[key];
   const loc = evidLocator(ch);
-  if (!em || !em.raw) {
-    const st = document.getElementById('locStatus');
-    if (st && drawerTab === 'evidence') st.innerHTML = '<span class="lstat" style="color:var(--faint)">— audit นี้ไม่มี snapshot · กด "เปิดหน้าเว็บ" แล้ว Ctrl+F ตรวจเอง</span>';
-    return;
-  }
+  const setLoc = h => { const s = document.getElementById('locStatus'); if (s && drawerTab === 'evidence') s.innerHTML = h; };
+  const id = currentAudit && currentAudit.id;
+  // หน้าอ้างอิง: หน้าที่พบปัญหาก่อน · ถ้าไม่มี (เช่น PASS) ใช้หน้าที่มี snapshot ใดหน้าหนึ่งเป็นตัวอย่าง
+  const fp = firstPageOf(ch);
+  let key = fp && Object.keys(evidenceMap).find(u => fp === u || fp.startsWith(u));
+  if (!key) key = Object.keys(evidenceMap)[0];
+  const em = key && evidenceMap[key];
+  if (!id || !em || !em.raw) { if (loc && loc.kind === 'html') setLoc('<span class="lstat" style="color:var(--faint)">— audit นี้ไม่มี snapshot · กดเปิดหน้าเว็บแล้ว Ctrl+F ตรวจเอง</span>'); return; }
   try {
     const html = await (await fetch(`/api/evidence/${id}/${em.raw}`)).text();
     if (drawerTab !== 'evidence') return;
-    // locator แบบ HTML: ดึง element ที่เกี่ยว + สถานะ ✓/❌
     if (loc && loc.kind === 'html' && loc.matchRe) {
-      const statusEl = document.getElementById('locStatus'), slot = document.getElementById('locSlot'), cpy = document.getElementById('locCopyHtml');
-      if (!statusEl) return;
       const m = html.match(loc.matchRe);
+      const slot = document.getElementById('locSlot'), cpy = document.getElementById('locCopyHtml');
       if (m) {
         const snippet = m[0].replace(/\s+/g, ' ').trim();
-        statusEl.innerHTML = '<span class="lstat ok">✓ พบในหน้านี้</span>';
+        setLoc('<span class="lstat ok">✓ พบในหน้านี้</span>');
         if (slot) { slot.innerHTML = `<span class="row">${_hlCode(snippet.slice(0, 500))}</span>`; slot.style.display = ''; }
         if (cpy) { cpy.dataset.copy = snippet; cpy.style.display = ''; }
-      } else {
-        statusEl.innerHTML = '<span class="lstat no">❌ ไม่พบในหน้านี้ (จาก HTML ที่ระบบเก็บ)</span>';
-      }
+      } else setLoc('<span class="lstat no">❌ ไม่พบในหน้านี้ (จาก HTML ที่ระบบเก็บ)</span>');
       return;
     }
     // ไม่มี locator (analysis) → snippet รวมแบบเดิม
@@ -776,7 +773,7 @@ async function loadDrawerCode(ch) {
     if (!pick.length) return;
     const slot = document.getElementById('dcodeSlot'), sec = document.getElementById('dcodeSec');
     if (slot) { slot.innerHTML = pick.map(l => `<span class="row">${_hlCode(l.replace(/\s+/g, ' ').trim().slice(0, 300))}</span>`).join(''); sec.style.display = ''; }
-  } catch { /* ข้าม */ }
+  } catch { if (loc && loc.kind === 'html') setLoc('<span class="lstat no">โหลดหลักฐานไม่สำเร็จ · กดเปิดหน้าเว็บตรวจเอง</span>'); }
 }
 loadSkillGraph();
 
