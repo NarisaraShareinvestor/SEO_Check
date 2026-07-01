@@ -947,6 +947,32 @@ app.get('/evidence/:auditId', (req, res) => {
   const keep = (focus && FOCUS_ROWS[focus]) ? new Set(FOCUS_ROWS[focus]) : null;
   // p = index หน้าที่เกี่ยวกับ finding ที่กดมา (เช่น title ซ้ำเฉพาะ 2 หน้า) — ไม่ส่ง = ทุกหน้า
   const onlyP = new Set(String(req.query.p || '').split(',').map(x => parseInt(x, 10)).filter(n => !isNaN(n)));
+  // Evidence Locator: focus ที่ชี้ตำแหน่งใน HTML ได้ → อ่าน raw HTML แล้ว extract element จริง + Ctrl+F/selector/✓❌
+  const LOC = {
+    title: { ctrlF: '<title', selector: 'head > title', xpath: '/html/head/title', re: /<title[^>]*>[\s\S]*?<\/title>/i },
+    h1: { ctrlF: '<h1', selector: 'h1', xpath: '//h1', re: /<h1[^>]*>[\s\S]*?<\/h1>/i },
+    desc: { ctrlF: 'name="description"', selector: 'head > meta[name=description]', xpath: '//meta[@name="description"]', re: /<meta[^>]*name=["']description["'][^>]*>/i },
+    canonical: { ctrlF: 'rel="canonical"', selector: 'head > link[rel=canonical]', xpath: '//link[@rel="canonical"]', re: /<link[^>]*rel=["']canonical["'][^>]*>/i },
+    robots: { ctrlF: 'name="robots"', selector: 'head > meta[name=robots]', xpath: '//meta[@name="robots"]', re: /<meta[^>]*name=["']robots["'][^>]*>/i },
+    schema: { ctrlF: 'application/ld+json', selector: 'script[type="application/ld+json"]', xpath: '//script[@type="application/ld+json"]', re: /<script[^>]*application\/ld\+json[^>]*>[\s\S]*?<\/script>/i },
+    lang: { ctrlF: '<html', selector: 'html[lang]', xpath: '/html', re: /<html[^>]*>/i },
+  };
+  const inspectBlock = (p, i) => {
+    const loc = LOC[focus]; if (!loc || !p.raw) return '';
+    if (!onlyP.size && i >= 5) return ''; // ดูรวมหลายหน้า → ทำ inspect แค่ 5 หน้าแรก (กันอ่านไฟล์เยอะ)
+    let html = ''; try { html = readFileSync(join(EVIDENCE_DIR, id, p.raw), 'utf8'); } catch { return ''; }
+    const m = html.match(loc.re);
+    const snip = m ? m[0].replace(/\s+/g, ' ').trim().slice(0, 400) : '';
+    return `<div class="inspect">
+      <div class="ih">🔎 ตรวจสอบเอง (5 วินาที)</div>
+      <div class="ir"><span class="ik">เปิดหน้าแล้ว Ctrl+F หา</span><code>${esc(loc.ctrlF)}</code></div>
+      <div class="ir"><span class="ik">CSS Selector</span><code>${esc(loc.selector)}</code></div>
+      <div class="ir"><span class="ik">XPath</span><code>${esc(loc.xpath)}</code></div>
+      <div class="ir"><span class="ik">HTML ที่ระบบเห็น</span>${m ? '<b class="ok">✓ พบในหน้านี้</b>' : '<b class="bad">❌ ไม่พบในหน้านี้</b>'}</div>
+      ${m ? `<pre class="ecode">${esc(snip)}</pre>` : ''}
+      <div class="ibtn"><a href="${esc(p.url)}" target="_blank" rel="noopener">เปิดหน้าเว็บจริง ↗</a></div>
+    </div>`;
+  };
   const cards = (idx.pages || []).map((p, i) => {
     if (onlyP.size && !onlyP.has(i)) return '';
     const s = p.signals;
@@ -969,6 +995,7 @@ app.get('/evidence/:auditId', (req, res) => {
     return `<div class="card" id="p${i}">
       <h2>${esc(p.url)} <span class="st">HTTP ${esc(p.status)}</span></h2>
       <table>${shown.map(([k, label, v]) => `<tr><th>${label}</th><td>${v}</td></tr>`).join('')}</table>
+      ${inspectBlock(p, i)}
       ${rawLinks(p)}
     </div>`;
   }).join('');
@@ -982,6 +1009,13 @@ h1{font-size:22px;margin:0 0 4px}.sub{color:var(--mut);font-size:13px;margin:0 0
 table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;color:var(--mut);font-weight:500;width:160px;vertical-align:top;padding:5px 10px 5px 0;white-space:nowrap}
 td{padding:5px 0;vertical-align:top;word-break:break-word}tr+tr th,tr+tr td{border-top:1px solid #f1f5f9}
 .bad{color:#c0392b}.warn{color:#b26b00}.note{font-size:13px}
+.inspect{margin-top:12px;padding-top:12px;border-top:1px dashed var(--ln)}
+.inspect .ih{font-weight:600;font-size:13px;margin-bottom:8px}
+.ir{display:flex;gap:10px;align-items:baseline;font-size:12.5px;padding:3px 0}.ir .ik{color:var(--mut);min-width:150px}
+.ir code{font-family:ui-monospace,Menlo,monospace;background:#eef2f7;padding:2px 7px;border-radius:5px;font-size:12px}
+.ok{color:#15803d}
+.ecode{background:#1b1d23;color:#d6d8de;border-radius:8px;padding:10px 12px;overflow-x:auto;font-size:12px;margin:8px 0 0}
+.ibtn{margin-top:10px}.ibtn a{display:inline-block;font-size:12.5px;font-weight:600;color:#0369a1;border:1px solid #bfdbfe;background:#fff;border-radius:8px;padding:6px 12px;text-decoration:none}.ibtn a:hover{background:#eff6ff}
 .raw{margin-top:12px;padding-top:10px;border-top:1px dashed var(--ln);font-size:12px;color:var(--mut)}.raw a{color:#0369a1;text-decoration:none}.raw a:hover{text-decoration:underline}
 .focusbar{background:#eef6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;padding:9px 12px;font-size:12.5px;margin-bottom:16px}.focusbar a{color:#0369a1;font-weight:600;text-decoration:none}.focusbar a:hover{text-decoration:underline}
 </style></head><body>
