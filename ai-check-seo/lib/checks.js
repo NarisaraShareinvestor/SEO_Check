@@ -357,9 +357,8 @@ export function runChecks(site) {
       // Google self-canonical ให้โดยปริยาย → ถ้าเว็บสะอาด (ไม่มี query param / title ไม่ซ้ำ) = ความเสี่ยงต่ำ ไม่ใช่ fail/high
       const hasQueryParam = okPages.some(p => { try { return new URL(p.url).search.length > 0; } catch { return false; } })
         || (site.sitemapUrls || []).some(u => typeof u === 'string' && u.includes('?'));
-      const titleCount = {};
-      okPages.forEach(p => { const t = (p.title || '').trim(); if (t) titleCount[t] = (titleCount[t] || 0) + 1; });
-      const hasDupTitle = Object.values(titleCount).some(n => n > 1);
+      // ใช้ logic เดียวกับ title-duplicate (language-scoped + ตัด localization/canonical) — ไม่นับ title ซ้ำข้ามภาษาเป็นความเสี่ยง
+      const hasDupTitle = dupGroups(p => normDup(p.title)).length > 0;
       const dupRisk = hasQueryParam || hasDupTitle;
       const riskWhy = [hasQueryParam ? 'พบ URL ที่มี query param' : null, hasDupTitle ? 'พบ title ซ้ำข้ามหน้า' : null].filter(Boolean).join(' · ');
       const c = mk('canonical-missing', 'index', dupRisk ? 'high' : 'low', dupRisk ? 'fail' : 'warn',
