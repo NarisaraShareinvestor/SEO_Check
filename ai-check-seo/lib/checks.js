@@ -5,7 +5,7 @@ import { validateSchemaNodes } from './schema-validate.js';
 
 // เวอร์ชันของ "วิธีตรวจ" — bump เมื่อ logic ของ check เปลี่ยน (เช่น img-alt 3-state)
 // ใช้ตอนเทียบก่อน/หลัง: ถ้า audit 2 ครั้งคนละเวอร์ชัน → การเปลี่ยนบางอย่างมาจากการอัปเกรดระบบ ไม่ใช่การแก้เว็บ
-export const ENGINE_VERSION = 11;
+export const ENGINE_VERSION = 12;
 
 const CATS = {
   onpage: 'Meta & เนื้อหา',
@@ -100,6 +100,25 @@ export function runChecks(site) {
     return [...m.entries()].filter(([, v]) => v.length > 1)
       .filter(([, pages]) => new Set(pages.map(p => stripLocale(p.finalUrl || p.url))).size === pages.length);
   };
+  // วิเคราะห์กลุ่มซ้ำ → คำแนะนำเจาะจง (root/SPA-shell/canonical) + signals อธิบายว่าทำไมยังฟ้อง
+  const isRootUrl = p => { try { return new URL(p.finalUrl || p.url).pathname === '/'; } catch { return false; } };
+  const dupCtx = (groups, what) => {
+    const pages = groups.flatMap(([, ps]) => ps);
+    const hasRoot = pages.some(isRootUrl);
+    const hasShell = pages.some(p => p.emptyRoot);
+    const allNoCanon = pages.every(p => !p.canonical);
+    let rec = null, note = '';
+    if (hasRoot && hasShell) {
+      rec = `หน้าแรก (/) เป็นเชลล์ SPA ที่ตั้ง ${what} ซ้ำกับหน้าเนื้อหาจริง โดยไม่มี canonical/301 → ทำ 301 redirect (ฝั่งเซิร์ฟเวอร์) จาก / ไปหน้าหลัก หรือใส่ <link rel="canonical"> ชี้หน้าหลัก + ตั้ง ${what} เฉพาะแต่ละหน้า`;
+      note = `ยังฟ้องเพราะ / กับหน้าเนื้อหาเป็นคนละ URL ที่ index ได้ (Final URL ต่าง) ภาษาเดียวกัน และไม่มี canonical → Google เห็นเป็นคนละหน้าที่ชื่อซ้ำ ไม่ใช่หน้าเดียวกัน`;
+    } else if (hasRoot) {
+      rec = `มีหน้าแรก (/) อยู่ในกลุ่มซ้ำ — รวมหน้าแรกให้เหลือ URL เดียวด้วย 301 หรือ canonical แล้วตั้ง ${what} เฉพาะแต่ละหน้า`;
+      note = `ยังฟ้องเพราะ / กับอีกหน้าเป็นคนละ URL ภาษาเดียวกัน ไม่มี canonical/301 เชื่อมกัน`;
+    } else if (allNoCanon) {
+      rec = `ทุกหน้าในกลุ่มไม่มี canonical — หน้าที่ต่างกันแค่ query param (?page=/?sort=): ใส่ canonical ชี้หน้าหลัก · หน้าคนละเรื่อง: เขียน ${what} เฉพาะของแต่ละหน้า`;
+    }
+    return { rec, signals: { groups: groups.length, pages: pages.length, has_root: hasRoot, has_spa_shell: hasShell, all_missing_canonical: allNoCanon }, note };
+  };
 
   if (!okPages.length) {
     checks.push(mk('no-pages', 'index', 'high', 'fail', 'เข้าถึงหน้าเว็บไม่ได้',
@@ -134,10 +153,12 @@ export function runChecks(site) {
     // เทียบเฉพาะหน้าเนื้อหาจริง (dupEligible = ตัด noindex/canonical/pagination) + normalize + ตัดคู่คนละภาษา
     const dupT = dupGroups(p => normDup(p.title));
     if (dupT.length) {
+      const ctxT = dupCtx(dupT, 'title');
       const c = mk('title-duplicate', 'onpage', 'high', 'fail', 'title ซ้ำกันหลายหน้า',
         `พบ title ซ้ำ ${dupT.length} ค่า (รวม ${dupT.reduce((s, [, v]) => s + v.length, 0)} หน้า) — เฉพาะหน้าเนื้อหาจริง (ตัด noindex/canonical/pagination/ภาษาออกแล้ว) · Google สับสนว่าจะจัดอันดับหน้าไหน · ดูด้านล่างว่าค่าไหนซ้ำที่หน้าใดบ้าง`,
-        'หน้าที่เป็นคนละเรื่อง: เขียน title เฉพาะของแต่ละหน้า · หน้าที่ต่างกันแค่ query param (เช่น ?page=, ?year=): ใส่ canonical ชี้หน้าหลัก หรือ noindex แทนการเขียน title ใหม่', dupT.flatMap(([, v]) => v.map(p => p.finalUrl || p.url)), true);
+        ctxT.rec || 'หน้าที่เป็นคนละเรื่อง: เขียน title เฉพาะของแต่ละหน้า · หน้าที่ต่างกันแค่ query param (เช่น ?page=, ?year=): ใส่ canonical ชี้หน้าหลัก หรือ noindex แทนการเขียน title ใหม่', dupT.flatMap(([, v]) => v.map(p => p.finalUrl || p.url)), true);
       c.groups = dupT.map(([, pages]) => ({ value: pages[0].title, pages: pages.map(p => p.finalUrl || p.url) }));
+      c.reasoning = { signals: ctxT.signals, standard: 'Google: Consolidate duplicate URLs (canonical/301) + unique descriptive titles', verdict: 'fail', note: ctxT.note };
       checks.push(c);
     } else checks.push(mk('title-duplicate', 'onpage', 'high', 'pass', 'ไม่มี title ซ้ำ', 'แต่ละหน้ามี title ไม่ซ้ำกัน (เทียบเฉพาะหน้าที่ index ได้ · normalize แล้ว)'));
 
@@ -157,8 +178,10 @@ export function runChecks(site) {
 
     const dupD = dupGroups(p => normDup(p.metas['description']));
     if (dupD.length) {
-      const c = mk('desc-duplicate', 'onpage', 'med', 'warn', 'meta description ซ้ำกัน', `พบ description ซ้ำ ${dupD.length} ค่า (รวม ${dupD.reduce((s, [, v]) => s + v.length, 0)} หน้า) — เฉพาะหน้าเนื้อหาจริง (ตัด noindex/canonical/pagination/ภาษาออกแล้ว) · ดูด้านล่างว่าค่าไหนซ้ำที่หน้าใดบ้าง`, 'เขียน description เฉพาะของแต่ละหน้า', dupD.flatMap(([, v]) => v.map(p => p.finalUrl || p.url)), true);
+      const ctxD = dupCtx(dupD, 'description');
+      const c = mk('desc-duplicate', 'onpage', 'med', 'warn', 'meta description ซ้ำกัน', `พบ description ซ้ำ ${dupD.length} ค่า (รวม ${dupD.reduce((s, [, v]) => s + v.length, 0)} หน้า) — เฉพาะหน้าเนื้อหาจริง (ตัด noindex/canonical/pagination/ภาษาออกแล้ว) · ดูด้านล่างว่าค่าไหนซ้ำที่หน้าใดบ้าง`, ctxD.rec || 'เขียน description เฉพาะของแต่ละหน้า', dupD.flatMap(([, v]) => v.map(p => p.finalUrl || p.url)), true);
       c.groups = dupD.map(([, pages]) => ({ value: pages[0].metas['description'], pages: pages.map(p => p.finalUrl || p.url) }));
+      c.reasoning = { signals: ctxD.signals, standard: 'Google: Consolidate duplicate URLs + unique snippets', verdict: 'warn', note: ctxD.note };
       checks.push(c);
     }
 
@@ -679,8 +702,10 @@ export function runChecks(site) {
     const h1Text = p => { const h = (p.headings || []).find(x => x.tag === 'h1' && (x.text || '').trim()); return h ? h.text : ''; };
     const dupH1 = dupGroups(p => normDup(h1Text(p)));
     if (dupH1.length) {
-      const c = mk('h1-duplicate', 'onpage', 'med', 'warn', 'H1 ซ้ำกันหลายหน้า', `พบ H1 ซ้ำ ${dupH1.length} ค่า (รวม ${dupH1.reduce((s, [, v]) => s + v.length, 0)} หน้า) — เฉพาะหน้าเนื้อหาจริง (ตัด noindex/canonical/pagination/ภาษาออกแล้ว) · ดูด้านล่างว่าค่าไหนซ้ำที่หน้าใดบ้าง`, 'H1 ควรเฉพาะของแต่ละหน้าเหมือน title', dupH1.flatMap(([, v]) => v.map(p => p.finalUrl || p.url)), true);
+      const ctxH = dupCtx(dupH1, 'H1');
+      const c = mk('h1-duplicate', 'onpage', 'med', 'warn', 'H1 ซ้ำกันหลายหน้า', `พบ H1 ซ้ำ ${dupH1.length} ค่า (รวม ${dupH1.reduce((s, [, v]) => s + v.length, 0)} หน้า) — เฉพาะหน้าเนื้อหาจริง (ตัด noindex/canonical/pagination/ภาษาออกแล้ว) · ดูด้านล่างว่าค่าไหนซ้ำที่หน้าใดบ้าง`, ctxH.rec || 'H1 ควรเฉพาะของแต่ละหน้าเหมือน title', dupH1.flatMap(([, v]) => v.map(p => p.finalUrl || p.url)), true);
       c.groups = dupH1.map(([, pages]) => ({ value: h1Text(pages[0]), pages: pages.map(p => p.finalUrl || p.url) }));
+      c.reasoning = { signals: ctxH.signals, standard: 'HTML Standard: headings · Google: unique descriptive headings', verdict: 'warn', note: ctxH.note };
       checks.push(c);
     }
 
