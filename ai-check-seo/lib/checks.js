@@ -73,6 +73,24 @@ export function runChecks(site) {
   const canonicalAway = p => { if (!p.canonical) return false; try { return new URL(p.canonical, p.url).toString().replace(/\/$/, '') !== (p.finalUrl || p.url).replace(/\/$/, ''); } catch { return false; } };
   const isNoindex = p => /noindex/i.test(((p.metas && p.metas['robots']) || '') + ' ' + ((p.headers && p.headers['x-robots-tag']) || ''));
   const pageEligible = okPages.filter(p => !isNoindex(p) && !canonicalAway(p));
+  // ── shared helpers for duplicate checks (title/desc/h1) ──
+  // normalize: NFC + ตัด zero-width + lowercase + ยุบ whitespace · เทียบ "เนื้อความจริง" ไม่ใช่ byte
+  const normDup = s => (s || '').normalize('NFC').toLowerCase().replace(/[​-‍﻿]/g, '').replace(/\s+/g, ' ').trim();
+  // ยุบ locale prefix ใน path (/th/about → /about) เพื่อตัดคู่ "หน้าเดียวกันคนละภาษา" ออกจากการนับซ้ำ
+  const stripLocale = u => { try { const x = new URL(u); return x.origin + (x.pathname.replace(/^\/[a-z]{2}(-[a-z]{2})?(?=\/|$)/i, '') || '/'); } catch { return u; } };
+  // dupEligible = pageEligible (Final URL + ตัด noindex/canonical-away) + ตัด pagination/search/filter (ซ้ำโดยชอบ)
+  const dupEligible = pageEligible.filter(p => {
+    let path = '', search = ''; try { const u = new URL(p.url); path = u.pathname; search = u.search; } catch { /* keep */ }
+    if (/[?&](page|p|start|offset|sort|filter|q|s|search|tag|year|ref)=/i.test(search) || /\/page\/\d/i.test(path)) return false;
+    return true;
+  });
+  // group dupEligible ตาม key (normalize แล้ว) → คืนเฉพาะกลุ่มที่ซ้ำจริง (>1) และตัด localization variants ออก
+  const dupGroups = keyFn => {
+    const m = new Map();
+    dupEligible.forEach(p => { const k = keyFn(p); if (k) m.set(k, [...(m.get(k) || []), p]); });
+    return [...m.entries()].filter(([, v]) => v.length > 1)
+      .filter(([, pages]) => new Set(pages.map(p => stripLocale(p.finalUrl || p.url))).size === pages.length);
+  };
 
   if (!okPages.length) {
     checks.push(mk('no-pages', 'index', 'high', 'fail', 'เข้าถึงหน้าเว็บไม่ได้',
@@ -104,16 +122,15 @@ export function runChecks(site) {
         'title ที่ดี: 30–60 ตัวอักษร ขึ้นต้นด้วยคีย์เวิร์ด ลงท้ายด้วยแบรนด์', pageList([...longT, ...shortT]), true));
     else checks.push(mk('title-length', 'onpage', 'med', 'pass', 'ความยาว title เหมาะสม', 'ทุกหน้าอยู่ในช่วง 15–60 ตัวอักษร'));
 
-    const titleMap = new Map();
-    okPages.forEach(p => { if (p.title) titleMap.set(p.title, [...(titleMap.get(p.title) || []), p.url]); });
-    const dupT = [...titleMap.entries()].filter(([, v]) => v.length > 1);
+    // เทียบเฉพาะหน้าเนื้อหาจริง (dupEligible = ตัด noindex/canonical/pagination) + normalize + ตัดคู่คนละภาษา
+    const dupT = dupGroups(p => normDup(p.title));
     if (dupT.length) {
       const c = mk('title-duplicate', 'onpage', 'high', 'fail', 'title ซ้ำกันหลายหน้า',
-        `พบ title ซ้ำ ${dupT.length} ค่า (รวม ${dupT.reduce((s, [, v]) => s + v.length, 0)} หน้า) — Google สับสนว่าจะจัดอันดับหน้าไหน · ดูด้านล่างว่าค่าไหนซ้ำที่หน้าใดบ้าง`,
-        'หน้าที่เป็นคนละเรื่อง: เขียน title เฉพาะของแต่ละหน้า · หน้าที่ต่างกันแค่ query param (เช่น ?page=, ?year=): ใส่ canonical ชี้หน้าหลัก หรือ noindex แทนการเขียน title ใหม่', dupT.flatMap(([, v]) => v), true);
-      c.groups = dupT.map(([value, pages]) => ({ value, pages }));
+        `พบ title ซ้ำ ${dupT.length} ค่า (รวม ${dupT.reduce((s, [, v]) => s + v.length, 0)} หน้า) — เฉพาะหน้าเนื้อหาจริง (ตัด noindex/canonical/pagination/ภาษาออกแล้ว) · Google สับสนว่าจะจัดอันดับหน้าไหน · ดูด้านล่างว่าค่าไหนซ้ำที่หน้าใดบ้าง`,
+        'หน้าที่เป็นคนละเรื่อง: เขียน title เฉพาะของแต่ละหน้า · หน้าที่ต่างกันแค่ query param (เช่น ?page=, ?year=): ใส่ canonical ชี้หน้าหลัก หรือ noindex แทนการเขียน title ใหม่', dupT.flatMap(([, v]) => v.map(p => p.finalUrl || p.url)), true);
+      c.groups = dupT.map(([, pages]) => ({ value: pages[0].title, pages: pages.map(p => p.finalUrl || p.url) }));
       checks.push(c);
-    } else checks.push(mk('title-duplicate', 'onpage', 'high', 'pass', 'ไม่มี title ซ้ำ', 'แต่ละหน้ามี title ไม่ซ้ำกัน'));
+    } else checks.push(mk('title-duplicate', 'onpage', 'high', 'pass', 'ไม่มี title ซ้ำ', 'แต่ละหน้ามี title ไม่ซ้ำกัน (เทียบเฉพาะหน้าที่ index ได้ · normalize แล้ว)'));
 
     // desc 3-state เหมือน title: raw มี = PASS · JS/SPA สร้าง = WARNING · ไม่มีทั้ง raw+render = FAIL
     const rawNoDesc = okPages.filter(p => !p.metas['description']);
@@ -129,12 +146,10 @@ export function runChecks(site) {
     const badDesc = okPages.filter(p => { const d = p.metas['description']; return d && (d.length > 170 || d.length < 50); });
     if (badDesc.length) checks.push(mk('desc-length', 'onpage', 'low', 'warn', 'ความยาว meta description ไม่เหมาะสม', `${badDesc.length} หน้าสั้นกว่า 50 หรือยาวกว่า 170 ตัวอักษร`, 'ช่วงที่เหมาะสม: 80–160 ตัวอักษร', pageList(badDesc), true));
 
-    const descMap = new Map();
-    okPages.forEach(p => { const d = p.metas['description']; if (d) descMap.set(d, [...(descMap.get(d) || []), p.url]); });
-    const dupD = [...descMap.entries()].filter(([, v]) => v.length > 1);
+    const dupD = dupGroups(p => normDup(p.metas['description']));
     if (dupD.length) {
-      const c = mk('desc-duplicate', 'onpage', 'med', 'warn', 'meta description ซ้ำกัน', `พบ description ซ้ำ ${dupD.length} ค่า (รวม ${dupD.reduce((s, [, v]) => s + v.length, 0)} หน้า) — ดูด้านล่างว่าค่าไหนซ้ำที่หน้าใดบ้าง`, 'เขียน description เฉพาะของแต่ละหน้า', dupD.flatMap(([, v]) => v), true);
-      c.groups = dupD.map(([value, pages]) => ({ value, pages }));
+      const c = mk('desc-duplicate', 'onpage', 'med', 'warn', 'meta description ซ้ำกัน', `พบ description ซ้ำ ${dupD.length} ค่า (รวม ${dupD.reduce((s, [, v]) => s + v.length, 0)} หน้า) — เฉพาะหน้าเนื้อหาจริง (ตัด noindex/canonical/pagination/ภาษาออกแล้ว) · ดูด้านล่างว่าค่าไหนซ้ำที่หน้าใดบ้าง`, 'เขียน description เฉพาะของแต่ละหน้า', dupD.flatMap(([, v]) => v.map(p => p.finalUrl || p.url)), true);
+      c.groups = dupD.map(([, pages]) => ({ value: pages[0].metas['description'], pages: pages.map(p => p.finalUrl || p.url) }));
       checks.push(c);
     }
 
@@ -652,23 +667,12 @@ export function runChecks(site) {
     const relCanon = okPages.filter(p => p.canonical && !/^https?:\/\//.test(p.canonical));
     if (relCanon.length) checks.push(mk('canonical-relative', 'index', 'low', 'warn', 'canonical เป็น relative URL', `${relCanon.length} หน้า — ควรเป็น absolute URL เต็มเพื่อกันความกำกวม`, 'ใช้ URL เต็ม https://... ใน canonical', pageList(relCanon), true));
 
-    // H1 ซ้ำข้ามหน้า — เฉพาะ "หน้าเนื้อหาจริง คนละหน้า": ตัด noindex / canonical ชี้หน้าอื่น /
-    // pagination·search·filter / localization (เช่น /th/about vs /en/about ที่ H1 เดียวกัน) · normalize ก่อนเทียบ
-    const normH1 = s => (s || '').normalize('NFC').toLowerCase().replace(/[​-‍﻿]/g, '').replace(/\s+/g, ' ').trim();
-    const stripLocale = u => { try { const x = new URL(u); return x.origin + (x.pathname.replace(/^\/[a-z]{2}(-[a-z]{2})?(?=\/|$)/i, '') || '/'); } catch { return u; } };
-    // dupEligible = pageEligible (ผ่าน Final URL + ตัด noindex/canonical-away แล้ว) + ตัด pagination/search/filter (ซ้ำ H1 โดยชอบ)
-    const dupEligible = pageEligible.filter(p => {
-      let path = '', search = ''; try { const u = new URL(p.url); path = u.pathname; search = u.search; } catch { /* keep */ }
-      if (/[?&](page|p|start|offset|sort|filter|q|s|search|tag|year|ref)=/i.test(search) || /\/page\/\d/i.test(path)) return false;
-      return true;
-    });
-    const h1Map = new Map();
-    dupEligible.forEach(p => { const h = p.headings.find(x => x.tag === 'h1' && (x.text || '').trim()); const t = normH1(h && h.text); if (t) h1Map.set(t, [...(h1Map.get(t) || []), p]); });
-    const dupH1 = [...h1Map.entries()].filter(([, v]) => v.length > 1)
-      .filter(([, pages]) => new Set(pages.map(p => stripLocale(p.finalUrl || p.url))).size === pages.length); // ตัด localization variants
+    // H1 ซ้ำข้ามหน้า — ใช้ helper กลาง dupGroups เดียวกับ title/desc (ตัด noindex/canonical/pagination/ภาษา + normalize)
+    const h1Text = p => { const h = (p.headings || []).find(x => x.tag === 'h1' && (x.text || '').trim()); return h ? h.text : ''; };
+    const dupH1 = dupGroups(p => normDup(h1Text(p)));
     if (dupH1.length) {
       const c = mk('h1-duplicate', 'onpage', 'med', 'warn', 'H1 ซ้ำกันหลายหน้า', `พบ H1 ซ้ำ ${dupH1.length} ค่า (รวม ${dupH1.reduce((s, [, v]) => s + v.length, 0)} หน้า) — เฉพาะหน้าเนื้อหาจริง (ตัด noindex/canonical/pagination/ภาษาออกแล้ว) · ดูด้านล่างว่าค่าไหนซ้ำที่หน้าใดบ้าง`, 'H1 ควรเฉพาะของแต่ละหน้าเหมือน title', dupH1.flatMap(([, v]) => v.map(p => p.finalUrl || p.url)), true);
-      c.groups = dupH1.map(([value, pages]) => ({ value, pages: pages.map(p => p.finalUrl || p.url) }));
+      c.groups = dupH1.map(([, pages]) => ({ value: h1Text(pages[0]), pages: pages.map(p => p.finalUrl || p.url) }));
       checks.push(c);
     }
 
