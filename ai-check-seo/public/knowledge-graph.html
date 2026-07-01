@@ -224,20 +224,14 @@ function selRule(n){
   const refs=(n.refs||[]).map(r=>`<a href="${esc(r[1])}" target="_blank" rel="noopener">${esc(r[0])}</a>`).join('')||'<span class="body mut">—</span>';
   const deps=DATA.edges.filter(e=>e[0]===n.id&&e[2]==='dep').map(e=>BYID[e[1]]).filter(Boolean);
   let h=`<button class="back" onclick="${ent?`select('${esc(ent.id)}')`:'select(null)'}">‹ ${ent?esc(ent.label):'ทั้งหมด'}</button><div class="crumb">${esc(cat.label)} › ${esc(ent?ent.label:'')}</div><div class="pname">${esc(n.label)}</div><div class="pmeta"><span class="cat"><i style="background:${cat.color}"></i>${esc(cat.label)}</span><span class="pill ${n.verified?'ok':'todo'}">${n.verified?'ยืนยันถูกต้องแล้ว':'รอตรวจสอบ'}</span></div>${n.note?`<div class="pnote">${esc(n.note)}</div>`:''}`;
-  if(!n.verified)h+=`<div class="pending">ยังไม่ได้ไล่ตรวจ false-positive ราย check นี้ — logic ด้านล่างคือสิ่งที่ทำไว้/เสนอ</div>`;
-  if(n.what)h+=`<div class="k">ตรวจอะไร · What</div><div class="body">${esc(n.what)}</div>`;
+  if(!n.verified)h+=`<div class="pending">กฎนี้ยังไม่ได้ไล่ตรวจ false-positive แบบละเอียด — ด้านล่างคือ “วิธีที่ระบบใช้จริงตอนนี้” (จากโค้ด)</div>`;
+  if(n.what)h+=`<div class="k">ตรวจอะไร</div><div class="body">${esc(n.what)}</div>`;
   if(n.why)h+=`<div class="k">ทำไมต้องตรวจ</div><div class="body mut">${esc(n.why)}</div>`;
-  if(n.measure){const m=n.measure;
-    h+=`<div class="k">⚙ กฎที่ใช้ตัดสินตอนนี้ · จากโค้ด${m.line?` · line ${esc(m.line)}`:''}</div><div class="measurebox">`;
-    if(m.summary)h+=`<div class="body">${esc(m.summary)}</div>`;
-    if(m.reads)h+=`<div class="body mut" style="margin-top:4px">อ่านจาก: <code>${esc(m.reads)}</code></div>`;
-    if(m.conditions&&m.conditions.length)h+=`<div class="msub">เงื่อนไขการตรวจ</div><ul class="mcond">${m.conditions.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`;
-    if(m.notes&&m.notes.length)h+=`<div class="msub gap">ข้อสังเกต / ควรเพิ่ม</div><ul class="mcond">${m.notes.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`;
-    h+=`</div>`;
-  }
-  if(n.how)h+=`<div class="k">ตรวจอย่างไร · How (deep)${pend}</div><ol class="steps">${n.how.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`;
-  if(n.rule)h+=`<div class="k">กฎการตัดสิน · Decision Rule (deep)${pend}</div>${n.rule.map(s=>`<div class="rule">${esc(s)}</div>`).join('')}`;
-  if(!n.how&&!n.rule&&!n.measure&&n.what)h+=`<div class="pending">ยังไม่ได้เขียน workflow/decision ละเอียด</div>`;
+  const m=n.measure;
+  if(m&&m.how&&m.how.length)h+=`<div class="k">ตรวจอย่างไร (ตอนนี้)${m.line?` · โค้ด line ${esc(m.line)}`:''}</div><ol class="steps">${m.how.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`;
+  if(m&&m.decision&&m.decision.length)h+=`<div class="k">เกณฑ์ตัดสิน</div><ul class="mcond">${m.decision.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`;
+  if(m&&m.gap)h+=`<div class="k">ข้อสังเกต</div><div class="body mut">${esc(m.gap)}</div>`;
+  if(!m&&n.what)h+=`<div class="pending">ยังไม่มีรายละเอียดวิธีตรวจของกฎนี้</div>`;
   if(deps.length)h+=`<div class="k">Dependencies (ต้องผ่านก่อน)</div><div class="chips">${deps.map(d=>`<a class="chip dep" onclick="select('${esc(d.id)}')">${esc(d.label)}</a>`).join('')}</div>`;
   h+=`<div class="k">มาตรฐานอ้างอิง</div><div class="reflist">${refs}</div>`;
   if(n.conf!=null||n.tier!=null)h+=`<div class="k">Confidence</div><div class="body">${n.conf!=null?n.conf+'%':'—'}${n.tier?` · Tier ${n.tier}`:''}</div>`;
