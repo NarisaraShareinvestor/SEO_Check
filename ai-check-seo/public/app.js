@@ -603,7 +603,7 @@ function evidenceInline(ch) {
 }
 
 function findingCard(ch) {
-  const st = ch.status, cls = clsOf(st), open = st === 'fail';
+  const st = ch.status, cls = clsOf(st), open = false;
   const cp = confPctOf(ch), n = countOf(ch), fp = firstPageOf(ch);
   const sub = st === 'pass' ? 'ที่ตรวจ' : 'ที่พบปัญหา';
   const acts = `<div class="factions"><button class="abtn primary" onclick="event.stopPropagation();openDrawer('${esc(ch.id)}','evidence')">ดูหลักฐาน</button>${fp ? `<a class="abtn" href="${esc(fp)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">เปิดหน้าที่พบ ↗</a>` : ''}${ch.recommendation ? `<button class="abtn" onclick="event.stopPropagation();openDrawer('${esc(ch.id)}','fix')">วิธีแก้ไข</button>` : ''}</div>`;
