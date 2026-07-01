@@ -31,7 +31,19 @@ const pageList = (pages) => pages.map(p => p.url);
 // → พิสูจน์ได้ว่า "หน้านี้ไม่มีจริง" ไม่ใช่แค่บอกลอยๆ (ลูกค้า/AI engine เปิด view-source ยืนยันได้)
 const h1Count = (p) => (p.headings || []).filter(h => h.tag === 'h1').length;
 const EVIDENCE_FN = {
-  'h1-missing': (p) => `ตรวจ HTML แล้วพบแท็ก <h1> จำนวน ${h1Count(p)} รายการ`,
+  'h1-missing': (p) => {
+    // แยก raw vs rendered ให้เห็นสาเหตุ: มีใน HTML ดิบ / มาจาก JS หลัง render / ไม่มีทั้งคู่
+    const rawN = (p.headings || []).filter(h => h.tag === 'h1' && (h.text || '').trim()).length;
+    if (rawN > 0) return `Raw HTML: ✅ พบ <h1> ${rawN} รายการ`;
+    const rd = p.renderedH1;
+    if (Array.isArray(rd)) {
+      const renN = rd.filter(t => (t || '').trim()).length;
+      return renN > 0
+        ? `Raw HTML: ❌ <h1> 0 · Rendered (หลัง JS): ✅ ${renN} → H1 มาจาก JavaScript (bot ที่ไม่รัน JS จะไม่เห็น)`
+        : `Raw HTML: ❌ <h1> 0 · Rendered (หลัง JS): ❌ 0 → ไม่มี H1 ทั้งใน raw และหลัง render`;
+    }
+    return `Raw HTML: ❌ พบ <h1> 0 รายการ`;
+  },
   'h1-multiple': (p) => `พบแท็ก <h1> จำนวน ${h1Count(p)} รายการ (ควรมี 1)`,
   'h1-duplicate': (p) => { const h1 = (p.headings || []).find(h => h.tag === 'h1'); return h1 ? `ข้อความ H1: "${trunc(h1.text, 60)}"` : 'พบ H1 ซ้ำกับหน้าอื่น'; },
   'title-missing': (p) => p.title ? `แท็ก <title> = "${trunc(p.title, 60)}"` : (p.renderedTitle || p.metas?.['title'] ? `Raw HTML ไม่มี <title> · พบจาก JS/SPA: "${trunc(p.renderedTitle || p.metas?.['title'], 50)}"` : 'ไม่พบ <title> ทั้งใน raw และหลัง render'),
@@ -96,7 +108,7 @@ export function runChecks(site) {
   // + ตัด localization variants แบบ path (belt & suspenders สำหรับหน้าที่ไม่ประกาศ lang)
   const dupGroups = keyFn => {
     const m = new Map();
-    dupEligible.forEach(p => { const k = keyFn(p); if (k) { const g = langOf(p) + ' ' + k; m.set(g, [...(m.get(g) || []), p]); } });
+    dupEligible.forEach(p => { const k = keyFn(p); if (k) { const g = langOf(p) + '\x00' + k; m.set(g, [...(m.get(g) || []), p]); } });
     return [...m.entries()].filter(([, v]) => v.length > 1)
       .filter(([, pages]) => new Set(pages.map(p => stripLocale(p.finalUrl || p.url))).size === pages.length);
   };

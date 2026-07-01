@@ -77,9 +77,11 @@ function pageSignals(p) {
     const c = d => { if (Array.isArray(d)) return d.forEach(c); if (d && typeof d === 'object') { if (d['@type']) [].concat(d['@type']).forEach(t => ldTypes.add(t)); if (d['@graph']) c(d['@graph']); } };
     c(j.data);
   });
+  // rendered H1 = H1 ที่พบหลัง headless Chrome รัน JS (เฉพาะเว็บ SPA ที่ระบบ render) · null = หน้านี้ไม่ได้ render แยก
+  const renderedH1 = Array.isArray(p.renderedH1) ? p.renderedH1.filter(t => (t || '').trim()) : null;
   return {
     title: p.title || '', titleH1Sim: (typeof p.titleH1Sim === 'number' ? p.titleH1Sim : null),
-    h1, headingCounts,
+    h1, renderedH1, headingCounts,
     metaDescription: (p.metas && p.metas.description) || '',
     canonical: p.canonical || '', robots: (p.metas && p.metas.robots) || '',
     lang: p.lang || '', charset: p.charset || '',
@@ -973,13 +975,31 @@ app.get('/evidence/:auditId', (req, res) => {
       <div class="ibtn"><a class="pri" href="/source/${esc(id)}?p=${i}&focus=${esc(focus)}" target="_blank" rel="noopener">🔍 ดู Source + ไฮไลต์จุดที่เจอ</a><a href="${esc(p.url)}" target="_blank" rel="noopener">เปิดหน้าเว็บจริง ↗</a></div>
     </div>`;
   };
+  // H1 row: แยก raw vs rendered ให้เห็นสาเหตุจริง (H1 อยู่ใน HTML ดิบ / มาจาก JS หลัง render / ไม่มีทั้งคู่)
+  const h1Evidence = (s) => {
+    const rawTexts = s.h1 || [];
+    const rawN = rawTexts.length;
+    const rendered = (s.renderedH1 === undefined) ? null : s.renderedH1; // null = ไม่ได้ render หน้านี้แยก (ไม่ใช่ SPA / audit เก่า)
+    const line = (label, ok, n) => `<div class="h1r"><span class="h1rl">${label}</span><b class="${ok ? 'ok' : 'bad'}">${ok ? '✅' : '❌'} พบ &lt;h1&gt;: ${n} รายการ</b></div>`;
+    if (rawN > 0) {
+      const txt = `<div class="h1txt">${rawTexts.map(esc).join(' · ')}${rawN > 1 ? ` <b class="bad">(${rawN} ตัว — ควรมี 1)</b>` : ''}</div>`;
+      return line('Raw HTML', true, rawN) + (rendered ? line('Rendered HTML', rendered.length > 0, rendered.length) : '') + txt
+        + `<div class="h1v">H1 อยู่ใน HTML ดิบ — bot ทุกตัวเห็นตั้งแต่โหลดหน้าครั้งแรก</div>`;
+    }
+    if (rendered == null) return line('HTML ที่ crawl', false, 0) + `<div class="h1v">ระบบตรวจจาก HTML ที่ crawl (หน้านี้ไม่ได้ render แยก)</div>`;
+    const renN = rendered.length;
+    const verdict = renN > 0
+      ? 'ไม่มีใน raw แต่พบหลัง render → <b>H1 มาจาก JavaScript</b> · Googlebot เห็นหลัง render แต่ AI bot ที่ไม่รัน JS (GPTBot/ClaudeBot/PerplexityBot) จะไม่เห็น'
+      : 'ไม่มีทั้งใน raw และหลัง render → <b>ไม่มี H1 จริง</b>';
+    return line('Raw HTML', false, 0) + line('Rendered HTML', renN > 0, renN) + `<div class="h1v">${verdict}</div>`;
+  };
   const cards = (idx.pages || []).map((p, i) => {
     if (onlyP.size && !onlyP.has(i)) return '';
     const s = p.signals;
     if (!s) return `<div class="card" id="p${i}"><h2>${esc(p.url)}</h2><p class="note bad">audit นี้เก็บก่อนมี Evidence View — re-run audit เพื่อดูข้อมูลที่ตรวจเจอ</p>${rawLinks(p)}</div>`;
     const rows = [
       ['title', 'Title', s.title ? esc(s.title) : '<b class="bad">— ไม่มี title</b>'],
-      ['h1', 'H1', s.h1.length ? s.h1.map(esc).join(' · ') + (s.h1.length > 1 ? ` <b class="bad">(${s.h1.length} ตัว)</b>` : '') : '<b class="bad">— ไม่มี H1</b>'],
+      ['h1', 'H1', h1Evidence(s)],
       ['titleh1', 'title ↔ H1', s.titleH1Sim == null ? '—' : (s.titleH1Sim < 0.1 ? `<b class="bad">${s.titleH1Sim} — คนละเรื่อง</b>` : `${s.titleH1Sim} (สอดคล้อง)`)],
       ['desc', 'Meta description', s.metaDescription ? esc(s.metaDescription) : '<b class="bad">— ไม่มี</b>'],
       ['canonical', 'Canonical', s.canonical ? esc(s.canonical) : '<b class="warn">— ไม่มี</b>'],
@@ -1018,6 +1038,9 @@ td{padding:5px 0;vertical-align:top;word-break:break-word}tr+tr th,tr+tr td{bord
 .ibtn{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}.ibtn a{display:inline-block;font-size:12.5px;font-weight:600;color:#0369a1;border:1px solid #bfdbfe;background:#fff;border-radius:8px;padding:6px 12px;text-decoration:none}.ibtn a:hover{background:#eff6ff}.ibtn a.pri{background:#0369a1;color:#fff;border-color:#0369a1}.ibtn a.pri:hover{background:#025a8c}
 .raw{margin-top:12px;padding-top:10px;border-top:1px dashed var(--ln);font-size:12px;color:var(--mut)}.raw a{color:#0369a1;text-decoration:none}.raw a:hover{text-decoration:underline}
 .focusbar{background:#eef6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;padding:9px 12px;font-size:12.5px;margin-bottom:16px}.focusbar a{color:#0369a1;font-weight:600;text-decoration:none}.focusbar a:hover{text-decoration:underline}
+.h1r{display:flex;gap:10px;align-items:baseline;padding:2px 0}.h1r .h1rl{color:var(--mut);min-width:110px;font-size:12.5px}
+.h1txt{margin:5px 0 2px;word-break:break-word}
+.h1v{margin-top:6px;font-size:12px;color:#475569;background:#f1f5f9;border-radius:6px;padding:6px 10px}.h1v b{color:#1e293b}
 </style></head><body>
 <h1>🔎 ข้อมูลที่ตรวจเจอ (Evidence)</h1>
 <p class="sub">audit ${esc(id)} · เก็บเมื่อ ${esc(idx.capturedAt || '')} · ${(idx.pages || []).length} หน้า — นี่คือสิ่งที่ระบบดึงได้จากแต่ละหน้าจริง และใช้เป็นฐานในการตัดสิน (สีแดง = จุดที่เป็นปัญหา)</p>
