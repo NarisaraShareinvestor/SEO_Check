@@ -5,7 +5,7 @@ import { validateSchemaNodes } from './schema-validate.js';
 
 // เวอร์ชันของ "วิธีตรวจ" — bump เมื่อ logic ของ check เปลี่ยน (เช่น img-alt 3-state)
 // ใช้ตอนเทียบก่อน/หลัง: ถ้า audit 2 ครั้งคนละเวอร์ชัน → การเปลี่ยนบางอย่างมาจากการอัปเกรดระบบ ไม่ใช่การแก้เว็บ
-export const ENGINE_VERSION = 12;
+export const ENGINE_VERSION = 13;
 
 const CATS = {
   onpage: 'Meta & เนื้อหา',
@@ -47,7 +47,7 @@ const EVIDENCE_FN = {
   'noindex': () => 'พบคำสั่ง noindex (meta robots หรือ X-Robots-Tag)',
   'heading-order': (p) => `ลำดับหัวข้อข้ามระดับ (พบ ${(p.headings || []).map(h => h.tag).join(' → ') || '—'})`,
   'jsonld-missing': () => 'ไม่พบ <script type="application/ld+json"> ในหน้า',
-  'og-tags': (p) => { const m = p.metas || {}; const have = ['og:title', 'og:description', 'og:image'].filter(k => m[k]); return `พบ Open Graph: ${have.length ? have.join(', ') : 'ไม่พบเลย'}`; },
+  'og-tags': (p) => { const m = p.metas || {}; const all = ['og:title', 'og:description', 'og:image', 'og:type', 'og:url', 'og:site_name']; if (!Object.keys(m).some(k => k.startsWith('og:'))) return 'ไม่มี Open Graph เลย (ไม่พบ meta property="og:*")'; const has = all.filter(k => m[k]).map(k => k.replace('og:', '')); const missReq = ['og:title', 'og:description', 'og:image', 'og:type'].filter(k => !m[k]).map(k => k.replace('og:', '')); return `พบ: ${has.join(', ') || '—'}${missReq.length ? ` · ขาด(จำเป็น): ${missReq.join(', ')}` : ' · ครบชุดจำเป็น'}`; },
 };
 // แนบหลักฐานรายหน้าเข้า check (เรียกก่อน return) — จับคู่ check.pages (URL) กับ page object จริง
 function attachEvidence(checks, pages) {
@@ -492,10 +492,30 @@ export function runChecks(site) {
       }
     }
 
-    const noOg = okPages.filter(p => !p.metas['og:title'] || !p.metas['og:image']);
-    checks.push(noOg.length
-      ? mk('og-tags', 'schema', 'med', noOg.length === okPages.length ? 'fail' : 'warn', 'Open Graph ไม่ครบ', `${noOg.length} หน้าไม่มี og:title หรือ og:image — แชร์ใน social/LINE แล้วไม่มีรูป`, 'ใส่ og:title, og:description, og:image (1200×630) ทุกหน้า', pageList(noOg), true)
-      : mk('og-tags', 'schema', 'med', 'pass', 'Open Graph ครบ', 'ทุกหน้ามี og:title + og:image'));
+    // Open Graph 3 ระดับ: ไม่มีเลย (fail/high) · มีแต่ขาด tag จำเป็น (warn/med) · ครบชุดจำเป็น (pass)
+    // จำเป็น = og:title/description/image/type · แนะนำเพิ่ม = og:url/site_name
+    const OG_REQ = ['og:title', 'og:description', 'og:image', 'og:type'];
+    const ogState = p => { const m = p.metas || {}; if (!Object.keys(m).some(k => k.startsWith('og:'))) return 'none'; return OG_REQ.every(k => m[k]) ? 'complete' : 'incomplete'; };
+    const ogNone = okPages.filter(p => ogState(p) === 'none');
+    const ogIncomplete = okPages.filter(p => ogState(p) === 'incomplete');
+    const ogAffected = [...ogNone, ...ogIncomplete];
+    if (!ogAffected.length) {
+      checks.push(mk('og-tags', 'schema', 'low', 'pass', 'Open Graph สมบูรณ์', `ทุกหน้ามี og:title / og:description / og:image / og:type ครบ (${okPages.length} หน้า)`));
+    } else {
+      const isFail = ogNone.length > 0;
+      const parts = [];
+      if (ogNone.length) parts.push(`${ogNone.length} หน้าไม่มี Open Graph เลย`);
+      if (ogIncomplete.length) parts.push(`${ogIncomplete.length} หน้ามี og:* แต่ขาด tag จำเป็น (og:title/description/image/type)`);
+      const c = mk('og-tags', 'schema', isFail ? 'high' : 'med', isFail ? 'fail' : 'warn',
+        isFail ? 'หน้าที่ไม่มี Open Graph เลย' : 'Open Graph ไม่สมบูรณ์ (ขาด tag ที่ควรมี)',
+        `${parts.join(' · ')} — กระทบการแชร์บน social/LINE (preview ไม่มีรูป/ไม่สมบูรณ์)`,
+        isFail
+          ? 'ใส่ Open Graph ให้ครบชุดจำเป็นทุกหน้า: og:title, og:description, og:image (1200×630), og:type — แนะนำเพิ่ม og:url, og:site_name'
+          : 'เติม og:* ที่ขาด (ดูรายหน้าด้านล่างว่าขาดอะไร) ให้ครบชุดจำเป็น: og:title, og:description, og:image, og:type',
+        pageList(ogAffected), true);
+      c.reasoning = { signals: { none: ogNone.length, incomplete: ogIncomplete.length, complete: okPages.length - ogAffected.length, total: okPages.length, required: OG_REQ.join(',') }, standard: 'The Open Graph protocol (ogp.me) · Facebook/LINE sharing', verdict: isFail ? 'fail' : 'warn', note: isFail ? 'บางหน้าไม่มี og:* เลย → แชร์แล้วไม่มี preview (รูป/ชื่อ)' : 'มี og:* แต่ขาด tag จำเป็น → แชร์ได้แต่ preview ไม่สมบูรณ์ (เช่นไม่มีรูปหรือชื่อ)' };
+      checks.push(c);
+    }
 
     const noTw = okPages.filter(p => !p.metas['twitter:card']);
     if (noTw.length === okPages.length) checks.push(mk('twitter-card', 'schema', 'low', 'warn', 'ไม่มี Twitter Card', 'แชร์บน X/Twitter จะไม่มี preview สวย', 'ใส่ twitter:card = summary_large_image', [], true));
