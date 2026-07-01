@@ -970,7 +970,7 @@ app.get('/evidence/:auditId', (req, res) => {
       <div class="ir"><span class="ik">XPath</span><code>${esc(loc.xpath)}</code></div>
       <div class="ir"><span class="ik">HTML ที่ระบบเห็น</span>${m ? '<b class="ok">✓ พบในหน้านี้</b>' : '<b class="bad">❌ ไม่พบในหน้านี้</b>'}</div>
       ${m ? `<pre class="ecode">${esc(snip)}</pre>` : ''}
-      <div class="ibtn"><a href="${esc(p.url)}" target="_blank" rel="noopener">เปิดหน้าเว็บจริง ↗</a></div>
+      <div class="ibtn"><a class="pri" href="/source/${esc(id)}?p=${i}&focus=${esc(focus)}" target="_blank" rel="noopener">🔍 ดู Source + ไฮไลต์จุดที่เจอ</a><a href="${esc(p.url)}" target="_blank" rel="noopener">เปิดหน้าเว็บจริง ↗</a></div>
     </div>`;
   };
   const cards = (idx.pages || []).map((p, i) => {
@@ -1015,7 +1015,7 @@ td{padding:5px 0;vertical-align:top;word-break:break-word}tr+tr th,tr+tr td{bord
 .ir code{font-family:ui-monospace,Menlo,monospace;background:#eef2f7;padding:2px 7px;border-radius:5px;font-size:12px}
 .ok{color:#15803d}
 .ecode{background:#1b1d23;color:#d6d8de;border-radius:8px;padding:10px 12px;overflow-x:auto;font-size:12px;margin:8px 0 0}
-.ibtn{margin-top:10px}.ibtn a{display:inline-block;font-size:12.5px;font-weight:600;color:#0369a1;border:1px solid #bfdbfe;background:#fff;border-radius:8px;padding:6px 12px;text-decoration:none}.ibtn a:hover{background:#eff6ff}
+.ibtn{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}.ibtn a{display:inline-block;font-size:12.5px;font-weight:600;color:#0369a1;border:1px solid #bfdbfe;background:#fff;border-radius:8px;padding:6px 12px;text-decoration:none}.ibtn a:hover{background:#eff6ff}.ibtn a.pri{background:#0369a1;color:#fff;border-color:#0369a1}.ibtn a.pri:hover{background:#025a8c}
 .raw{margin-top:12px;padding-top:10px;border-top:1px dashed var(--ln);font-size:12px;color:var(--mut)}.raw a{color:#0369a1;text-decoration:none}.raw a:hover{text-decoration:underline}
 .focusbar{background:#eef6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;padding:9px 12px;font-size:12.5px;margin-bottom:16px}.focusbar a{color:#0369a1;font-weight:600;text-decoration:none}.focusbar a:hover{text-decoration:underline}
 </style></head><body>
@@ -1023,6 +1023,59 @@ td{padding:5px 0;vertical-align:top;word-break:break-word}tr+tr th,tr+tr td{bord
 <p class="sub">audit ${esc(id)} · เก็บเมื่อ ${esc(idx.capturedAt || '')} · ${(idx.pages || []).length} หน้า — นี่คือสิ่งที่ระบบดึงได้จากแต่ละหน้าจริง และใช้เป็นฐานในการตัดสิน (สีแดง = จุดที่เป็นปัญหา)</p>
 ${focusBanner}
 ${cards}</body></html>`);
+});
+
+// Source Viewer — เปิด HTML ดิบที่ระบบเก็บ (เหมือน DevTools → Response) + ค้น+ไฮไลต์ element ที่ตรวจ + เลื่อนไปหา อัตโนมัติ
+app.get('/source/:auditId', (req, res) => {
+  if (!/^[a-f0-9]+$/i.test(req.params.auditId)) return res.status(400).send('bad id');
+  const id = req.params.auditId;
+  let idx; try { idx = JSON.parse(readFileSync(join(EVIDENCE_DIR, id, 'index.json'), 'utf8')); } catch { return res.status(404).send('ไม่มี evidence สำหรับ audit นี้'); }
+  const esc = s => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const pi = parseInt(req.query.p, 10); const page = (idx.pages || [])[isNaN(pi) ? 0 : pi] || (idx.pages || [])[0];
+  if (!page || !page.raw) return res.status(404).send('ไม่มี snapshot สำหรับหน้านี้');
+  let raw = ''; try { raw = readFileSync(join(EVIDENCE_DIR, id, page.raw), 'utf8'); } catch { return res.status(404).send('อ่าน snapshot ไม่ได้'); }
+  const LOC = {
+    title: { ctrlF: '<title>', re: /<title[^>]*>[\s\S]*?<\/title>/i },
+    h1: { ctrlF: '<h1', re: /<h1[^>]*>[\s\S]*?<\/h1>/i },
+    desc: { ctrlF: 'name="description"', re: /<meta[^>]*name=["']description["'][^>]*>/i },
+    canonical: { ctrlF: 'rel="canonical"', re: /<link[^>]*rel=["']canonical["'][^>]*>/i },
+    robots: { ctrlF: 'name="robots"', re: /<meta[^>]*name=["']robots["'][^>]*>/i },
+    schema: { ctrlF: 'application/ld+json', re: /<script[^>]*application\/ld\+json[^>]*>[\s\S]*?<\/script>/i },
+    lang: { ctrlF: '<html', re: /<html[^>]*>/i },
+  };
+  const focus = String(req.query.focus || '').toLowerCase();
+  const loc = LOC[focus];
+  const lines = raw.split('\n');
+  let startLine = -1, endLine = -1, count = 0;
+  if (loc) {
+    const m = loc.re.exec(raw);
+    try { count = (raw.match(new RegExp(loc.re.source, 'gi')) || []).length; } catch { count = m ? 1 : 0; }
+    if (m) { startLine = raw.slice(0, m.index).split('\n').length - 1; endLine = startLine + m[0].split('\n').length - 1; }
+  }
+  const rows = lines.map((ln, i) => {
+    const hit = startLine >= 0 && i >= startLine && i <= endLine;
+    return `<div class="sr${hit ? ' hit' : ''}"${i === startLine ? ' id="hit"' : ''}><span class="ln">${i + 1}</span><span class="c">${esc(ln) || ' '}</span></div>`;
+  }).join('');
+  const matchInfo = loc ? (count ? `<span class="mc">✓ พบ ${count} ตำแหน่ง</span>` : `<span class="mc no">❌ ไม่พบ</span>`) : '';
+  const ctrlF = loc ? loc.ctrlF : '';
+  res.type('html').send(`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Source — ${esc(page.url)}</title><style>
+*{box-sizing:border-box}body{margin:0;font-family:ui-monospace,'SF Mono',Menlo,monospace;background:#1b1d23;color:#d6d8de;font-size:12.5px;line-height:1.65}
+.top{position:sticky;top:0;background:#12141a;border-bottom:1px solid #2a2d36;padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;z-index:2}
+.top .u{font-family:-apple-system,'Segoe UI','Noto Sans Thai',sans-serif;font-size:13px;color:#e7e9ee;font-weight:600;word-break:break-all}
+.top .mc{font-family:-apple-system,'Noto Sans Thai',sans-serif;font-size:12px;font-weight:700;color:#5fc98a;background:rgba(95,201,138,.12);padding:2px 10px;border-radius:99px}.top .mc.no{color:#e8745c;background:rgba(232,116,92,.12)}
+.top .ff{font-size:12px;color:#9aa3af;font-family:-apple-system,'Noto Sans Thai',sans-serif}.top .ff code{background:#2a2d36;color:#e8a06a;padding:2px 7px;border-radius:5px;font-family:ui-monospace,Menlo,monospace}
+.top a{margin-left:auto;font-family:-apple-system,'Noto Sans Thai',sans-serif;font-size:12px;font-weight:600;color:#8faec2;border:1px solid #2a2d36;padding:5px 12px;border-radius:8px;text-decoration:none}.top a:hover{background:#2a2d36}
+.src{padding:10px 0 60px;counter-reset:none}
+.sr{display:flex;white-space:pre;padding:0 16px}
+.sr .ln{color:#565963;user-select:none;text-align:right;min-width:44px;padding-right:16px;flex:none}
+.sr .c{white-space:pre-wrap;word-break:break-word}
+.sr.hit{background:#3a3410;outline:1px solid #7a6a1e}
+.sr.hit .c{color:#ffe08a}
+</style></head><body>
+<div class="top"><span class="u">${esc(page.url)}</span>${matchInfo}${ctrlF ? `<span class="ff">Ctrl+F: <code>${esc(ctrlF)}</code></span>` : ''}<a href="${esc(page.url)}" target="_blank" rel="noopener">เปิดหน้าเว็บจริง ↗</a></div>
+<div class="src">${rows}</div>
+<script>var h=document.getElementById('hit');if(h)setTimeout(function(){h.scrollIntoView({block:'center'});},60);</script>
+</body></html>`);
 });
 
 app.listen(PORT, () => {

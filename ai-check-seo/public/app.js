@@ -692,6 +692,11 @@ function copyText(el) { try { navigator.clipboard.writeText(el.dataset.copy || '
 function locRow(k, code, copy) { return `<div class="locrow"><span class="lk">${k}</span><code class="lc">${esc(code)}</code>${copy ? `<button class="cpy" data-copy="${esc(code)}" onclick="copyText(this)">คัดลอก</button>` : ''}</div>`; }
 function renderLocator(ch, loc) {
   const fp = firstPageOf(ch) || (currentAudit && currentAudit.url) || '';
+  // ลิงก์ Source Viewer (เปิด HTML ดิบ + ไฮไลต์จุดที่เจอ อัตโนมัติ)
+  const aid = currentAudit && currentAudit.id;
+  let ek = Object.keys(evidenceMap).find(u => fp === u || fp.startsWith(u)); if (!ek) ek = Object.keys(evidenceMap)[0];
+  const em2 = ek && evidenceMap[ek];
+  const srcHref = (aid && em2 && loc.kind === 'html') ? `/source/${aid}?p=${em2.i}&focus=${focusForCheck(ch.id)}` : '';
   if (loc.kind === 'file') {
     return `<div class="evloc"><div class="st">🔎 ตรวจสอบเอง (5 วินาที)</div><div class="locrow"><span class="lk">เปิดไฟล์</span><a class="lv" href="${esc(loc.fileUrl)}" target="_blank" rel="noopener">${esc(loc.fileUrl)}</a></div>${loc.ctrlF ? locRow('Ctrl+F หา', loc.ctrlF, true) : ''}<a class="abtn" href="${esc(loc.fileUrl)}" target="_blank" rel="noopener" style="margin-top:9px">เปิดไฟล์ ↗</a></div>`;
   }
@@ -700,7 +705,7 @@ function renderLocator(ch, loc) {
     locRow('CSS Selector', loc.selector, true) +
     locRow('XPath', loc.xpath, false) +
     `<div class="locrow"><span class="lk">HTML ที่ระบบเห็น</span><span class="lv" id="locStatus">กำลังดึง…</span></div><pre class="dcode" id="locSlot" style="display:none;margin-top:6px"></pre>` +
-    `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><a class="abtn" href="${esc(fp)}" target="_blank" rel="noopener">เปิดหน้าเว็บ ↗</a><button class="abtn" id="locCopyHtml" data-copy="" onclick="copyText(this)" style="display:none">Copy HTML</button></div></div>`;
+    `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">${srcHref ? `<a class="abtn primary" href="${esc(srcHref)}" target="_blank" rel="noopener">🔍 ดู Source + ไฮไลต์</a>` : ''}<a class="abtn" href="${esc(fp)}" target="_blank" rel="noopener">เปิดหน้าเว็บ ↗</a><button class="abtn" id="locCopyHtml" data-copy="" onclick="copyText(this)" style="display:none">Copy HTML</button></div></div>`;
 }
 function drawerEvidence(ch, k) {
   const loc = evidLocator(ch);
