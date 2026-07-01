@@ -257,10 +257,10 @@ main.docmode .docframe{height:100vh;border-radius:0}
   --f-mono:ui-monospace,SFMono-Regular,Menlo,monospace;
 }
 .sumrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
-.rstat{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border2);border-radius:12px;padding:7px 13px;font-size:13px;font-weight:600;background:#fff;cursor:pointer;transition:border-color .12s;color:var(--text)}
+.rstat{display:inline-flex;align-items:center;gap:7px;box-sizing:border-box;height:38px;border:1px solid var(--border2);border-radius:12px;padding:0 15px;font-size:13px;font-weight:600;background:#fff;cursor:pointer;transition:border-color .12s;color:var(--text);line-height:1}
 .rstat:hover{border-color:#a1a1aa}
 .rstat.on{box-shadow:inset 0 0 0 1px var(--text);border-color:var(--text)}
-.rstat .ic{font-size:12px}
+.rstat .ic{display:inline-grid;place-items:center;width:16px;height:16px;font-size:12px;line-height:1;flex:none}
 .rstat .num{font-variant-numeric:tabular-nums}
 .rstat .lbl{color:var(--mut);font-weight:500}
 .rstat.all{background:#1f2937;color:#fff;border-color:#1f2937}
