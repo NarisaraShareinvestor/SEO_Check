@@ -1026,6 +1026,19 @@ ${cards}</body></html>`);
 });
 
 // Source Viewer — เปิด HTML ดิบที่ระบบเก็บ (เหมือน DevTools → Response) + ค้น+ไฮไลต์ element ที่ตรวจ + เลื่อนไปหา อัตโนมัติ
+// Render snapshot — เสิร์ฟ HTML ที่เก็บให้ iframe render ได้ (inject <base> ให้ CSS/รูปโหลดจากโดเมนจริง) · sandbox ไม่รัน JS ของเว็บ
+app.get('/render/:auditId', (req, res) => {
+  if (!/^[a-f0-9]+$/i.test(req.params.auditId)) return res.status(400).send('bad id');
+  const id = req.params.auditId;
+  let idx; try { idx = JSON.parse(readFileSync(join(EVIDENCE_DIR, id, 'index.json'), 'utf8')); } catch { return res.status(404).send('no evidence'); }
+  const pi = parseInt(req.query.p, 10); const page = (idx.pages || [])[isNaN(pi) ? 0 : pi] || (idx.pages || [])[0];
+  if (!page || !page.raw) return res.status(404).send('no snapshot');
+  let raw = ''; try { raw = readFileSync(join(EVIDENCE_DIR, id, page.raw), 'utf8'); } catch { return res.status(404).send('read error'); }
+  let origin = ''; try { origin = new URL(page.url).origin; } catch { /* */ }
+  const baseTag = `<base href="${origin}/"><meta name="referrer" content="no-referrer">`;
+  const html = /<head[^>]*>/i.test(raw) ? raw.replace(/<head[^>]*>/i, m => m + baseTag) : baseTag + raw;
+  res.type('html').send(html);
+});
 app.get('/source/:auditId', (req, res) => {
   if (!/^[a-f0-9]+$/i.test(req.params.auditId)) return res.status(400).send('bad id');
   const id = req.params.auditId;
@@ -1059,7 +1072,12 @@ app.get('/source/:auditId', (req, res) => {
   const matchInfo = loc ? (count ? `<span class="mc">✓ พบ ${count} ตำแหน่ง</span>` : `<span class="mc no">❌ ไม่พบ</span>`) : '';
   const ctrlF = loc ? loc.ctrlF : '';
   res.type('html').send(`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Source — ${esc(page.url)}</title><style>
-*{box-sizing:border-box}body{margin:0;font-family:ui-monospace,'SF Mono',Menlo,monospace;background:#1b1d23;color:#d6d8de;font-size:12.5px;line-height:1.65}
+*{box-sizing:border-box}body{margin:0;font-family:ui-monospace,'SF Mono',Menlo,monospace;background:#1b1d23;color:#d6d8de;font-size:12.5px;line-height:1.65;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.pane-top{height:44vh;min-height:190px;display:flex;flex-direction:column;border-bottom:3px solid #000;flex:none}
+.ph{background:#0e1014;color:#9aa3af;font-family:-apple-system,'Noto Sans Thai',sans-serif;font-size:12px;padding:8px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #2a2d36}
+.ph b{color:#e7e9ee;font-weight:600}.ph a{margin-left:auto;color:#8faec2;font-weight:600;text-decoration:none;border:1px solid #2a2d36;padding:4px 11px;border-radius:7px}.ph a:hover{background:#2a2d36}
+.pane-top iframe{flex:1;width:100%;border:0;background:#fff}
+.btm{flex:1;overflow:auto;min-height:0}
 .top{position:sticky;top:0;background:#12141a;border-bottom:1px solid #2a2d36;padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;z-index:2}
 .top .u{font-family:-apple-system,'Segoe UI','Noto Sans Thai',sans-serif;font-size:13px;color:#e7e9ee;font-weight:600;word-break:break-all}
 .top .mc{font-family:-apple-system,'Noto Sans Thai',sans-serif;font-size:12px;font-weight:700;color:#5fc98a;background:rgba(95,201,138,.12);padding:2px 10px;border-radius:99px}.top .mc.no{color:#e8745c;background:rgba(232,116,92,.12)}
@@ -1072,9 +1090,12 @@ app.get('/source/:auditId', (req, res) => {
 .sr.hit{background:#3a3410;outline:1px solid #7a6a1e}
 .sr.hit .c{color:#ffe08a}
 </style></head><body>
+<div class="pane-top"><div class="ph">🖥️ หน้าเว็บ — แสดงจาก HTML ที่ระบบเก็บ (snapshot ตรงกับ source ด้านล่าง) <a href="${esc(page.url)}" target="_blank" rel="noopener">เปิดหน้าเว็บจริง (สด) ↗</a></div><iframe src="/render/${esc(id)}?p=${isNaN(pi) ? 0 : pi}" sandbox="allow-same-origin allow-popups" referrerpolicy="no-referrer"></iframe></div>
+<div class="btm">
 <div class="top"><span class="u">${esc(page.url)}</span>${matchInfo}${ctrlF ? `<span class="ff">Ctrl+F: <code>${esc(ctrlF)}</code></span>` : ''}<a href="${esc(page.url)}" target="_blank" rel="noopener">เปิดหน้าเว็บจริง ↗</a></div>
 <div class="src">${rows}</div>
-<script>var h=document.getElementById('hit');if(h)setTimeout(function(){h.scrollIntoView({block:'center'});},60);</script>
+</div>
+<script>var h=document.getElementById('hit');if(h)setTimeout(function(){h.scrollIntoView({block:'center'});},80);</script>
 </body></html>`);
 });
 
