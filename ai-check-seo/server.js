@@ -5,7 +5,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
 import { crawlSite, normalizeUrl } from './lib/crawler.js';
-import { runChecks, ENGINE_VERSION } from './lib/checks.js';
+import { runChecks, ENGINE_VERSION, textPx, graphemeCount } from './lib/checks.js';
 import { runGeoChecks } from './lib/geo.js';
 import { fetchCWV, buildPsiChecks } from './lib/psi.js';
 import { fetchLighthouse, crossCheck, annotateChecks, accuracyFromCrossChecks, explainMismatch } from './lib/verify.js';
@@ -993,15 +993,22 @@ app.get('/evidence/:auditId', (req, res) => {
       : 'ไม่มีทั้งใน raw และหลัง render → <b>ไม่มี H1 จริง</b>';
     return line('Raw HTML', false, 0) + line('Rendered HTML', renN > 0, renN) + `<div class="h1v">${verdict}</div>`;
   };
+  // ความยาว title/desc: Google ตัดตามพิกเซล ไม่ใช่จำนวนตัว → โชว์ ≈px (หลัก) + จำนวนตัวจริง (รอง)
+  const lenMeta = (str, fontPx, maxPx) => {
+    if (!str) return '';
+    const px = textPx(str, fontPx), chars = graphemeCount(str);
+    const over = px > maxPx;
+    return `<div class="h1v"><b class="${over ? 'bad' : 'ok'}">≈ ${px}px</b> — ${over ? `เกิน ~${maxPx}px ที่ Google แสดง (โดนตัดใน SERP)` : `พอดี (Google แสดง ~${maxPx}px)`} · ${chars} ตัวอักษร (นับตามที่เห็นจริง · รวมช่องว่าง)</div>`;
+  };
   const cards = (idx.pages || []).map((p, i) => {
     if (onlyP.size && !onlyP.has(i)) return '';
     const s = p.signals;
     if (!s) return `<div class="card" id="p${i}"><h2>${esc(p.url)}</h2><p class="note bad">audit นี้เก็บก่อนมี Evidence View — re-run audit เพื่อดูข้อมูลที่ตรวจเจอ</p>${rawLinks(p)}</div>`;
     const rows = [
-      ['title', 'Title', s.title ? esc(s.title) : '<b class="bad">— ไม่มี title</b>'],
+      ['title', 'Title', s.title ? esc(s.title) + lenMeta(s.title, 20, 600) : '<b class="bad">— ไม่มี title</b>'],
       ['h1', 'H1', h1Evidence(s)],
       ['titleh1', 'title ↔ H1', s.titleH1Sim == null ? '—' : (s.titleH1Sim < 0.1 ? `<b class="bad">${s.titleH1Sim} — คนละเรื่อง</b>` : `${s.titleH1Sim} (สอดคล้อง)`)],
-      ['desc', 'Meta description', s.metaDescription ? esc(s.metaDescription) : '<b class="bad">— ไม่มี</b>'],
+      ['desc', 'Meta description', s.metaDescription ? esc(s.metaDescription) + lenMeta(s.metaDescription, 14, 920) : '<b class="bad">— ไม่มี</b>'],
       ['canonical', 'Canonical', s.canonical ? esc(s.canonical) : '<b class="warn">— ไม่มี</b>'],
       ['robots', 'Robots', esc(s.robots || '(default index,follow)') + (/noindex/i.test(s.robots) ? ' <b class="bad">noindex!</b>' : '')],
       ['lang', 'Lang / charset', esc(s.lang || '—') + ' / ' + esc(s.charset || '—')],

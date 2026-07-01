@@ -5,7 +5,7 @@ import { validateSchemaNodes } from './schema-validate.js';
 
 // เวอร์ชันของ "วิธีตรวจ" — bump เมื่อ logic ของ check เปลี่ยน (เช่น img-alt 3-state)
 // ใช้ตอนเทียบก่อน/หลัง: ถ้า audit 2 ครั้งคนละเวอร์ชัน → การเปลี่ยนบางอย่างมาจากการอัปเกรดระบบ ไม่ใช่การแก้เว็บ
-export const ENGINE_VERSION = 13;
+export const ENGINE_VERSION = 14;
 
 const CATS = {
   onpage: 'Meta & เนื้อหา',
@@ -25,6 +25,43 @@ function mk(id, category, severity, status, title, detail, recommendation = '', 
 
 const trunc = (s, n = 80) => (s || '').length > n ? s.slice(0, n) + '…' : (s || '');
 const pageList = (pages) => pages.map(p => p.url);
+
+// ── ความยาว title/description แบบ "พิกเซล" (ตามที่ Google ตัดจริง) ──
+// Google ตัด title/desc ใน SERP ตาม "ความกว้างพิกเซล" ไม่ใช่จำนวนตัวอักษร — "50–60 ตัว" เป็นแค่ค่าเฉลี่ยหยาบๆ
+// ตัวกว้าง (W, M) กินพื้นที่กว่าตัวแคบ (i, l) หลายเท่า · ภาษาไทยสระ/วรรณยุกต์ซ้อนไม่กินความกว้าง
+// เราประเมินด้วยตารางความกว้าง Arial (หน่วย /1000 em) → ค่าประมาณ ไม่ใช่ค่าเป๊ะ (จำลอง font Google ไม่ได้ 100%)
+const GLYPH = { ' ': 278, '!': 278, '"': 355, '#': 556, '$': 556, '%': 889, '&': 667, "'": 191, '(': 333, ')': 333, '*': 389, '+': 584, ',': 278, '-': 333, '.': 278, '/': 278, '0': 556, '1': 556, '2': 556, '3': 556, '4': 556, '5': 556, '6': 556, '7': 556, '8': 556, '9': 556, ':': 278, ';': 278, '<': 584, '=': 584, '>': 584, '?': 556, '@': 1015, 'A': 667, 'B': 667, 'C': 722, 'D': 722, 'E': 667, 'F': 611, 'G': 778, 'H': 722, 'I': 278, 'J': 500, 'K': 667, 'L': 556, 'M': 833, 'N': 722, 'O': 778, 'P': 667, 'Q': 778, 'R': 722, 'S': 667, 'T': 611, 'U': 722, 'V': 667, 'W': 944, 'X': 667, 'Y': 667, 'Z': 611, '[': 278, '\\': 278, ']': 278, '^': 469, '_': 556, '`': 333, 'a': 556, 'b': 556, 'c': 500, 'd': 556, 'e': 556, 'f': 278, 'g': 556, 'h': 556, 'i': 222, 'j': 222, 'k': 500, 'l': 222, 'm': 833, 'n': 556, 'o': 556, 'p': 556, 'q': 556, 'r': 333, 's': 500, 't': 278, 'u': 556, 'v': 500, 'w': 722, 'x': 500, 'y': 500, 'z': 500, '{': 334, '|': 260, '}': 334, '~': 584 };
+const thaiZeroWidth = cp => cp === 0x0E31 || (cp >= 0x0E34 && cp <= 0x0E3A) || (cp >= 0x0E47 && cp <= 0x0E4E); // สระบน/ล่าง + วรรณยุกต์ (ซ้อน ไม่กินความกว้าง)
+// ความกว้างโดยประมาณเป็นพิกเซล ที่ font size ที่ Google ใช้ (title ~20px, desc ~14px)
+export function textPx(str, fontPx = 20) {
+  let units = 0;
+  for (const ch of (str || '')) {
+    const cp = ch.codePointAt(0);
+    let w = GLYPH[ch];
+    if (w == null) {
+      if (cp >= 0x0E00 && cp <= 0x0E7F) w = thaiZeroWidth(cp) ? 0 : 540;                 // อักษรไทย
+      else if ((cp >= 0x3000 && cp <= 0x9FFF) || (cp >= 0xAC00 && cp <= 0xD7A3) || (cp >= 0xF900 && cp <= 0xFAFF)) w = 1000; // CJK/เกาหลี = เต็ม em
+      else w = 556;                                                                         // อื่นๆ ประเมินกลางๆ
+    }
+    units += w;
+  }
+  return Math.round(units / 1000 * fontPx);
+}
+// จำนวน "ตัวอักษรที่คนเห็นจริง" (grapheme, รวมช่องว่าง) — ไม่ใช่ code units ที่นับสระ/วรรณยุกต์ไทยแยก
+let _grSeg;
+export function graphemeCount(str) {
+  const s = str || '';
+  if (!s) return 0;
+  try {
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      _grSeg = _grSeg || new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+      let n = 0; for (const _ of _grSeg.segment(s)) n++; return n;
+    }
+  } catch { /* fallthrough */ }
+  return [...s.normalize('NFC').replace(/[ัิ-ฺ็-๎̀-ͯ]/g, '')].length; // fallback: ตัดมาร์กซ้อนก่อนนับ
+}
+// เกณฑ์พิกเซลที่ Google แสดงก่อนตัด (desktop, ค่าประมาณ)
+const TITLE_MAX_PX = 600, DESC_MAX_PX = 920;
 
 // ── หลักฐานรายหน้า (per-page evidence) ──
 // คำนวณ "ข้อเท็จจริงที่ตรวจพบจริง" จาก page object (จาก HTML ที่ crawl มา) ต่อ checkId
@@ -47,10 +84,10 @@ const EVIDENCE_FN = {
   'h1-multiple': (p) => `พบแท็ก <h1> จำนวน ${h1Count(p)} รายการ (ควรมี 1)`,
   'h1-duplicate': (p) => { const h1 = (p.headings || []).find(h => h.tag === 'h1'); return h1 ? `ข้อความ H1: "${trunc(h1.text, 60)}"` : 'พบ H1 ซ้ำกับหน้าอื่น'; },
   'title-missing': (p) => p.title ? `แท็ก <title> = "${trunc(p.title, 60)}"` : (p.renderedTitle || p.metas?.['title'] ? `Raw HTML ไม่มี <title> · พบจาก JS/SPA: "${trunc(p.renderedTitle || p.metas?.['title'], 50)}"` : 'ไม่พบ <title> ทั้งใน raw และหลัง render'),
-  'title-length': (p) => `ความยาว <title> = ${(p.title || '').length} ตัวอักษร: "${trunc(p.title, 60)}"`,
+  'title-length': (p) => { const t = p.title || ''; const px = textPx(t, 20); const chars = graphemeCount(t); const tag = px > TITLE_MAX_PX ? ` (เกิน ~${TITLE_MAX_PX}px · โดนตัดใน SERP)` : (chars < 15 ? ' (สั้นไป)' : ''); return `≈ ${px}px${tag} · ${chars} ตัวอักษร (นับตามที่เห็นจริง · รวมช่องว่าง): "${trunc(t, 50)}"`; },
   'title-duplicate': (p) => `ข้อความ <title>: "${trunc(p.title, 60)}"`,
   'desc-missing': (p) => 'ไม่พบ <meta name="description"> ในหน้า',
-  'desc-length': (p) => `ความยาว description = ${(p.metas?.description || '').length} ตัวอักษร`,
+  'desc-length': (p) => { const d = p.metas?.description || ''; const px = textPx(d, 14); const chars = graphemeCount(d); const tag = chars > 170 ? ' (ยาวไป · เสี่ยงโดนตัด ~2 บรรทัด)' : (chars < 50 ? ' (สั้นไป)' : ''); return `${chars} ตัวอักษร (นับตามที่เห็นจริง · รวมช่องว่าง)${tag} · ≈ ${px}px`; },
   'canonical-missing': (p) => 'ไม่พบ <link rel="canonical"> ในหน้า',
   'viewport-missing': (p) => 'ไม่พบ <meta name="viewport"> ในหน้า',
   'lang-missing': (p) => 'แอตทริบิวต์ lang ใน <html> ว่างเปล่า/ไม่มี',
@@ -154,13 +191,15 @@ export function runChecks(site) {
     else
       checks.push(mk('title-missing', 'onpage', 'high', 'pass', 'ทุกหน้ามี <title>', `ตรวจ ${okPages.length} หน้า มี <title> ครบใน HTML ดิบ`));
 
-    const longT = okPages.filter(p => p.title && p.title.length > 60);
-    const shortT = okPages.filter(p => p.title && p.title.length > 0 && p.title.length < 15);
+    // Google ตัด title ตาม "ความกว้างพิกเซล" (~600px) ไม่ใช่จำนวนตัวอักษร → วัดด้วย textPx (ค่าประมาณ)
+    // สั้นเกินไป = descriptiveness (ใช้จำนวนตัวจริง grapheme) ไม่เกี่ยวกับการตัด จึงยังนับตัว
+    const longT = okPages.filter(p => p.title && textPx(p.title, 20) > TITLE_MAX_PX);
+    const shortT = okPages.filter(p => p.title && graphemeCount(p.title) > 0 && graphemeCount(p.title) < 15);
     if (longT.length || shortT.length)
       checks.push(mk('title-length', 'onpage', 'med', 'warn', 'ความยาว title ไม่เหมาะสม',
-        `${longT.length} หน้า title ยาวเกิน 60 ตัวอักษร (โดนตัดใน SERP), ${shortT.length} หน้าสั้นเกินไป (<15)`,
-        'title ที่ดี: 30–60 ตัวอักษร ขึ้นต้นด้วยคีย์เวิร์ด ลงท้ายด้วยแบรนด์', pageList([...longT, ...shortT]), true));
-    else checks.push(mk('title-length', 'onpage', 'med', 'pass', 'ความยาว title เหมาะสม', 'ทุกหน้าอยู่ในช่วง 15–60 ตัวอักษร'));
+        `${longT.length} หน้า title กว้างเกิน ~${TITLE_MAX_PX}px ที่ Google แสดงใน SERP (โดนตัด), ${shortT.length} หน้าสั้นเกินไป (<15 ตัว) · Google ตัดตามพิกเซล ไม่ใช่จำนวนตัวอักษร — ค่าพิกเซลเป็นค่าประมาณ`,
+        `title ที่ดี: กว้างไม่เกิน ~${TITLE_MAX_PX}px (≈ ละติน 50–60 ตัว · ไทยได้มากกว่าเพราะสระ/วรรณยุกต์ซ้อนไม่กินความกว้าง) ขึ้นต้นด้วยคีย์เวิร์ด ลงท้ายด้วยแบรนด์`, pageList([...longT, ...shortT]), true));
+    else checks.push(mk('title-length', 'onpage', 'med', 'pass', 'ความยาว title เหมาะสม', `ทุกหน้ากว้างไม่เกิน ~${TITLE_MAX_PX}px และไม่สั้นเกินไป`));
 
     // เทียบเฉพาะหน้าเนื้อหาจริง (dupEligible = ตัด noindex/canonical/pagination) + normalize + ตัดคู่คนละภาษา
     const dupT = dupGroups(p => normDup(p.title));
@@ -185,8 +224,9 @@ export function runChecks(site) {
     else
       checks.push(mk('desc-missing', 'onpage', 'med', 'pass', 'ทุกหน้ามี meta description', 'ครบทุกหน้าใน HTML ดิบ'));
 
-    const badDesc = okPages.filter(p => { const d = p.metas['description']; return d && (d.length > 170 || d.length < 50); });
-    if (badDesc.length) checks.push(mk('desc-length', 'onpage', 'low', 'warn', 'ความยาว meta description ไม่เหมาะสม', `${badDesc.length} หน้าสั้นกว่า 50 หรือยาวกว่า 170 ตัวอักษร`, 'ช่วงที่เหมาะสม: 80–160 ตัวอักษร', pageList(badDesc), true));
+    // desc แสดง ~2 บรรทัดบน desktop → ใช้จำนวนตัว "ที่เห็นจริง" (grapheme) เป็นเกณฑ์ (เหมาะกับ wrap หลายบรรทัดกว่าพิกเซลเส้นเดียว) · โชว์พิกเซลเป็นข้อมูลประกอบ
+    const badDesc = okPages.filter(p => { const d = p.metas['description']; if (!d) return false; const c = graphemeCount(d); return c > 170 || c < 50; });
+    if (badDesc.length) checks.push(mk('desc-length', 'onpage', 'low', 'warn', 'ความยาว meta description ไม่เหมาะสม', `${badDesc.length} หน้าสั้นกว่า 50 หรือยาวกว่า 170 ตัว (นับตามที่เห็นจริง) — desc ยาวไปโดน Google ตัด ~2 บรรทัด`, 'ช่วงที่เหมาะสม: 80–160 ตัว มี call-to-action', pageList(badDesc), true));
 
     const dupD = dupGroups(p => normDup(p.metas['description']));
     if (dupD.length) {
