@@ -699,7 +699,7 @@ function verifyTiles(ch) {
   return `<div class="verifybox"><div class="vh">ตรวจสอบบนเว็บไซต์</div><div class="vsub">คลิกเพื่อเปิดหน้าเว็บและตรวจสอบด้วยตนเอง</div><div class="tiles">${tile(fp, '🌐', 'เปิดหน้าเว็บ')}${tile(rawHref, '&lt;/&gt;', 'ดู Source')}${evBase ? tile(evBase + '&focus=title', 'T', 'ตรวจ Title') : ''}${evBase ? tile(evBase + '&focus=h1', 'H1', 'ตรวจ H1') : ''}${evBase ? tile(evBase + '&focus=canonical', '🔗', 'ตรวจ Canonical') : ''}</div></div>`;
 }
 function _hlCode(s) {
-  return esc(s).replace(/(&lt;\/?[a-zA-Z0-9]+)/g, '<span class="tg">$1</span>').replace(/([a-zA-Z-]+)=("[^"]*")/g, '<span class="at">$1</span>=<span class="st2">$2</span>');
+  return esc(s).replace(/([a-zA-Z-]+)=("[^"]*")/g, '<span class="at">$1</span>=<span class="st2">$2</span>').replace(/(&lt;\/?[a-zA-Z0-9]+)/g, '<span class="tg">$1</span>');
 }
 async function loadDrawerCode(ch) {
   const fp = firstPageOf(ch); const id = currentAudit && currentAudit.id; if (!fp || !id) return;
