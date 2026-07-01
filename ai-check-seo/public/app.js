@@ -660,6 +660,7 @@ function renderDrawer() {
     `<div class="dhead"><h2>${esc(stripEmoji(ch.title))} <span class="fbadge ${cls}" style="vertical-align:middle">${ST_TH[ch.status] || ch.status}</span></h2><button class="dclose" onclick="closeDrawer()">✕</button></div>` +
     `<div class="dsum"><div class="txt">${esc(stripEmoji(ch.detail || ''))}</div>${cp != null ? `<div><div class="conflab">ความมั่นใจ</div><span class="confnum ${cp < 80 ? 'warn' : ''}">${cp}%</span></div>` : ''}</div>` +
     `<div class="drelate">เกี่ยวข้องกับ <b>SEO</b></div>` +
+    (ch.reasoning && ch.reasoning.note ? `<div class="dwhy"><b>ทำไมถึงยังนับว่าเป็นปัญหา:</b> ${esc(ch.reasoning.note)}</div>` : '') +
     `<div class="dtabs">${tabs.map(([t, l]) => `<button class="dtab ${drawerTab === t ? 'on' : ''}" onclick="setDrawerTab('${t}')">${l}</button>`).join('')}</div>` +
     body;
   if (drawerTab === 'evidence') loadDrawerCode(ch);
