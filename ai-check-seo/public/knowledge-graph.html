@@ -35,7 +35,29 @@
   .legend{position:absolute;left:16px;bottom:14px;background:rgba(255,255,255,.92);backdrop-filter:blur(4px);border:1px solid var(--border);border-radius:12px;padding:9px 13px;display:flex;flex-wrap:wrap;gap:5px 14px;font-size:11px;color:var(--mut);max-width:min(620px,72%)}
   .legend span{display:inline-flex;align-items:center;gap:6px}.legend i{width:9px;height:9px;border-radius:50%;flex:none}
   .legend i.sq{border-radius:2px;background:#475569}.legend i.dash{width:15px;height:0;border-radius:0;border-top:1.5px dashed #9aa3af}.legend .sep{flex-basis:100%;height:0;gap:0}
-  .hint{position:absolute;left:16px;top:14px;font-size:11.5px;color:var(--faint);background:rgba(255,255,255,.8);padding:4px 10px;border-radius:8px;border:1px solid var(--border)}
+  .hint{position:absolute;left:16px;top:56px;font-size:11.5px;color:var(--faint);background:rgba(255,255,255,.8);padding:4px 10px;border-radius:8px;border:1px solid var(--border)}
+  .viewtog{position:absolute;left:16px;top:14px;z-index:6;display:inline-flex;background:#fff;border:1px solid var(--border2);border-radius:9px;overflow:hidden;box-shadow:0 1px 3px rgba(16,30,61,.06)}
+  .viewtog button{appearance:none;border:0;background:#fff;font:inherit;font-size:12px;font-weight:600;color:var(--mut);padding:6px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .viewtog button.on{background:var(--ink);color:#fff}
+  .viewtog button:not(.on):hover{background:var(--hover)}
+  .viewtog .divx{width:1px;background:var(--border2);flex:none}
+  .listview{position:absolute;inset:0;overflow:auto;background:#fff;padding:60px 26px 30px;display:none}
+  .listview.on{display:block}
+  .tree{font-family:var(--mono);font-size:12.5px;line-height:1.95;max-width:920px;margin:0 auto}
+  .trow{display:flex;align-items:baseline;cursor:pointer;border-radius:6px;padding-right:8px}
+  .trow:hover{background:var(--hover)}
+  .trow.sel2{background:#eef1f5}
+  .tpre{white-space:pre;color:#cbced6;flex:none}
+  .tdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 5px 0 1px;align-self:center;flex:none}
+  .tlbl{padding-right:4px}
+  .trow.troot .tlbl{font-weight:700;font-size:14px}
+  .trow.tcat .tlbl{font-weight:700;font-size:13px}
+  .trow.tent .tlbl{font-weight:600;color:#1f2937}
+  .trow.trule .tlbl{color:#52525b}
+  .trow.tdep .tlbl{font-weight:600;color:#1f2937}
+  .tver{color:var(--ink);font-weight:700;margin-left:2px;font-size:11px}
+  .tcount,.tconf{color:var(--faint);margin-left:6px;font-size:11px}
+  .tgrp-h{font-weight:700;font-size:13px}
   .rail{width:392px;flex:none;background:var(--bg);border-left:1px solid var(--border);overflow-y:auto;padding:24px}
   .back{appearance:none;background:none;border:0;color:var(--mut);font:inherit;font-size:12.5px;cursor:pointer;padding:0;margin-bottom:16px}.back:hover{color:var(--text)}
   .crumb{font-size:11.5px;color:var(--faint);margin-bottom:3px}
@@ -73,7 +95,9 @@
   <div class="board">
     <section class="graph" id="graph">
       <div class="loading" id="loading">กำลังโหลดกราฟ…</div>
+      <div class="viewtog"><button id="btnNode" class="on" onclick="setView('node')">โหนด</button><span class="divx"></span><button id="btnList" onclick="setView('list')">รายการ</button></div>
       <svg id="svg" style="display:none"></svg>
+      <div class="listview" id="listview"></div>
       <div class="hint" id="hint">ลากโหนดเพื่อจัด · สกรอลล์ซูม · ลากพื้นที่ว่างเพื่อเลื่อน</div>
       <div class="ctrls"><button onclick="zoomBy(1.25)" title="ซูมเข้า">+</button><button onclick="zoomBy(0.8)" title="ซูมออก">−</button><button onclick="resetView()" title="รีเซ็ต">⊙</button></div>
       <div class="legend" id="legend"></div>
@@ -222,6 +246,56 @@ function selDep(n){
 function selCat(n){
   const ents=DATA.nodes.filter(e=>e.type==='entity'&&e.cat===n.cat);
   paint(`<button class="back" onclick="select(null)">‹ ทั้งหมด</button><div class="crumb">หมวด</div><div class="pname">${esc(n.label)}</div><div class="pmeta"><span class="cat"><i style="background:${COLOR[n.cat]||'#999'}"></i>${ents.length} กลุ่ม</span></div><div class="k">กลุ่มในหมวดนี้</div><div class="chips">${ents.map(e=>`<a class="chip" style="--c:${COLOR[n.cat]||'#999'}" onclick="select('${esc(e.id)}')">${esc(e.label)}${ENTVER[e.id]?'  ✓'+ENTVER[e.id]:''}</a>`).join('')}</div>`);
+}
+// ── view toggle: node (force graph) ↔ list (tree) ──
+function setView(v){
+  const isList=v==='list';
+  document.getElementById('listview').classList.toggle('on',isList);
+  document.getElementById('svg').style.display=isList?'none':'block';
+  document.getElementById('hint').style.display=isList?'none':'';
+  document.querySelector('.ctrls').style.display=isList?'none':'flex';
+  document.getElementById('legend').style.display=isList?'none':'flex';
+  document.getElementById('btnNode').classList.toggle('on',!isList);
+  document.getElementById('btnList').classList.toggle('on',isList);
+  const lv=document.getElementById('listview');
+  if(isList&&!lv.dataset.built){buildList();lv.dataset.built='1';}
+}
+function trow(pre,label,kind,id,color,extra){
+  const click=id?`onclick="select(${id==='__root'?'null':`'${esc(id)}'`})"`:'';
+  return `<div class="trow ${kind}" ${click}><span class="tpre">${pre}</span>${color?`<span class="tdot" style="background:${color}"></span>`:''}<span class="tlbl">${esc(label)}</span>${extra||''}</div>`;
+}
+function buildList(){
+  const nodes=DATA.nodes;
+  const catNodes=nodes.filter(n=>n.type==='cat');
+  const deps=nodes.filter(n=>n.type==='dep');
+  let h='<div class="tree">';
+  h+=trow('','SEO Audit','troot','__root','');
+  catNodes.forEach(c=>{
+    const col=COLOR[c.cat]||'#999';
+    h+=trow('├── ',c.label,'tcat',c.id,col);
+    const ents=nodes.filter(e=>e.type==='entity'&&e.cat===c.cat);
+    ents.forEach((e,ei)=>{
+      const eLast=ei===ents.length-1;
+      const ePre='│   '+(eLast?'└── ':'├── ');
+      const vc=ENTVER[e.id]?`<span class="tver">✓${ENTVER[e.id]}</span>`:'';
+      const rules=nodes.filter(r=>r.type==='rule'&&r.entity===e.id.replace('__ent_',''));
+      h+=trow(ePre,e.label,'tent',e.id,col,`<span class="tcount">${rules.length}</span>${vc}`);
+      rules.forEach((r,ri)=>{
+        const rLast=ri===rules.length-1;
+        const rPre='│   '+(eLast?'    ':'│   ')+(rLast?'└── ':'├── ');
+        const mark=r.verified?`<span class="tver">✓</span>`:(r.conf!=null?`<span class="tconf">${r.conf}%</span>`:'');
+        h+=trow(rPre,r.label,'trule',r.id,'',mark);
+      });
+    });
+  });
+  // dependencies group (last top-level)
+  h+=trow('└── ','Dependencies — input ของกฎ','tdep','','');
+  deps.forEach((d,di)=>{
+    const dLast=di===deps.length-1;
+    h+=trow('    '+(dLast?'└── ':'├── '),d.label,'tdep',d.id,'#475569');
+  });
+  h+='</div>';
+  document.getElementById('listview').innerHTML=h;
 }
 </script>
 </body>
