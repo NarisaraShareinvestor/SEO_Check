@@ -743,8 +743,12 @@ function _hlCode(s) {
 async function loadDrawerCode(ch) {
   const fp = firstPageOf(ch); const id = currentAudit && currentAudit.id; if (!fp || !id) return;
   const key = Object.keys(evidenceMap).find(u => fp === u || fp.startsWith(u)); const em = key && evidenceMap[key];
-  if (!em || !em.raw) return;
   const loc = evidLocator(ch);
+  if (!em || !em.raw) {
+    const st = document.getElementById('locStatus');
+    if (st && drawerTab === 'evidence') st.innerHTML = '<span class="lstat" style="color:var(--faint)">— audit นี้ไม่มี snapshot · กด "เปิดหน้าเว็บ" แล้ว Ctrl+F ตรวจเอง</span>';
+    return;
+  }
   try {
     const html = await (await fetch(`/api/evidence/${id}/${em.raw}`)).text();
     if (drawerTab !== 'evidence') return;
