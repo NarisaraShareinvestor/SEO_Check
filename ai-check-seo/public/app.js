@@ -665,9 +665,47 @@ function renderDrawer() {
     body;
   if (drawerTab === 'evidence') loadDrawerCode(ch);
 }
+// Evidence Locator — เฉพาะ rule ที่พิสูจน์ด้วย HTML/ไฟล์จุดเดียวได้ (ไม่รวม duplicate/analysis/CWV)
+function evidLocator(ch) {
+  const id = ch.id || '';
+  let origin = ''; try { origin = new URL(firstPageOf(ch) || (currentAudit && currentAudit.url) || '').origin; } catch { /* */ }
+  if (/^title-(missing|length)/.test(id)) return { kind: 'html', ctrlF: '<title', selector: 'head > title', xpath: '/html/head/title', matchRe: /<title[^>]*>[\s\S]*?<\/title>/i };
+  if (/^desc-(missing|length)/.test(id)) return { kind: 'html', ctrlF: 'name="description"', selector: 'head > meta[name=description]', xpath: '//meta[@name="description"]', matchRe: /<meta[^>]*name=["']description["'][^>]*>/i };
+  if (/^h1-(missing|multiple|hidden)/.test(id)) return { kind: 'html', ctrlF: '<h1', selector: 'h1', xpath: '//h1', matchRe: /<h1[^>]*>[\s\S]*?<\/h1>/i };
+  if (/^canonical-/.test(id)) return { kind: 'html', ctrlF: 'rel="canonical"', selector: 'head > link[rel=canonical]', xpath: '//link[@rel="canonical"]', matchRe: /<link[^>]*rel=["']canonical["'][^>]*>/i };
+  if (/^og-/.test(id)) return { kind: 'html', ctrlF: 'property="og:', selector: 'head > meta[property^="og:"]', xpath: '//meta[starts-with(@property,"og:")]', matchRe: /<meta[^>]*property=["']og:[^>]*>/i };
+  if (/robots-meta|^noindex/.test(id)) return { kind: 'html', ctrlF: 'name="robots"', selector: 'head > meta[name=robots]', xpath: '//meta[@name="robots"]', matchRe: /<meta[^>]*name=["']robots["'][^>]*>/i };
+  if (/jsonld|^schema-/.test(id)) return { kind: 'html', ctrlF: 'application/ld+json', selector: 'script[type="application/ld+json"]', xpath: '//script[@type="application/ld+json"]', matchRe: /<script[^>]*application\/ld\+json[^>]*>[\s\S]*?<\/script>/i };
+  if (/hreflang/.test(id)) return { kind: 'html', ctrlF: 'hreflang', selector: 'link[hreflang]', xpath: '//link[@hreflang]', matchRe: /<link[^>]*hreflang[^>]*>/i };
+  if (/^lang-/.test(id)) return { kind: 'html', ctrlF: '<html', selector: 'html[lang]', xpath: '/html', matchRe: /<html[^>]*>/i };
+  if (/charset/.test(id)) return { kind: 'html', ctrlF: 'charset', selector: 'meta[charset]', xpath: '//meta[@charset]', matchRe: /<meta[^>]*charset[^>]*>/i };
+  if (/viewport/.test(id)) return { kind: 'html', ctrlF: 'name="viewport"', selector: 'meta[name=viewport]', xpath: '//meta[@name="viewport"]', matchRe: /<meta[^>]*name=["']viewport["'][^>]*>/i };
+  if (/favicon/.test(id)) return { kind: 'html', ctrlF: 'rel="icon"', selector: 'link[rel~=icon]', xpath: '//link[contains(@rel,"icon")]', matchRe: /<link[^>]*rel=["'][^"']*icon[^"']*["'][^>]*>/i };
+  if (/twitter/.test(id)) return { kind: 'html', ctrlF: 'name="twitter:', selector: 'meta[name^="twitter:"]', xpath: '//meta[starts-with(@name,"twitter:")]', matchRe: /<meta[^>]*name=["']twitter:[^>]*>/i };
+  if (/meta-keywords/.test(id)) return { kind: 'html', ctrlF: 'name="keywords"', selector: 'meta[name=keywords]', xpath: '//meta[@name="keywords"]', matchRe: /<meta[^>]*name=["']keywords["'][^>]*>/i };
+  if (/^robots-(missing|blocks|sitemap)/.test(id) && origin) return { kind: 'file', fileUrl: origin + '/robots.txt', ctrlF: 'User-agent' };
+  if (/^sitemap-/.test(id) && origin) return { kind: 'file', fileUrl: origin + '/sitemap.xml', ctrlF: '<url>' };
+  if (/llms/.test(id) && origin) return { kind: 'file', fileUrl: origin + '/llms.txt', ctrlF: '' };
+  return null;
+}
+function copyText(el) { try { navigator.clipboard.writeText(el.dataset.copy || ''); const t = el.textContent; el.textContent = 'คัดลอกแล้ว ✓'; setTimeout(() => { el.textContent = t; }, 1200); } catch { /* */ } }
+function locRow(k, code, copy) { return `<div class="locrow"><span class="lk">${k}</span><code class="lc">${esc(code)}</code>${copy ? `<button class="cpy" data-copy="${esc(code)}" onclick="copyText(this)">คัดลอก</button>` : ''}</div>`; }
+function renderLocator(ch, loc) {
+  const fp = firstPageOf(ch) || (currentAudit && currentAudit.url) || '';
+  if (loc.kind === 'file') {
+    return `<div class="evloc"><div class="st">🔎 ตรวจสอบเอง (5 วินาที)</div><div class="locrow"><span class="lk">เปิดไฟล์</span><a class="lv" href="${esc(loc.fileUrl)}" target="_blank" rel="noopener">${esc(loc.fileUrl)}</a></div>${loc.ctrlF ? locRow('Ctrl+F หา', loc.ctrlF, true) : ''}<a class="abtn" href="${esc(loc.fileUrl)}" target="_blank" rel="noopener" style="margin-top:9px">เปิดไฟล์ ↗</a></div>`;
+  }
+  return `<div class="evloc"><div class="st">🔎 ตรวจสอบเอง (5 วินาที) <span class="muted">— หน้าแรกในกลุ่ม</span></div>` +
+    locRow('เปิดหน้าแล้ว Ctrl+F หา', loc.ctrlF, true) +
+    locRow('CSS Selector', loc.selector, true) +
+    locRow('XPath', loc.xpath, false) +
+    `<div class="locrow"><span class="lk">HTML ที่ระบบเห็น</span><span class="lv" id="locStatus">กำลังดึง…</span></div><pre class="dcode" id="locSlot" style="display:none;margin-top:6px"></pre>` +
+    `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><a class="abtn" href="${esc(fp)}" target="_blank" rel="noopener">เปิดหน้าเว็บ ↗</a><button class="abtn" id="locCopyHtml" data-copy="" onclick="copyText(this)" style="display:none">Copy HTML</button></div></div>`;
+}
 function drawerEvidence(ch, k) {
-  const code = `<div class="dsec" id="dcodeSec" style="display:none"><div class="codehead"><div class="st">ตัวอย่างโค้ดจากหน้าเว็บ <span class="muted">(หน้าแรกในกลุ่มนี้)</span></div></div><pre class="dcode" id="dcodeSlot"></pre></div>`;
-  return `<div class="dsec">${evidenceInline(ch)}</div>${code}${verifyTiles(ch)}<div class="dnote"><b>หมายเหตุ:</b> การตรวจสอบยึดตาม HTML ที่ระบบเก็บได้ตอน crawl อาจต่างจากที่เห็นในเบราว์เซอร์</div>`;
+  const loc = evidLocator(ch);
+  const code = loc ? '' : `<div class="dsec" id="dcodeSec" style="display:none"><div class="codehead"><div class="st">ตัวอย่างโค้ดจากหน้าเว็บ <span class="muted">(หน้าแรกในกลุ่มนี้)</span></div></div><pre class="dcode" id="dcodeSlot"></pre></div>`;
+  return `${loc ? renderLocator(ch, loc) : ''}<div class="dsec">${evidenceInline(ch)}</div>${code}${verifyTiles(ch)}<div class="dnote"><b>หมายเหตุ:</b> การตรวจสอบยึดตาม HTML ที่ระบบเก็บได้ตอน crawl อาจต่างจากที่เห็นในเบราว์เซอร์</div>`;
 }
 function drawerReason(ch, k) {
   return `<div class="dsec"><div class="st">ทำไมต้องตรวจ</div><div style="font-size:13.5px;line-height:1.75;color:#374151">${esc(k.why || stripEmoji(ch.detail || '—'))}</div></div>` +
@@ -706,16 +744,34 @@ async function loadDrawerCode(ch) {
   const fp = firstPageOf(ch); const id = currentAudit && currentAudit.id; if (!fp || !id) return;
   const key = Object.keys(evidenceMap).find(u => fp === u || fp.startsWith(u)); const em = key && evidenceMap[key];
   if (!em || !em.raw) return;
+  const loc = evidLocator(ch);
   try {
     const html = await (await fetch(`/api/evidence/${id}/${em.raw}`)).text();
-    const pick = []; const grab = re => { const m = html.match(re); if (m) pick.push(m[0]); };
+    if (drawerTab !== 'evidence') return;
+    // locator แบบ HTML: ดึง element ที่เกี่ยว + สถานะ ✓/❌
+    if (loc && loc.kind === 'html' && loc.matchRe) {
+      const statusEl = document.getElementById('locStatus'), slot = document.getElementById('locSlot'), cpy = document.getElementById('locCopyHtml');
+      if (!statusEl) return;
+      const m = html.match(loc.matchRe);
+      if (m) {
+        const snippet = m[0].replace(/\s+/g, ' ').trim();
+        statusEl.innerHTML = '<span class="lstat ok">✓ พบในหน้านี้</span>';
+        if (slot) { slot.innerHTML = `<span class="row">${_hlCode(snippet.slice(0, 500))}</span>`; slot.style.display = ''; }
+        if (cpy) { cpy.dataset.copy = snippet; cpy.style.display = ''; }
+      } else {
+        statusEl.innerHTML = '<span class="lstat no">❌ ไม่พบในหน้านี้ (จาก HTML ที่ระบบเก็บ)</span>';
+      }
+      return;
+    }
+    // ไม่มี locator (analysis) → snippet รวมแบบเดิม
+    const pick = []; const grab = re => { const mm = html.match(re); if (mm) pick.push(mm[0]); };
     grab(/<title[^>]*>[\s\S]*?<\/title>/i);
     grab(/<link[^>]*rel=["']canonical["'][^>]*>/i);
     grab(/<meta[^>]*name=["']description["'][^>]*>/i);
     grab(/<h1[^>]*>[\s\S]*?<\/h1>/i);
     if (!pick.length) return;
     const slot = document.getElementById('dcodeSlot'), sec = document.getElementById('dcodeSec');
-    if (slot && drawerTab === 'evidence') { slot.innerHTML = pick.map(l => `<span class="row">${_hlCode(l.replace(/\s+/g, ' ').trim().slice(0, 300))}</span>`).join(''); sec.style.display = ''; }
+    if (slot) { slot.innerHTML = pick.map(l => `<span class="row">${_hlCode(l.replace(/\s+/g, ' ').trim().slice(0, 300))}</span>`).join(''); sec.style.display = ''; }
   } catch { /* ข้าม */ }
 }
 loadSkillGraph();
