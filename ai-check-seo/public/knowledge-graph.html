@@ -87,6 +87,10 @@
   ul.mcond{list-style:none;margin:0;padding:0}
   ul.mcond li{position:relative;padding:2px 0 2px 15px;font-size:12.5px;color:var(--text);line-height:1.55}
   ul.mcond li::before{content:"▸";position:absolute;left:0;color:#8a98a8;font-size:10px;top:3px}
+  ol.steps .why2{color:var(--mut);font-weight:400}
+  .deplist{display:flex;flex-direction:column;gap:8px;margin-top:2px}
+  .deprow{display:flex;flex-direction:column;gap:3px}
+  .depgloss{font-size:12px;color:var(--mut);line-height:1.5;padding-left:2px}
   .ban{display:flex;align-items:baseline;gap:10px;margin:14px 0 0}.ban .v{font-size:30px;font-weight:700;letter-spacing:-1px}.ban .l{font-size:12.5px;color:var(--mut)}
   .progress{height:6px;border-radius:99px;background:#f1f1f3;overflow:hidden;margin:10px 0 2px}.progress i{display:block;height:100%;background:var(--ink)}
   .fade{animation:fade .2s cubic-bezier(.22,1,.36,1)}@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
@@ -228,11 +232,11 @@ function selRule(n){
   if(n.what)h+=`<div class="k">ตรวจอะไร</div><div class="body">${esc(n.what)}</div>`;
   if(n.why)h+=`<div class="k">ทำไมต้องตรวจ</div><div class="body mut">${esc(n.why)}</div>`;
   const m=n.measure;
-  if(m&&m.how&&m.how.length)h+=`<div class="k">ตรวจอย่างไร (ตอนนี้)${m.line?` · โค้ด line ${esc(m.line)}`:''}</div><ol class="steps">${m.how.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`;
+  if(m&&m.how&&m.how.length)h+=`<div class="k">ตรวจอย่างไร (ตอนนี้)${m.line?` · โค้ด line ${esc(m.line)}`:''}</div><ol class="steps">${m.how.map(s=>{const d=typeof s==='string'?s:(s.do||'');const w=(s&&typeof s==='object'&&s.why)||'';return `<li>${esc(d)}${w?`<span class="why2"> — ${esc(w)}</span>`:''}</li>`;}).join('')}</ol>`;
   if(m&&m.decision&&m.decision.length)h+=`<div class="k">เกณฑ์ตัดสิน</div><ul class="mcond">${m.decision.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`;
   if(m&&m.gap)h+=`<div class="k">ข้อสังเกต</div><div class="body mut">${esc(m.gap)}</div>`;
   if(!m&&n.what)h+=`<div class="pending">ยังไม่มีรายละเอียดวิธีตรวจของกฎนี้</div>`;
-  if(deps.length)h+=`<div class="k">Dependencies (ต้องผ่านก่อน)</div><div class="chips">${deps.map(d=>`<a class="chip dep" onclick="select('${esc(d.id)}')">${esc(d.label)}</a>`).join('')}</div>`;
+  if(deps.length)h+=`<div class="k">ข้อมูลตั้งต้นที่ต้องรู้ก่อน (dependencies)</div><div class="body mut" style="margin-bottom:7px">โหนดสีดำ = สิ่งที่ระบบคำนวณก่อนตัดสิน · แตะเพื่อดูรายละเอียด</div><div class="deplist">${deps.map(d=>`<div class="deprow"><a class="chip dep" onclick="select('${esc(d.id)}')">${esc(d.label)}</a>${d.gloss?`<span class="depgloss">${esc(d.gloss)}</span>`:''}</div>`).join('')}</div>`;
   h+=`<div class="k">มาตรฐานอ้างอิง</div><div class="reflist">${refs}</div>`;
   if(n.conf!=null||n.tier!=null)h+=`<div class="k">Confidence</div><div class="body">${n.conf!=null?n.conf+'%':'—'}${n.tier?` · Tier ${n.tier}`:''}</div>`;
   paint(h);
